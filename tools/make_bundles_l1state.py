@@ -17,8 +17,6 @@ import apc_block  # noqa: E402
 import apc_l1proof  # noqa: E402
 
 SRC = os.path.join(ROOT, "sources", "l1proof_20261024")
-if not os.path.isfile(os.path.join(SRC, "l1proof_g7a3a.json")):
-    sys.exit("sources/l1proof_20261024: the saved RPC replies are not in the public tree (kept with the corpus); fetch them with sources/l1proof_20261024/fetch_l1proof.py, or rebuild the set: tools/rebuild_corpus.py --only real_v04_l1state")
 OUT = os.path.join(ROOT, "bundles", "real_v04_l1state")
 
 
@@ -39,6 +37,8 @@ def l1_state(d):
 
 
 def main():
+    if not os.path.isfile(os.path.join(SRC, "l1proof_g7a3a.json")):
+        sys.exit("sources/l1proof_20261024: the saved RPC replies are not in the public tree (kept with the corpus); fetch them with sources/l1proof_20261024/fetch_l1proof.py, or rebuild the set: tools/rebuild_corpus.py --only real_v04_l1state")
     os.makedirs(OUT, exist_ok=True)
     proofs = {}
     for p in sorted(glob.glob(os.path.join(SRC, "l1proof_*.json"))):

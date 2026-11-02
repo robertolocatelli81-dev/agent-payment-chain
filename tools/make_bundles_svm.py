@@ -21,8 +21,6 @@ import apc_solana as sol  # noqa: E402
 
 MAINNET = "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp"
 SRC = os.path.join(ROOT, "sources", "solana_20261024")
-if not os.path.isfile(os.path.join(SRC, "solana_x402_20261024.json")):
-    sys.exit("sources/solana_20261024: the saved RPC replies are not in the public tree (kept with the corpus); fetch them with tools/fetch_solana_feepayers.py, or rebuild the set: tools/rebuild_corpus.py --only real_svm")
 OUT = os.path.join(ROOT, "bundles", "real_svm")
 META = ("err", "fee", "preTokenBalances", "postTokenBalances", "innerInstructions", "loadedAddresses")
 
@@ -63,6 +61,8 @@ def bundle(r, fee_payer_listed, memo=None, accepted=None):
 
 
 def main():
+    if not os.path.isfile(os.path.join(SRC, "solana_x402_20261024.json")):
+        sys.exit("sources/solana_20261024: the saved RPC replies are not in the public tree (kept with the corpus); fetch them with tools/fetch_solana_feepayers.py, or rebuild the set: tools/rebuild_corpus.py --only real_svm")
     os.makedirs(OUT, exist_ok=True)
     d = json.load(open(os.path.join(SRC, "solana_x402_20261024.json")))
     man = {"source": "sources/solana_20261024 (SHA256SUMS.txt)", "rpc": d["rpc"], "fetched_utc": d["fetched_utc"],

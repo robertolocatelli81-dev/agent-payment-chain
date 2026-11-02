@@ -21,8 +21,8 @@
 # `facilitator_reply`, the highest level only with l1_state proven, a closed list of qualified outcomes) in section 30,
 # 0.20 (the AP2 mandate as an ap2-evidence-pack) in section 31, 0.21 (a 65-byte signature of a payer with code: USDC's
 # (v,r,s) path, the ERC-1271 of Circle_SingleOwnerMSCA 1.0.0 proven from state, `payer_state`) in section 32,
-# the list of the real corpus and its rebuild from any endpoint (corpus/MANIFEST.json, format apc-corpus-0.2,
-# tools/rebuild_corpus.py) in section 33
+# the list of the real corpus and its rebuild from any endpoint (corpus/MANIFEST.json, format apc-corpus-0.2, then
+# apc-corpus-0.3 with the anchored bundles, 33.10; tools/rebuild_corpus.py) in section 33
 
 0.2 adds: `bundle_version` "apc-0.2", the optional `chain_tx.log_transfer` and `chain_tx.log_forward`, rules C3
 and F1, indirect calls (C1 `not_applicable:indirect_call`), and smart-wallet payers (`payer_wallet`, L2.sig by
@@ -3029,7 +3029,7 @@ swallowed): 12 of 12 killed by an AssertionError. On the final tree of this amen
 unjustified, 165 s (the verifier string is unchanged, nothing refrozen; without the pack the 14 MP checks of the two
 mandate bundles differ, `not_1.7.1`: the environment, not the code).
 
-## 33. The real corpus as a LIST (2026-11-01, local; corpus/MANIFEST.json, format `apc-corpus-0.2`; tools/rebuild_corpus.py, tools/make_corpus_manifest.py) — what is distributed, what is rebuilt, what is accepted
+## 33. The real corpus as a LIST (2026-11-01, local; corpus/MANIFEST.json, format `apc-corpus-0.2`, `apc-corpus-0.3` by 33.10; tools/rebuild_corpus.py, tools/make_corpus_manifest.py) — what is distributed, what is rebuilt, what is accepted
 
 The public tree does not carry bundles/ (the fascicles of real payments) nor oracle/ (the raw RPC replies they were
 built from). It carries a LIST of those payments, `corpus/MANIFEST.json`, and a tool that rebuilds every listed bundle
@@ -3081,7 +3081,7 @@ throwaway merchant made for this work), `ours.settlement` of real_issue1062 hold
                    "rebuild": "bytes"|"content"|"verdict"|"local_only", "reason": <text, required for local_only>,
                    "serialization": {"indent": 1, "sort_keys": bool, "newline": bool}, "params": {..}, "count": N}},
  "bundles": [{"file": "<name>/..json", "set": <name>, "network": <CAIP-2>, "bundle_version": ..,
-              "recipe": <33.4, only when it differs from the set's>, "chain": <33.4>, "ours": {..},
+              "recipe": <33.4, only when it differs from the set's>, "chain": <33.4; `anchor` by 33.10>, "ours": {..},
               "sha256": <of our file>, "content_sha256": <of the bundle without `provenance`, canonical JSON>,
               "verdict": <frozen>, "checks_sha256": <of the frozen checks map, canonical JSON>}]}
 ```
@@ -3150,12 +3150,22 @@ carry the host alone, and a URL that is not http(s) with a host is refused befor
 `--rate` must be above 0 and at most 5. Archive reads (eth_getProof, eth_getCode, eth_getStorageAt, eth_call at an old block; a block of
 January 2026 at some public endpoints) need an endpoint that serves them: measured 2026-11-01, Base eth_getProof at
 block 52,338,084 is served by base.drpc.org, refused by base-rpc.publicnode.com ("Archive requests require a personal
-token") and by mainnet.base.org ("distance to target block exceeds maximum proof window").
+token") and by mainnet.base.org ("distance to target block exceeds maximum proof window"). Ethereum, the L1 side of the
+anchored bundles (33.10): measured 2026-11-02, eth_getProof at block 26,321,847 is served without a key by
+eth-mainnet.public.blastapi.io and rpc.mevblocker.io, refused by ethereum-rpc.publicnode.com ("Archive requests require a
+personal token") and by eth.drpc.org ("Unknown state"); 2 of the 25 public endpoints probed served it. The rebuild through
+rpc.mevblocker.io is refused at the grammar of its storage keys (33.10); through blastapi it rebuilds to the byte.
 
 ### 33.7 Measured 2026-11-01 (the author's notes (not distributed) CORPUS_REBUILD_20261101.md holds the full table)
 The whole corpus, not a sample, rebuilt from public endpoints and compared with our files: 1042 of 1094 bundles are
 rebuildable (52 local_only); 1042/1042 rebuilt, none refused, none below its set's level — 425 byte-identical, 608
-identical but for `provenance`, 9 verdict-equivalent (real_world: client-side members). Anchors: header recomputed for
+identical but for `provenance`, 9 verdict-equivalent (real_world: client-side members). Measured in the author's tree:
+the public tree of the same day (37a506f, and b34fb47 after it) could not rebuild any bundle of the recipe svm_exact
+(114 of the 1042: real_svm 46, real_svm_mandate 2, real_negatives_20261026 66; a run over the whole list stops at the
+first of them, real_negatives_20261026/svm_*, in the order of the run), nor, once listed, the 28 anchored bundles of
+33.10: its tools/make_bundles_svm.py and tools/make_bundles_l1state.py (this tree only) ended the program at import when the saved replies kept with the corpus were absent, before any report (exit
+1); since the commit that carries this sentence the check runs in their main (tests: RebuildImportsItsRecipes, in the
+public tree too). The public tree's measure of its own is below, 33.12. Anchors: header recomputed for
 all but 18 (Avalanche, declared); receipt in the receiptsRoot for all EVM bundles but 54 (Celo 27, Avalanche 18,
 Arbitrum 4, Optimism 4, Ethereum 1: anchored to the list's receipt_hash). Those notes name, per set, the endpoints and the reasons. Positive
 controls (tests/test_corpus_manifest.py, offline): a list with a member outside the grammar, an altered block hash, an
@@ -3200,11 +3210,176 @@ and the tool says so on standard error ("real_msca_20261101: 28 anchored bundles
 why, in Open below. tests.test_corpus_manifest, 67 tests, OK (49 s); `tools/rebuild_corpus.py --check-manifest`:
 apc-corpus-0.2, 20 sets, 1094 bundles, exit 0.
 
+### 33.10 The anchored bundles rebuilt: format `apc-corpus-0.3`, the `anchor` member (2026-11-02, local; the author's decision)
+
+The 28 anchored bundles of bundles/real_msca_20261101 (32.10: the proof form plus `canonical`, its `l1_state` at ONE L1
+block, one checkpoint for all) were out of the list (33.9). This amendment puts them in, as entries of the same set and the
+same recipe, with one new member of `chain`, and bumps the format: a list in format 0.2 is refused by this reader as not the
+format (`manifest.format: 'apc-corpus-0.2' is not 'apc-corpus-0.3'`, exit 3), as 0.1 was — the tool and the list travel
+together in the tree. Nothing else of the grammar of 33.2 changes.
+
+The member, closed (an entry with an `anchor` of another shape is refused with its path, exit 3):
+```
+"chain": {<the evm_eip3009 members of 33.4>,
+          "anchor": {"l1_network": "eip155:1", "l1_block_number": N, "l1_block_hash": "0x<64 lowercase hex>",
+                     "game": "0x<40 lowercase hex>", "root_index": I}}
+```
+`anchor` is optional and allowed only in an `evm_eip3009` entry whose `network` is `eip155:8453`, whose `bundle_version` is
+`apc-0.3` and whose `ours.inclusion` is true (`canonical` needs `inclusion`, SPEC 0.3; the canonical rules of section 6 are
+written for Base mainnet under Ethereum); `l1_network` must be `eip155:1`, `l1_block_number` and `root_index` non-negative
+integers (a bool is not an integer). It holds chain facts and a position only: the L1 header's hash (the checkpoint the
+reader passes to the verifier, 32.10), its number, the dispute game — a CONTRACT, the clone the DisputeGameFactory
+deployed, not an account of a person (33.2) — and the index of the intermediate output root the block sits under. No
+address of a person: the payer and the owner are derived and pinned as in 33.2. The entry's `ours` is the proof form's
+(`extraction`, `inclusion`, `payer_state: "proof"`); its `state` is read from the rpc twin, as for the proof form.
+
+The recipe is the `evm_eip3009` of 33.4 with one more step: the bundle is built as the proof form (transaction, receipt,
+logs, inclusion, `payer_state` with its two proofs), then `canonical` is added and the whole is compared with the list
+(the set's level stays `bytes`). What comes from where, and what is accepted:
+- From L1 (`--rpc eip155:1=URL` or `APC_RPC_eip155_1`; archive reads — eth_getProof, eth_getCode, eth_call — at the pinned
+  block): the header by number, accepted only if it hashes to `l1_block_hash` (apc_block.header_hash; there is no declared
+  layout here: a header that does not recompute is refused); then what sources/l1proof_20261024/fetch_l1proof.py fetches
+  at that block for the pinned game (`fetch`, without the author's control calls): the eight eth_call replies of O1, the
+  game's code and its implementation's, and the account and storage proofs of the game, its implementation, the
+  DisputeGameFactory, the AnchorStateRegistry, the SystemConfig and the SuperchainConfig with their implementations (the
+  addresses of the implementations, of the SystemConfig and of the SuperchainConfig are read from the proofs' storage
+  words, as that tool does; they are not in the list). `canonical.l1_replies` are the eight replies at that block;
+  `canonical.l1_state` is tools/make_bundles_l1state.l1_state of that fetch — the header pruned to its members, the proofs
+  the eight replies read (one not read is dropped: apc_verify refuses an unread one), the game code. A proof that does not
+  recompute under the header's stateRoot, a code whose keccak is not the account's codeHash, an implementation not pinned
+  (apc_l1proof) is refused here, `l1_state_not_recomputed:<reason>`.
+- From the L1 replies above (startingBlockNumber and extraData of the game, at the pinned L1 block): the game's range and
+  root spacing — start, l2SequenceNumber, the count of roots, k = (seq - start) / roots (tools/anchor_msca.place); the block n
+  must satisfy start < n <= seq (`block_not_in_game_range`), the first root at or after n must be the pinned `root_index`
+  (`root_index_not_the_first_root_at_or_after_the_block`), and its block m = start + (root_index + 1) * k at most 64 blocks
+  above n (`root_block_too_far`; section 6 holds at most 64 headers). From L2 (the entry's network): the headers m, m-1,
+  ..., n+1 are read by number
+  (eth_getBlockByNumber(b, false)) and pruned to the header members.
+- ACCEPTED only through apc_verify.check_canonical on the member just built, against the bundle's `inclusion.block_header`
+  (already the pinned header, 33.4) and with `l1_block_hash` as the checkpoint: L1 verified (the L1 header hashes to the
+  checkpoint, every proof holds under its stateRoot, the eight replies recomputed from the proofs equal the fetched ones
+  byte for byte, no proof unread), O1 verified (game type 621, last root = rootClaim, range divisible), O2 verified (every
+  L2 header hashes to its `hash`, the parent links hold from m down to the pinned block, m is the first root at or after n
+  and `root_index` its index), O3 verified (the output root of header m — keccak256(bytes32(0) || stateRoot ||
+  withdrawalsRoot || hash) — is the game's intermediate root at `root_index`). Anything else is refused with the check and
+  its reason (`canonical_not_recomputed:O2:failed:header_hash_mismatch`, `canonical_refused:<grammar refusal>`). O4 — the
+  game's state at that L1 block (final, pending, challenger wins) — is not a condition of the rebuild: it is what the L1
+  state at the pinned block says, read from the same proofs, and the frozen verdict compares it (`compare`, 33.3: for
+  these 28, chain_verified at finality_proven with the checkpoint, 32.10).
+- What anchors what: the L1 side hangs on the pinned L1 header hash (consensus; the checkpoint a reader passes to the
+  verifier); the L2 headers at both ends — the top one by the game's root proven from L1 state (O3), the bottom one by the
+  pinned block hash (the bundle's own) — and in between by the parent links. Nothing of `canonical` is declared data
+  (33.5 is unchanged): every byte is recomputed or hashes into something pinned. Members no fingerprint covers (the order
+  of members, the hex form of a quantity) would move the level below `bytes`, and the bundle would not be written.
+- One run fetches the L1 side once per (L1 block hash, game) and each L2 header once, whatever the number of bundles.
+  The report row carries `anchors.canonical: recomputed` for an entry with `anchor`; the summary counts them.
+
+Tools: tools/rebuild_corpus.py (`canonical_member`, the grammar), tools/make_corpus_manifest.py (an `_anchored_` bundle is
+an entry: `anchor` from its `canonical` — `l1_state.headers` must be exactly one header, the replies' block, which is the
+checkpoint; the set's `params.options.l1_checkpoint` is the option tools/regress.py freezes the verdicts with),
+sources/l1proof_20261024/fetch_l1proof.py (`fetch(game, block, call, pins)` split out of `main`, same output; its
+SHA256SUMS.txt line rewritten), tools/anchor_msca.py (the overrides of the three fetch functions moved from import time
+into `main`, so that the module can be imported for `place`).
+
+Tests (tests/test_corpus_manifest.py, `AnchoredControls`, offline: the saved replies of oracle/msca_20261101/raw and
+/anchor through the fake endpoint): the unaltered data rebuilds m001's anchored bundle to the byte, level `bytes`, and
+apc_verify with the checkpoint gives chain_verified, finality_proven, O4 and L1 verified; positive controls, each refused
+with its reason: an L2 header altered by the endpoint (O2), an L1 proof node altered (`l1_state_not_recomputed`), another
+game of the same set in the list (`block_not_in_game_range`), the L1 header altered by the endpoint and the checkpoint
+altered in the list (`header_hash_mismatch`), an eth_call reply altered (rootClaim: the fetch then asks the factory's
+proof at another slot and the replies recomputed from the real game's code do not find theirs,
+`l1_state_not_recomputed:storage_proof_missing`; isGameClaimValid, which feeds no key: L1
+`failed:l1_reply_not_proven:isGameClaimValid`; a status outside GameStatus: the verifier's grammar, `canonical_refused`),
+`root_index` altered, the game code altered; the top L2 header m altered with its hash recomputed (held by O3 alone:
+`output_root_not_the_game_root`); a startingBlockNumber stated at or above the payment's block (`block_not_in_game_range`,
+before the root is placed) and one stated so low that the root's block moves beyond the 64 headers of section 6
+(`root_block_too_far`, no L2 header asked); the L1 side fetched once per (block, game) and each L2 header once across
+two bundles of one root; the grammar: a member outside `anchor`, an uppercase game, another `l1_network`, `anchor`
+on an entry without `inclusion`, a bool as `root_index`, a list in format 0.2.
+
+Measured 2026-11-02 (the author's notes (not distributed) ANCORATI_REBUILD_20261102.md holds the commands, the logs and the
+reports): the 28 anchored bundles rebuilt from public endpoints, no key, 1 request per second per host. Four runs, the
+L2 base.drpc.org throughout. Run A, L1 ethereum-rpc.publicnode.com: 28/28 refused at the first archive eth_call of the
+fetch, `rpc_error:ethereum-rpc.publicnode.com:eth_call:Archive requests require a personal token`, 426 calls, exit 1.
+Run B, L1 eth.drpc.org: 28/28 refused at the first eth_getProof, `Unknown state. First available state is 1`, 40 calls,
+exit 1 (the L2 replies of run A read from the cache; the refusal is kept per L1 block and game: the other bundles of the
+game ask no L1 again). Run B2, L1
+eth-mainnet.public.blastapi.io, the L2 replies of run A read from the cache: 28/28 `bytes`, header recomputed 28,
+receipt in the receiptsRoot 28, `anchors.canonical: recomputed` 28, none below its level, 128 calls, 5 min 19 s, exit 0;
+apc_verify 0.21.3 `--l1-checkpoint 0x6e4d…5895` on the 28 files written: 28/28 chain_verified, finality_proven; `cmp`
+with bundles/real_msca_20261101: 28/28 identical. Run C, a fresh cache, one bundle per game (4), both sides from the
+network (L1 blastapi, L2 base.drpc.org): 4/4 `bytes`, 144 calls, 2 min 45 s, exit 0. Who serves the L1 archive read
+(eth_getProof of the game at block 26,321,847, one request without a key at 25 public Ethereum endpoints, 09:35 UTC):
+2 of 25 (eth-mainnet.public.blastapi.io, rpc.mevblocker.io); eth.meowrpc.com served it in an earlier probe the same
+morning (09:33 UTC) and refused it at 09:35 ("historical state ... is not available"), so its answer varies between
+requests; 18 others refused with a reason (a token or a plan: publicnode, ankr, blockpi, onfinality, nodies; the state
+not held: drpc, 1rpc, zan "historical state", tenderly "distance
+to target block exceeds maximum proof window", cloudflare "Cannot fulfill request"; rate limit, 5xx, discontinued: the
+rest), 4 unreachable; the header by number stating the checkpoint as its hash: 10 of 25 (the probe compares the stated
+hash; tools/rebuild_corpus.py recomputes it). Through rpc.mevblocker.io a rebuild of m028 (11:30 UTC) was refused at the
+grammar, nothing written: it returned the game's storage keys as quantities (0x0, 0x1, 0x2), and apc_verify refuses a key
+that is not a 32-byte hex slot (`canonical_refused:canonical.l1_state.accounts[4].storageProof[0].key`). An endpoint that serves the header but
+not the proof refuses the rebuild at the L1 side, before the L2 headers of `canonical` are asked: nothing is written.
+
+### 33.11 A document nested beyond the interpreter's limit is refused with where it came from, never a traceback (2026-11-02, local)
+`json.loads` raises RecursionError on a document nested too deep (measured 2026-11-02, arrays at the top of the stack:
+994 levels parse on CPython 3.9 and 3.11, 9,998 on 3.13; the limit depends on the interpreter and on the stack already in
+use). tools/rebuild_corpus.py parses what it reads at five points and bounds each of them (the first two through
+`rebuild_corpus.loads`, the others catch RecursionError where they parse): an endpoint's reply
+is `refused:json_too_nested:rpc:<host>:<method>`, a reply read from `--cache` `refused:json_too_nested:cache:<method>`
+(nothing written, the run goes on with the next bundle, exit 1 as any refusal); the body under an HTTP error status that
+is nested beyond the limit counts as no JSON-RPC error (the HTTP status stands, `rpc_unreachable:<host>:HTTP <code>` after
+the retries, as a body that is not JSON); a file already under `--out` that is nested beyond the limit is
+`unreadable:RecursionError` in the row's note (not overwritten, below the level, exit 1, as any unreadable file there), and
+one under `--out-oracle` is not ours (`existing_file_differs`, 33.8). A RecursionError raised while a recipe processes a
+reply that passed the parse (a document just under the limit that the recipe wraps deeper) is
+`refused:reply_shape:RecursionError:<message>`, as any reply outside the shape a recipe reads; the same list of errors
+(`SHAPE_ERRORS`: KeyError, TypeError, ValueError, IndexError, AttributeError, ArithmeticError, RecursionError) closes the
+bundle recipes and the two oracle recipes of 33.8 alike (before, an ArithmeticError in an oracle recipe was a traceback
+too, and an AttributeError — a member of another JSON type where a recipe reads an object or a string — in any recipe). A
+reply that is JSON but not an object (a list, a string, a number, null) is `refused:rpc_not_object:<host>:<method>`; an
+error member that is not an object, or a message that is not a string, is `refused:rpc_error:<host>:<method>:<its text>`
+or `...:error_not_text:<JSON type>` (before, both were an AttributeError out of the run; `{"error": "rate limited"}` after
+its five retries). The list
+itself is read by apc_verify.strict_json, which already refuses depth (`not JSON: nested too deep`, exit 3). Positive
+controls (tests/test_corpus_manifest.py, NestedInputPublic — no saved block, it runs in the public tree too — and
+NestedInput, offline): 100,000 nested arrays as the reply, as the cached reply, as
+the HTTP error body and as the file under `--out`; a RecursionError and an OverflowError raised inside a recipe; the same
+fixtures unaltered rebuild the bundle and the oracle files to the byte.
+
+### 33.12 The public tree measured on its own (2026-11-02, local; the tree the publication tool builds from this commit)
+Until this commit the public tree could not rebuild the anchored bundles of 33.10 nor any bundle of the recipe svm_exact
+(real_svm, real_svm_mandate and the 66 Solana bundles of real_negatives_20261026):
+tools/make_bundles_l1state.py and tools/make_bundles_svm.py of that tree (only there) ended the program at import when
+the saved replies kept with the corpus were absent, and tools/rebuild_corpus.py imports both (exit 1, no report, every
+later set never asked; the 33.7 figure was the author's tree). The check now runs in their main, and the tree is measured
+by its own tools/rebuild_corpus.py, `env -u PYTHONPATH`, cache empty, 1 request per second per host (0.5 on drpc and
+blastapi), one bundle per (set, network) of the list plus the first anchored one, 28 bundles over the 17 sets that are not
+local_only and 10 networks: 26 of 28 at the first endpoint named — bytes 20, content 5, verdict 1 (base-rpc.publicnode.com;
+base.drpc.org for the archive reads of real_msca, real_v02_passkey, real_v02_wallet, real_issue1062; avalanche-c-chain-rpc,
+ethereum-rpc, optimism-rpc and polygon-bor-rpc of publicnode; rpc.monad.xyz; arb1.arbitrum.io; forno.celo.org;
+api.mainnet-beta.solana.com; xrplcluster.com; eth-mainnet.public.blastapi.io for the L1 side of the anchored bundle,
+`anchors.canonical: recomputed`); 2 refused by publicnode's archive policy, each with its reason and nothing written
+(Optimism eth_getTransactionReceipt and Polygon eth_getLogs, "Archive requests require a personal token"), and rebuilt
+through mainnet.optimism.io (content) and polygon.drpc.org (bytes): 28 of 28 at or above the set's level, 151 requests,
+the smallest gap seen on any host 1.0 s. `--oracle blocks_v03,xrpl_20261026` in the same tree: 17 blocks and 12 ledgers
+`content`, 75 requests. The whole list in the same tree from the replies cached by the runs of 2026-11-01 and 2026-11-02
+(1737 replies; a reply not cached is asked live): 1070 of 1070 rebuildable entries rebuilt (1042 + the 28 anchored), 52
+local_only reported, none below its set's level — bytes 453 (the 452 of the run plus eth_usdc/real_003 asked again,
+below), content 607, verdict 10; `anchors.canonical: recomputed` 28, header recomputed 389 and declared 18 (Avalanche),
+receipt in the receiptsRoot 354 and by the list's hash 53 (Celo 27, Avalanche 18, Arbitrum 4, Optimism 4;
+no Ethereum entry, one in 33.7), counting the entry asked again below; 13 min 29 s. One entry of that run was refused at first,
+`rpc_unreachable:eth-mainnet.public.blastapi.io:HTTP 401` (its eth_getBlockReceipts was not cached and blastapi answered
+401 to that one request), and rebuilt to the byte through ethereum-rpc.publicnode.com with 1 request: the refusal names
+the endpoint and the status, as 33.6 says. Every file written at level bytes is byte-identical to ours (`cmp`); of the
+607 at content, 587 differ from ours in `provenance` alone and 20 are equal to ours as JSON with members in another order
+(real_world: Celo 11, Ethereum 5, Optimism 4), by construction of the level (33.3). The notes of the review hold the
+reports (the author's notes (not distributed) ANCORATI_FIX_20261102.md).
+
 ## Open after 0.3
-- (33.9) The 28 anchored bundles of real_msca_20261101 (32.10: the proof form with `canonical` and `l1_state`) are in
-  regress/VERDICTS.json but not in corpus/MANIFEST.json: the recipes of 33.4 do not describe those two members and
-  tools/rebuild_corpus.py does not rebuild them; a recipe or a declared level for them is open (the tool says how many
-  it leaves out).
+- (33.10) bundles/real_v04_l1state (8 bundles, `canonical` with `l1_state` at L1 block 26259631, one header) has the
+  shape the `anchor` member describes; it stays `local_only` in this version of the list because its rebuild from a
+  public endpoint was not measured (an archive read at that older block).
 - The auth-capture scheme says collectorData is "the ABI-encoded Permit2 signature" (step 3 of settlement); the pinned
   collector passes collectorData to Permit2 as the signature itself (section 25.1 AC8): which bytes a Charge
   signature's collectorDataHash covers on the Permit2 path is read from the contract until the scheme says it.

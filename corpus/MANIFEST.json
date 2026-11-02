@@ -15070,6 +15070,42 @@
   {
    "bundle_version": "apc-0.3",
    "chain": {
+    "anchor": {
+     "game": "0x44d39acd62062737180b23a6af9854596681addc",
+     "l1_block_hash": "0x6e4d8bb54a650a38a950ccc2530a30314149ca5f316bc9f811f7834c10ce5895",
+     "l1_block_number": 26321847,
+     "l1_network": "eip155:1",
+     "root_index": 10
+    },
+    "block_hash": "0x4eb55b4b268e70cb8d80e48171418e0974141995204affd1df3c9b4effcfb1a1",
+    "block_number": 52338085,
+    "log_index": 194,
+    "receipt_hash": "0x941fc176540289077f01e9fef8a4272d35bf4e30191f8556babe4ca3865d203b",
+    "receipt_root_verified": true,
+    "state": {
+     "code_keccak": "d09e34b2e51f09092e73e3ba1d520a42972496bf2a3bfdb22bb50b9729a9fd66",
+     "implementation": "0x9c6e09bc32d1e012dcaa2623e66d2cc9860c1aed",
+     "owner_keccak": "59a79ccc0c1bad7960aba5b0fecb8a21403e2a48c1a1925d1f5c33c9f3d67be4"
+    },
+    "tx_hash": "0x0119601be7f17b688339a8b96cc2fb3498d080be84b9087560ae617b8eb7326d",
+    "tx_index": 37
+   },
+   "checks_sha256": "299607d42c01aae25f63bed5126feec8d955f9e3d1e4119a58cc68456952d4bc",
+   "content_sha256": "7b8553cca2a104cc51874c63ff92d1b32964d1aa5738a87334158fa35e92859d",
+   "file": "real_msca_20261101/m001_anchored_0119601b_envelope_reconstructed.json",
+   "network": "eip155:8453",
+   "ours": {
+    "extraction": "calldata",
+    "inclusion": true,
+    "payer_state": "proof"
+   },
+   "set": "real_msca_20261101",
+   "sha256": "235cd42da5425b0b165c91461dda7d7a91db40d797803fe7a7dfafda4a6cad81",
+   "verdict": "chain_verified"
+  },
+  {
+   "bundle_version": "apc-0.3",
+   "chain": {
     "block_hash": "0x4eb55b4b268e70cb8d80e48171418e0974141995204affd1df3c9b4effcfb1a1",
     "block_number": 52338085,
     "log_index": 194,
@@ -15123,6 +15159,42 @@
    "set": "real_msca_20261101",
    "sha256": "965807ead4b7c15e232bce8fd68a2d99edf9ae3358c7fe113af23a4b548e9448",
    "verdict": "chain_incomplete"
+  },
+  {
+   "bundle_version": "apc-0.3",
+   "chain": {
+    "anchor": {
+     "game": "0x44d39acd62062737180b23a6af9854596681addc",
+     "l1_block_hash": "0x6e4d8bb54a650a38a950ccc2530a30314149ca5f316bc9f811f7834c10ce5895",
+     "l1_block_number": 26321847,
+     "l1_network": "eip155:1",
+     "root_index": 10
+    },
+    "block_hash": "0xf7bd53b6f80f9cdaf3208b6521f400128ef99a36cabad78b6d8accc752253302",
+    "block_number": 52338089,
+    "log_index": 471,
+    "receipt_hash": "0xcacbd0150cada5195e4a41f99daaa76c8ac437c8570848131433b791ed2a033e",
+    "receipt_root_verified": true,
+    "state": {
+     "code_keccak": "d09e34b2e51f09092e73e3ba1d520a42972496bf2a3bfdb22bb50b9729a9fd66",
+     "implementation": "0x9c6e09bc32d1e012dcaa2623e66d2cc9860c1aed",
+     "owner_keccak": "59a79ccc0c1bad7960aba5b0fecb8a21403e2a48c1a1925d1f5c33c9f3d67be4"
+    },
+    "tx_hash": "0xfacc9b239b61db3c04cd6ecc28572eff9aafac868ea81320c15f0d0303aa27fb",
+    "tx_index": 85
+   },
+   "checks_sha256": "299607d42c01aae25f63bed5126feec8d955f9e3d1e4119a58cc68456952d4bc",
+   "content_sha256": "15176e8a6d65da5030a32d0d5026cb31d5257cce6aba12dd56eab8fa6a4b16e1",
+   "file": "real_msca_20261101/m002_anchored_facc9b23_envelope_reconstructed.json",
+   "network": "eip155:8453",
+   "ours": {
+    "extraction": "calldata",
+    "inclusion": true,
+    "payer_state": "proof"
+   },
+   "set": "real_msca_20261101",
+   "sha256": "9c76af8bda3b8115aa00f87f82ada276e7053530750455c2237a92941924568c",
+   "verdict": "chain_verified"
   },
   {
    "bundle_version": "apc-0.3",
@@ -15184,6 +15256,42 @@
   {
    "bundle_version": "apc-0.3",
    "chain": {
+    "anchor": {
+     "game": "0x44d39acd62062737180b23a6af9854596681addc",
+     "l1_block_hash": "0x6e4d8bb54a650a38a950ccc2530a30314149ca5f316bc9f811f7834c10ce5895",
+     "l1_block_number": 26321847,
+     "l1_network": "eip155:1",
+     "root_index": 11
+    },
+    "block_hash": "0x840b1c4d9380db0b657442ebbf513c5d4c51ce337d9037d477307352b32dbdce",
+    "block_number": 52338093,
+    "log_index": 828,
+    "receipt_hash": "0x88767645b50546f7e0a39311e2d1bc3867dff32ccef9aed6aec8cb78acd11711",
+    "receipt_root_verified": true,
+    "state": {
+     "code_keccak": "d09e34b2e51f09092e73e3ba1d520a42972496bf2a3bfdb22bb50b9729a9fd66",
+     "implementation": "0x9c6e09bc32d1e012dcaa2623e66d2cc9860c1aed",
+     "owner_keccak": "59a79ccc0c1bad7960aba5b0fecb8a21403e2a48c1a1925d1f5c33c9f3d67be4"
+    },
+    "tx_hash": "0xcaf1d19c685367cc04c977e45d01e7e2ef0f9fd4e3a98f7b580a01407240d290",
+    "tx_index": 44
+   },
+   "checks_sha256": "299607d42c01aae25f63bed5126feec8d955f9e3d1e4119a58cc68456952d4bc",
+   "content_sha256": "b86db3a0b7629c38f664c239ccbd23b5e65224293cd95884abd6036f94e0ea9b",
+   "file": "real_msca_20261101/m003_anchored_caf1d19c_envelope_reconstructed.json",
+   "network": "eip155:8453",
+   "ours": {
+    "extraction": "calldata",
+    "inclusion": true,
+    "payer_state": "proof"
+   },
+   "set": "real_msca_20261101",
+   "sha256": "740e1065f8a4dd2ca081ec7d2ff88fdcfc68eea88d785ea548372da74d9c3402",
+   "verdict": "chain_verified"
+  },
+  {
+   "bundle_version": "apc-0.3",
+   "chain": {
     "block_hash": "0x840b1c4d9380db0b657442ebbf513c5d4c51ce337d9037d477307352b32dbdce",
     "block_number": 52338093,
     "log_index": 828,
@@ -15237,6 +15345,42 @@
    "set": "real_msca_20261101",
    "sha256": "53be06988cc9c4067819ac1b24026570f0db6d0f6d04094e6752763c426547cd",
    "verdict": "chain_incomplete"
+  },
+  {
+   "bundle_version": "apc-0.3",
+   "chain": {
+    "anchor": {
+     "game": "0x44d39acd62062737180b23a6af9854596681addc",
+     "l1_block_hash": "0x6e4d8bb54a650a38a950ccc2530a30314149ca5f316bc9f811f7834c10ce5895",
+     "l1_block_number": 26321847,
+     "l1_network": "eip155:1",
+     "root_index": 11
+    },
+    "block_hash": "0x41c6fd23e04f158abc7345ec42d4191849b0f95c7dead58b4c8c71b026996c0c",
+    "block_number": 52338096,
+    "log_index": 608,
+    "receipt_hash": "0xeaf39ba11864514eda7482cd0b076c706d23092bfe8f1f550901ba679d416de3",
+    "receipt_root_verified": true,
+    "state": {
+     "code_keccak": "d09e34b2e51f09092e73e3ba1d520a42972496bf2a3bfdb22bb50b9729a9fd66",
+     "implementation": "0x9c6e09bc32d1e012dcaa2623e66d2cc9860c1aed",
+     "owner_keccak": "59a79ccc0c1bad7960aba5b0fecb8a21403e2a48c1a1925d1f5c33c9f3d67be4"
+    },
+    "tx_hash": "0xa6adc80c8d1d5d1cf1908a40093a5f2ced5487ffdb8fd1945a22a6e34f7f0800",
+    "tx_index": 146
+   },
+   "checks_sha256": "299607d42c01aae25f63bed5126feec8d955f9e3d1e4119a58cc68456952d4bc",
+   "content_sha256": "490f2469966e761b6e804988d7159c46a7d641db2176785915d1892c8a7956c9",
+   "file": "real_msca_20261101/m004_anchored_a6adc80c_envelope_reconstructed.json",
+   "network": "eip155:8453",
+   "ours": {
+    "extraction": "calldata",
+    "inclusion": true,
+    "payer_state": "proof"
+   },
+   "set": "real_msca_20261101",
+   "sha256": "29c64c2e17efdb202596f6fb116718c27c4f8c448d110dbc2d04ea0938b5198e",
+   "verdict": "chain_verified"
   },
   {
    "bundle_version": "apc-0.3",
@@ -15298,6 +15442,42 @@
   {
    "bundle_version": "apc-0.3",
    "chain": {
+    "anchor": {
+     "game": "0x44d39acd62062737180b23a6af9854596681addc",
+     "l1_block_hash": "0x6e4d8bb54a650a38a950ccc2530a30314149ca5f316bc9f811f7834c10ce5895",
+     "l1_block_number": 26321847,
+     "l1_network": "eip155:1",
+     "root_index": 11
+    },
+    "block_hash": "0x432f2fc502c1600f442a20e442c5d7f4dc542200e9619c089a969d5b640c1fd3",
+    "block_number": 52338099,
+    "log_index": 761,
+    "receipt_hash": "0x14ea42383b67f4a28b4777dde4377356be119d06e4c9d00e7ee28d9a52beec3c",
+    "receipt_root_verified": true,
+    "state": {
+     "code_keccak": "d09e34b2e51f09092e73e3ba1d520a42972496bf2a3bfdb22bb50b9729a9fd66",
+     "implementation": "0x9c6e09bc32d1e012dcaa2623e66d2cc9860c1aed",
+     "owner_keccak": "59a79ccc0c1bad7960aba5b0fecb8a21403e2a48c1a1925d1f5c33c9f3d67be4"
+    },
+    "tx_hash": "0x84896d36f13bc61dd4d0cac7e7620aa279c0b07d8f59a4976e5133753b947e2d",
+    "tx_index": 124
+   },
+   "checks_sha256": "299607d42c01aae25f63bed5126feec8d955f9e3d1e4119a58cc68456952d4bc",
+   "content_sha256": "5db614cd3d84858851bf9cde9d7fe82317dad21f4007adb855c37f921a595655",
+   "file": "real_msca_20261101/m005_anchored_84896d36_envelope_reconstructed.json",
+   "network": "eip155:8453",
+   "ours": {
+    "extraction": "calldata",
+    "inclusion": true,
+    "payer_state": "proof"
+   },
+   "set": "real_msca_20261101",
+   "sha256": "4bcad387203aad02ef7dd19d7aadfed739422b68d1934ac93c90696bef67910c",
+   "verdict": "chain_verified"
+  },
+  {
+   "bundle_version": "apc-0.3",
+   "chain": {
     "block_hash": "0x432f2fc502c1600f442a20e442c5d7f4dc542200e9619c089a969d5b640c1fd3",
     "block_number": 52338099,
     "log_index": 761,
@@ -15351,6 +15531,42 @@
    "set": "real_msca_20261101",
    "sha256": "d0977b304ec0df519f65ffb5eb2af0a243d597c6e136e1bff4199167a0323708",
    "verdict": "chain_incomplete"
+  },
+  {
+   "bundle_version": "apc-0.3",
+   "chain": {
+    "anchor": {
+     "game": "0x44d39acd62062737180b23a6af9854596681addc",
+     "l1_block_hash": "0x6e4d8bb54a650a38a950ccc2530a30314149ca5f316bc9f811f7834c10ce5895",
+     "l1_block_number": 26321847,
+     "l1_network": "eip155:1",
+     "root_index": 11
+    },
+    "block_hash": "0x5bf599703bbd0834e7afd8e9998e08c1bd9d23a1b1aeedc526418938b8ff0903",
+    "block_number": 52338103,
+    "log_index": 185,
+    "receipt_hash": "0x30a433f5f7d82989c273fc2a273ca5d64a3ac74125011da35530a47742a63fb6",
+    "receipt_root_verified": true,
+    "state": {
+     "code_keccak": "d09e34b2e51f09092e73e3ba1d520a42972496bf2a3bfdb22bb50b9729a9fd66",
+     "implementation": "0x9c6e09bc32d1e012dcaa2623e66d2cc9860c1aed",
+     "owner_keccak": "59a79ccc0c1bad7960aba5b0fecb8a21403e2a48c1a1925d1f5c33c9f3d67be4"
+    },
+    "tx_hash": "0x29bbb355066ae9da6e360047b1a0c025ff793c2a05b048f4cff4ae71e2231a34",
+    "tx_index": 34
+   },
+   "checks_sha256": "299607d42c01aae25f63bed5126feec8d955f9e3d1e4119a58cc68456952d4bc",
+   "content_sha256": "1c78399f28ce0a23ca7dc395b52ea00c5defdca782c9a1211629e57a80a55825",
+   "file": "real_msca_20261101/m006_anchored_29bbb355_envelope_reconstructed.json",
+   "network": "eip155:8453",
+   "ours": {
+    "extraction": "calldata",
+    "inclusion": true,
+    "payer_state": "proof"
+   },
+   "set": "real_msca_20261101",
+   "sha256": "f61f941ea8450e1a07d9d73d7f73c9c25fc49b4c2bc267c8c3b53707236b0703",
+   "verdict": "chain_verified"
   },
   {
    "bundle_version": "apc-0.3",
@@ -15412,6 +15628,42 @@
   {
    "bundle_version": "apc-0.3",
    "chain": {
+    "anchor": {
+     "game": "0x44d39acd62062737180b23a6af9854596681addc",
+     "l1_block_hash": "0x6e4d8bb54a650a38a950ccc2530a30314149ca5f316bc9f811f7834c10ce5895",
+     "l1_block_number": 26321847,
+     "l1_network": "eip155:1",
+     "root_index": 11
+    },
+    "block_hash": "0xb15f4ad8d8f934be412f19bdf07e4bbfdbd11df2ed8df0024d6ee1ab4d17534a",
+    "block_number": 52338106,
+    "log_index": 509,
+    "receipt_hash": "0xe3f27393c880a0f7330e341b2e358aa0dfd18f3fe47c8b12acf1addec2d84a28",
+    "receipt_root_verified": true,
+    "state": {
+     "code_keccak": "d09e34b2e51f09092e73e3ba1d520a42972496bf2a3bfdb22bb50b9729a9fd66",
+     "implementation": "0x9c6e09bc32d1e012dcaa2623e66d2cc9860c1aed",
+     "owner_keccak": "59a79ccc0c1bad7960aba5b0fecb8a21403e2a48c1a1925d1f5c33c9f3d67be4"
+    },
+    "tx_hash": "0xbb5e330959f705fcebd3d3e25311dc8ac6a7f9ee4f6698cdb401a9a1286d4bcc",
+    "tx_index": 92
+   },
+   "checks_sha256": "299607d42c01aae25f63bed5126feec8d955f9e3d1e4119a58cc68456952d4bc",
+   "content_sha256": "be6620386dd1369e1f159036a0ba5dbd9ffb09e183e66b8a6585aa17decb703b",
+   "file": "real_msca_20261101/m007_anchored_bb5e3309_envelope_reconstructed.json",
+   "network": "eip155:8453",
+   "ours": {
+    "extraction": "calldata",
+    "inclusion": true,
+    "payer_state": "proof"
+   },
+   "set": "real_msca_20261101",
+   "sha256": "a2f455d33ce1f57d9635acc53237983fea406ca98f1ab93b7b19f2e26ff998dc",
+   "verdict": "chain_verified"
+  },
+  {
+   "bundle_version": "apc-0.3",
+   "chain": {
     "block_hash": "0xb15f4ad8d8f934be412f19bdf07e4bbfdbd11df2ed8df0024d6ee1ab4d17534a",
     "block_number": 52338106,
     "log_index": 509,
@@ -15465,6 +15717,42 @@
    "set": "real_msca_20261101",
    "sha256": "9868117a90a08ec605be2ed66e6955cb2451ef95f847b18db0b7da9c5be378f9",
    "verdict": "chain_incomplete"
+  },
+  {
+   "bundle_version": "apc-0.3",
+   "chain": {
+    "anchor": {
+     "game": "0x44d39acd62062737180b23a6af9854596681addc",
+     "l1_block_hash": "0x6e4d8bb54a650a38a950ccc2530a30314149ca5f316bc9f811f7834c10ce5895",
+     "l1_block_number": 26321847,
+     "l1_network": "eip155:1",
+     "root_index": 11
+    },
+    "block_hash": "0xb4dfebb33669553a9ff05632f860f4223867a3bc576b9481ed9aade96badbf7f",
+    "block_number": 52338110,
+    "log_index": 54,
+    "receipt_hash": "0x2e865e587cf76e11465ee93673ad707fbc602c79010dcfb7c3a9013b2a59d35f",
+    "receipt_root_verified": true,
+    "state": {
+     "code_keccak": "d09e34b2e51f09092e73e3ba1d520a42972496bf2a3bfdb22bb50b9729a9fd66",
+     "implementation": "0x9c6e09bc32d1e012dcaa2623e66d2cc9860c1aed",
+     "owner_keccak": "59a79ccc0c1bad7960aba5b0fecb8a21403e2a48c1a1925d1f5c33c9f3d67be4"
+    },
+    "tx_hash": "0x281478340212c71cfb3594489723aa4a57fc5182a3bf752e7e6e6ae31ac439f4",
+    "tx_index": 19
+   },
+   "checks_sha256": "299607d42c01aae25f63bed5126feec8d955f9e3d1e4119a58cc68456952d4bc",
+   "content_sha256": "973c3d0f2e48b5c4ab09b5afeca6ddcf2fffabeb1e3e02fb1a69ca5385014304",
+   "file": "real_msca_20261101/m008_anchored_28147834_envelope_reconstructed.json",
+   "network": "eip155:8453",
+   "ours": {
+    "extraction": "calldata",
+    "inclusion": true,
+    "payer_state": "proof"
+   },
+   "set": "real_msca_20261101",
+   "sha256": "f5124aff56cf3b1fb3a93f5c1fd5befb86acbcb849496a3008540c5fd4b9a08b",
+   "verdict": "chain_verified"
   },
   {
    "bundle_version": "apc-0.3",
@@ -15526,6 +15814,42 @@
   {
    "bundle_version": "apc-0.3",
    "chain": {
+    "anchor": {
+     "game": "0x44d39acd62062737180b23a6af9854596681addc",
+     "l1_block_hash": "0x6e4d8bb54a650a38a950ccc2530a30314149ca5f316bc9f811f7834c10ce5895",
+     "l1_block_number": 26321847,
+     "l1_network": "eip155:1",
+     "root_index": 11
+    },
+    "block_hash": "0x8855fa5236bd67e25abba5efd0d3f8f38e452f27f1ab428dfb60401dec9565bd",
+    "block_number": 52338113,
+    "log_index": 958,
+    "receipt_hash": "0x8d62fdf075830b189af872f076c298adb49f86d5917706d40a41c02536687620",
+    "receipt_root_verified": true,
+    "state": {
+     "code_keccak": "d09e34b2e51f09092e73e3ba1d520a42972496bf2a3bfdb22bb50b9729a9fd66",
+     "implementation": "0x9c6e09bc32d1e012dcaa2623e66d2cc9860c1aed",
+     "owner_keccak": "59a79ccc0c1bad7960aba5b0fecb8a21403e2a48c1a1925d1f5c33c9f3d67be4"
+    },
+    "tx_hash": "0xea29a2138b6e79ee4755193818cb634a57d56ff85348b16fe048635ddfed6f12",
+    "tx_index": 201
+   },
+   "checks_sha256": "299607d42c01aae25f63bed5126feec8d955f9e3d1e4119a58cc68456952d4bc",
+   "content_sha256": "a6d91f23b2c9ac481e6ab7b13738e53e08c75269717fee8551038c156ed9cc46",
+   "file": "real_msca_20261101/m009_anchored_ea29a213_envelope_reconstructed.json",
+   "network": "eip155:8453",
+   "ours": {
+    "extraction": "calldata",
+    "inclusion": true,
+    "payer_state": "proof"
+   },
+   "set": "real_msca_20261101",
+   "sha256": "f287877a3053e2c50ede10f4e42ce4a4935737396cf65e93a3f19378d2d9cbf8",
+   "verdict": "chain_verified"
+  },
+  {
+   "bundle_version": "apc-0.3",
+   "chain": {
     "block_hash": "0x8855fa5236bd67e25abba5efd0d3f8f38e452f27f1ab428dfb60401dec9565bd",
     "block_number": 52338113,
     "log_index": 958,
@@ -15579,6 +15903,42 @@
    "set": "real_msca_20261101",
    "sha256": "0ccc7b34d36949a25a95fea4f96cfae69425118d61c01d48c771024dae9a2019",
    "verdict": "chain_incomplete"
+  },
+  {
+   "bundle_version": "apc-0.3",
+   "chain": {
+    "anchor": {
+     "game": "0xc34e08c29198ddfdd8a8321a4b2c76e2b4ad11fc",
+     "l1_block_hash": "0x6e4d8bb54a650a38a950ccc2530a30314149ca5f316bc9f811f7834c10ce5895",
+     "l1_block_number": 26321847,
+     "l1_network": "eip155:1",
+     "root_index": 10
+    },
+    "block_hash": "0x5221e5d9f593a9b6beb11e28d889ed2b50e4758feb4af4378e545bde91613195",
+    "block_number": 52640482,
+    "log_index": 1146,
+    "receipt_hash": "0xf4d07fe2f20a8594f1ab16d286dd10f6dc3836008af948db8ce4f86ef4fb5dca",
+    "receipt_root_verified": true,
+    "state": {
+     "code_keccak": "d09e34b2e51f09092e73e3ba1d520a42972496bf2a3bfdb22bb50b9729a9fd66",
+     "implementation": "0x9c6e09bc32d1e012dcaa2623e66d2cc9860c1aed",
+     "owner_keccak": "59a79ccc0c1bad7960aba5b0fecb8a21403e2a48c1a1925d1f5c33c9f3d67be4"
+    },
+    "tx_hash": "0x54b51e5289a3dc9f319f8b4b87b25ae657020b7f9813874b21430b0395bb865b",
+    "tx_index": 254
+   },
+   "checks_sha256": "299607d42c01aae25f63bed5126feec8d955f9e3d1e4119a58cc68456952d4bc",
+   "content_sha256": "23129f2600894fffb7b1e85cc8b66b6f26e11bc4855190d1738dbb3de156d4cd",
+   "file": "real_msca_20261101/m010_anchored_54b51e52_envelope_reconstructed.json",
+   "network": "eip155:8453",
+   "ours": {
+    "extraction": "calldata",
+    "inclusion": true,
+    "payer_state": "proof"
+   },
+   "set": "real_msca_20261101",
+   "sha256": "2fbac5b8b98de70cc8dfd6c1bc3c7f3585db58c697e1743574f3c93009449e87",
+   "verdict": "chain_verified"
   },
   {
    "bundle_version": "apc-0.3",
@@ -15640,6 +16000,42 @@
   {
    "bundle_version": "apc-0.3",
    "chain": {
+    "anchor": {
+     "game": "0xc34e08c29198ddfdd8a8321a4b2c76e2b4ad11fc",
+     "l1_block_hash": "0x6e4d8bb54a650a38a950ccc2530a30314149ca5f316bc9f811f7834c10ce5895",
+     "l1_block_number": 26321847,
+     "l1_network": "eip155:1",
+     "root_index": 10
+    },
+    "block_hash": "0x5392296f32e0d27b0cb3175964f01208db07b7083e4b880159fd45a76ca679a5",
+    "block_number": 52640487,
+    "log_index": 982,
+    "receipt_hash": "0x5cfe56625597a44325fe1e17c875df4c0d2ce04ddc99dd1bee4db9f8bf0c2ffb",
+    "receipt_root_verified": true,
+    "state": {
+     "code_keccak": "d09e34b2e51f09092e73e3ba1d520a42972496bf2a3bfdb22bb50b9729a9fd66",
+     "implementation": "0x9c6e09bc32d1e012dcaa2623e66d2cc9860c1aed",
+     "owner_keccak": "59a79ccc0c1bad7960aba5b0fecb8a21403e2a48c1a1925d1f5c33c9f3d67be4"
+    },
+    "tx_hash": "0xa2d28d7f9e65c15e66540124dde4a738c877884877c924742254cda31c85634a",
+    "tx_index": 314
+   },
+   "checks_sha256": "299607d42c01aae25f63bed5126feec8d955f9e3d1e4119a58cc68456952d4bc",
+   "content_sha256": "dc44cd74a929736a8df60f330969eb52b62672b7e0085bac6e6ed5537830ec74",
+   "file": "real_msca_20261101/m011_anchored_a2d28d7f_envelope_reconstructed.json",
+   "network": "eip155:8453",
+   "ours": {
+    "extraction": "calldata",
+    "inclusion": true,
+    "payer_state": "proof"
+   },
+   "set": "real_msca_20261101",
+   "sha256": "41b5c91388bd98690ded88b8f649b8f41456f1ac5ebd7743e4198524bd403aba",
+   "verdict": "chain_verified"
+  },
+  {
+   "bundle_version": "apc-0.3",
+   "chain": {
     "block_hash": "0x5392296f32e0d27b0cb3175964f01208db07b7083e4b880159fd45a76ca679a5",
     "block_number": 52640487,
     "log_index": 982,
@@ -15693,6 +16089,42 @@
    "set": "real_msca_20261101",
    "sha256": "6917b7f11a9474ea860c1782d9ad0792cde3357cff709611a955a4a1933a2bb0",
    "verdict": "chain_incomplete"
+  },
+  {
+   "bundle_version": "apc-0.3",
+   "chain": {
+    "anchor": {
+     "game": "0xc34e08c29198ddfdd8a8321a4b2c76e2b4ad11fc",
+     "l1_block_hash": "0x6e4d8bb54a650a38a950ccc2530a30314149ca5f316bc9f811f7834c10ce5895",
+     "l1_block_number": 26321847,
+     "l1_network": "eip155:1",
+     "root_index": 11
+    },
+    "block_hash": "0xadadffd4422b32b9e7e0e9b1ea7e2155aa16b6857a675761df7961bcc7e529fb",
+    "block_number": 52640491,
+    "log_index": 692,
+    "receipt_hash": "0x6ca2a5beaf71c07a9f7a6c997acb1f60f79f21df4a151cb826a84786df2bcea5",
+    "receipt_root_verified": true,
+    "state": {
+     "code_keccak": "d09e34b2e51f09092e73e3ba1d520a42972496bf2a3bfdb22bb50b9729a9fd66",
+     "implementation": "0x9c6e09bc32d1e012dcaa2623e66d2cc9860c1aed",
+     "owner_keccak": "59a79ccc0c1bad7960aba5b0fecb8a21403e2a48c1a1925d1f5c33c9f3d67be4"
+    },
+    "tx_hash": "0x41c31083129bd326f717b8bfc6b1931f98fdc94f70459d28dd93a21bb375f79f",
+    "tx_index": 256
+   },
+   "checks_sha256": "299607d42c01aae25f63bed5126feec8d955f9e3d1e4119a58cc68456952d4bc",
+   "content_sha256": "0a829a0cee7439c7bf0f07f56ef2e4231f6bb3357b9f5d059d308470500f4159",
+   "file": "real_msca_20261101/m012_anchored_41c31083_envelope_reconstructed.json",
+   "network": "eip155:8453",
+   "ours": {
+    "extraction": "calldata",
+    "inclusion": true,
+    "payer_state": "proof"
+   },
+   "set": "real_msca_20261101",
+   "sha256": "9a04ed74e3c9e7a38c9ec919fd2c35f37a76593049703f1f0ec8be5d3fd621ef",
+   "verdict": "chain_verified"
   },
   {
    "bundle_version": "apc-0.3",
@@ -15754,6 +16186,42 @@
   {
    "bundle_version": "apc-0.3",
    "chain": {
+    "anchor": {
+     "game": "0xc34e08c29198ddfdd8a8321a4b2c76e2b4ad11fc",
+     "l1_block_hash": "0x6e4d8bb54a650a38a950ccc2530a30314149ca5f316bc9f811f7834c10ce5895",
+     "l1_block_number": 26321847,
+     "l1_network": "eip155:1",
+     "root_index": 11
+    },
+    "block_hash": "0x267c52eae48ede3b68827e6d6017325773ebd1fbe1a096767662af79ceeb9de9",
+    "block_number": 52640495,
+    "log_index": 150,
+    "receipt_hash": "0x3859eb549248866a6687ce4000b13693b6e37c0f7ebcc6732aa2a33f5ed4849f",
+    "receipt_root_verified": true,
+    "state": {
+     "code_keccak": "d09e34b2e51f09092e73e3ba1d520a42972496bf2a3bfdb22bb50b9729a9fd66",
+     "implementation": "0x9c6e09bc32d1e012dcaa2623e66d2cc9860c1aed",
+     "owner_keccak": "59a79ccc0c1bad7960aba5b0fecb8a21403e2a48c1a1925d1f5c33c9f3d67be4"
+    },
+    "tx_hash": "0xad246ca9153a368f35b215bfbcc0cf1573c69e80ab203149c66d3219cc729ebf",
+    "tx_index": 54
+   },
+   "checks_sha256": "299607d42c01aae25f63bed5126feec8d955f9e3d1e4119a58cc68456952d4bc",
+   "content_sha256": "5b64858565a046cec1ad749d8efbe6aa40f99a16baa443514f9c2c05adf56601",
+   "file": "real_msca_20261101/m013_anchored_ad246ca9_envelope_reconstructed.json",
+   "network": "eip155:8453",
+   "ours": {
+    "extraction": "calldata",
+    "inclusion": true,
+    "payer_state": "proof"
+   },
+   "set": "real_msca_20261101",
+   "sha256": "8ac5185b6fa27af278a8980ba6227b0853fdb2e63ea8d83a713f9d0bd0fd839c",
+   "verdict": "chain_verified"
+  },
+  {
+   "bundle_version": "apc-0.3",
+   "chain": {
     "block_hash": "0x267c52eae48ede3b68827e6d6017325773ebd1fbe1a096767662af79ceeb9de9",
     "block_number": 52640495,
     "log_index": 150,
@@ -15807,6 +16275,42 @@
    "set": "real_msca_20261101",
    "sha256": "beade753121f45301be79791f2d6a028b44fd21e16d67628ee130e1863b503d7",
    "verdict": "chain_incomplete"
+  },
+  {
+   "bundle_version": "apc-0.3",
+   "chain": {
+    "anchor": {
+     "game": "0xc34e08c29198ddfdd8a8321a4b2c76e2b4ad11fc",
+     "l1_block_hash": "0x6e4d8bb54a650a38a950ccc2530a30314149ca5f316bc9f811f7834c10ce5895",
+     "l1_block_number": 26321847,
+     "l1_network": "eip155:1",
+     "root_index": 11
+    },
+    "block_hash": "0x4aa01f90caad93d0f09313cd8754c6a207bd4a1ee270423895947be0c7afa165",
+    "block_number": 52640499,
+    "log_index": 119,
+    "receipt_hash": "0x6d5b8da0c96048985ac64a8bca0a89a662f9636043a8a6af52fc25a0371e946c",
+    "receipt_root_verified": true,
+    "state": {
+     "code_keccak": "d09e34b2e51f09092e73e3ba1d520a42972496bf2a3bfdb22bb50b9729a9fd66",
+     "implementation": "0x9c6e09bc32d1e012dcaa2623e66d2cc9860c1aed",
+     "owner_keccak": "59a79ccc0c1bad7960aba5b0fecb8a21403e2a48c1a1925d1f5c33c9f3d67be4"
+    },
+    "tx_hash": "0x80719cd7ba24c17a6f08b7f58914253fbeb452e5c35d2fbf064698ac6fdcbbc7",
+    "tx_index": 39
+   },
+   "checks_sha256": "299607d42c01aae25f63bed5126feec8d955f9e3d1e4119a58cc68456952d4bc",
+   "content_sha256": "5acb735d0cfe76668fc1b0de7ba25a5e5ad5080d7aac40b321954caba2dd05bc",
+   "file": "real_msca_20261101/m014_anchored_80719cd7_envelope_reconstructed.json",
+   "network": "eip155:8453",
+   "ours": {
+    "extraction": "calldata",
+    "inclusion": true,
+    "payer_state": "proof"
+   },
+   "set": "real_msca_20261101",
+   "sha256": "a3281dc15abeef3b1d79eb5c66f56e4a5f3a96d498139d429c4425f2758e8f1e",
+   "verdict": "chain_verified"
   },
   {
    "bundle_version": "apc-0.3",
@@ -15868,6 +16372,42 @@
   {
    "bundle_version": "apc-0.3",
    "chain": {
+    "anchor": {
+     "game": "0xc34e08c29198ddfdd8a8321a4b2c76e2b4ad11fc",
+     "l1_block_hash": "0x6e4d8bb54a650a38a950ccc2530a30314149ca5f316bc9f811f7834c10ce5895",
+     "l1_block_number": 26321847,
+     "l1_network": "eip155:1",
+     "root_index": 11
+    },
+    "block_hash": "0x61f8b3dddf554f5ded6f3d87e3e4e2c493bd0b57cc874e66d09b3558ec19ef7f",
+    "block_number": 52640503,
+    "log_index": 61,
+    "receipt_hash": "0x2c3a56ed21dccc2c0e74c2e273b3b954a54a95b160d37bc01e8a525039bc3d9a",
+    "receipt_root_verified": true,
+    "state": {
+     "code_keccak": "d09e34b2e51f09092e73e3ba1d520a42972496bf2a3bfdb22bb50b9729a9fd66",
+     "implementation": "0x9c6e09bc32d1e012dcaa2623e66d2cc9860c1aed",
+     "owner_keccak": "59a79ccc0c1bad7960aba5b0fecb8a21403e2a48c1a1925d1f5c33c9f3d67be4"
+    },
+    "tx_hash": "0xa97409812bade5d0b1ca93312ddf11fe2e8117c60b9bbfc1d695e6a7f1119045",
+    "tx_index": 25
+   },
+   "checks_sha256": "299607d42c01aae25f63bed5126feec8d955f9e3d1e4119a58cc68456952d4bc",
+   "content_sha256": "1114f33c91d1f3b90de5164d5186c9de51f8422015b1b18f402ba169d1f21ae2",
+   "file": "real_msca_20261101/m015_anchored_a9740981_envelope_reconstructed.json",
+   "network": "eip155:8453",
+   "ours": {
+    "extraction": "calldata",
+    "inclusion": true,
+    "payer_state": "proof"
+   },
+   "set": "real_msca_20261101",
+   "sha256": "aa9a8ca9eaa0b287fd7e0b4a95f74275c1c73d64d081a9a5249d056f7eb8de55",
+   "verdict": "chain_verified"
+  },
+  {
+   "bundle_version": "apc-0.3",
+   "chain": {
     "block_hash": "0x61f8b3dddf554f5ded6f3d87e3e4e2c493bd0b57cc874e66d09b3558ec19ef7f",
     "block_number": 52640503,
     "log_index": 61,
@@ -15921,6 +16461,42 @@
    "set": "real_msca_20261101",
    "sha256": "92822ddfa91c40f3101c45b94631ba9d18f2af37dff5e4587297a34d51180040",
    "verdict": "chain_incomplete"
+  },
+  {
+   "bundle_version": "apc-0.3",
+   "chain": {
+    "anchor": {
+     "game": "0xc34e08c29198ddfdd8a8321a4b2c76e2b4ad11fc",
+     "l1_block_hash": "0x6e4d8bb54a650a38a950ccc2530a30314149ca5f316bc9f811f7834c10ce5895",
+     "l1_block_number": 26321847,
+     "l1_network": "eip155:1",
+     "root_index": 11
+    },
+    "block_hash": "0xcdb04cfa58bb7d2a922703f3d5927a06f617eeb17648f3f711793402720b6870",
+    "block_number": 52640507,
+    "log_index": 87,
+    "receipt_hash": "0xba7d0f85c11f5d0c84bf0f9e488f98ac9aaf1a35099af4ae74bed66d05b66486",
+    "receipt_root_verified": true,
+    "state": {
+     "code_keccak": "d09e34b2e51f09092e73e3ba1d520a42972496bf2a3bfdb22bb50b9729a9fd66",
+     "implementation": "0x9c6e09bc32d1e012dcaa2623e66d2cc9860c1aed",
+     "owner_keccak": "59a79ccc0c1bad7960aba5b0fecb8a21403e2a48c1a1925d1f5c33c9f3d67be4"
+    },
+    "tx_hash": "0xec1530edf0af15f7e32aedf7f347f7d58a161b0d421bb7361437037bf3476511",
+    "tx_index": 26
+   },
+   "checks_sha256": "299607d42c01aae25f63bed5126feec8d955f9e3d1e4119a58cc68456952d4bc",
+   "content_sha256": "e135163ef8af0b45eea8bc8b0fe211a13c3f0e85cd5620893f39d199fe0acb6e",
+   "file": "real_msca_20261101/m016_anchored_ec1530ed_envelope_reconstructed.json",
+   "network": "eip155:8453",
+   "ours": {
+    "extraction": "calldata",
+    "inclusion": true,
+    "payer_state": "proof"
+   },
+   "set": "real_msca_20261101",
+   "sha256": "017a63f78b80e66936d02043b980f592f8d1d0bf6ab62fb46ae9d3a03fce1359",
+   "verdict": "chain_verified"
   },
   {
    "bundle_version": "apc-0.3",
@@ -15982,6 +16558,42 @@
   {
    "bundle_version": "apc-0.3",
    "chain": {
+    "anchor": {
+     "game": "0xc34e08c29198ddfdd8a8321a4b2c76e2b4ad11fc",
+     "l1_block_hash": "0x6e4d8bb54a650a38a950ccc2530a30314149ca5f316bc9f811f7834c10ce5895",
+     "l1_block_number": 26321847,
+     "l1_network": "eip155:1",
+     "root_index": 11
+    },
+    "block_hash": "0x0a2ccfe79177fe49d6e14d2746b81856b8acbd9efe07838d1d46e70f7910106a",
+    "block_number": 52640510,
+    "log_index": 665,
+    "receipt_hash": "0xb589e9fbefd24651bd54b263549cbdab0f28f5fa3049f705a889b92e78eada9f",
+    "receipt_root_verified": true,
+    "state": {
+     "code_keccak": "d09e34b2e51f09092e73e3ba1d520a42972496bf2a3bfdb22bb50b9729a9fd66",
+     "implementation": "0x9c6e09bc32d1e012dcaa2623e66d2cc9860c1aed",
+     "owner_keccak": "59a79ccc0c1bad7960aba5b0fecb8a21403e2a48c1a1925d1f5c33c9f3d67be4"
+    },
+    "tx_hash": "0xdd03e98bfe0b0ee664afc870d9f4aeb5ac29ec0fe90480cd93e51e1f6a041d24",
+    "tx_index": 153
+   },
+   "checks_sha256": "299607d42c01aae25f63bed5126feec8d955f9e3d1e4119a58cc68456952d4bc",
+   "content_sha256": "f744d7bab22b12c22e7128b3a02981b7f19baf3484fd55d77a8449d0e3d49cf9",
+   "file": "real_msca_20261101/m017_anchored_dd03e98b_envelope_reconstructed.json",
+   "network": "eip155:8453",
+   "ours": {
+    "extraction": "calldata",
+    "inclusion": true,
+    "payer_state": "proof"
+   },
+   "set": "real_msca_20261101",
+   "sha256": "aaf75813934a77125bea765fa61bf0ea885c0d73082463070b33a247ddebbbc1",
+   "verdict": "chain_verified"
+  },
+  {
+   "bundle_version": "apc-0.3",
+   "chain": {
     "block_hash": "0x0a2ccfe79177fe49d6e14d2746b81856b8acbd9efe07838d1d46e70f7910106a",
     "block_number": 52640510,
     "log_index": 665,
@@ -16035,6 +16647,42 @@
    "set": "real_msca_20261101",
    "sha256": "573f834facc7a23ffb4364d03d98a3c40db211d78aa9e4c7be7a945cc1b7b01d",
    "verdict": "chain_incomplete"
+  },
+  {
+   "bundle_version": "apc-0.3",
+   "chain": {
+    "anchor": {
+     "game": "0xc34e08c29198ddfdd8a8321a4b2c76e2b4ad11fc",
+     "l1_block_hash": "0x6e4d8bb54a650a38a950ccc2530a30314149ca5f316bc9f811f7834c10ce5895",
+     "l1_block_number": 26321847,
+     "l1_network": "eip155:1",
+     "root_index": 11
+    },
+    "block_hash": "0xba41e716f3d929382651d99fbfb646085e0c048a09f95e6a57e5de8a9d6f6a6a",
+    "block_number": 52640514,
+    "log_index": 440,
+    "receipt_hash": "0x514755265f63b21442d1f7fdcf08cb5806f70be842cdcb5badc0ab0bb3e92573",
+    "receipt_root_verified": true,
+    "state": {
+     "code_keccak": "d09e34b2e51f09092e73e3ba1d520a42972496bf2a3bfdb22bb50b9729a9fd66",
+     "implementation": "0x9c6e09bc32d1e012dcaa2623e66d2cc9860c1aed",
+     "owner_keccak": "59a79ccc0c1bad7960aba5b0fecb8a21403e2a48c1a1925d1f5c33c9f3d67be4"
+    },
+    "tx_hash": "0xa36fd4d7ddf4715fdd15de64ae376101e21ee02c40e27a3a18a50fcccdd25e48",
+    "tx_index": 141
+   },
+   "checks_sha256": "299607d42c01aae25f63bed5126feec8d955f9e3d1e4119a58cc68456952d4bc",
+   "content_sha256": "8091028bfdcf771d97fe2c022d7221ea3fe362ee8a1ad0b5b7b27a042f23fcb7",
+   "file": "real_msca_20261101/m018_anchored_a36fd4d7_envelope_reconstructed.json",
+   "network": "eip155:8453",
+   "ours": {
+    "extraction": "calldata",
+    "inclusion": true,
+    "payer_state": "proof"
+   },
+   "set": "real_msca_20261101",
+   "sha256": "996f25e8eeafda08468630cafca3ef629030a40e1a8d1ad9ef3ddee711489de8",
+   "verdict": "chain_verified"
   },
   {
    "bundle_version": "apc-0.3",
@@ -16096,6 +16744,42 @@
   {
    "bundle_version": "apc-0.3",
    "chain": {
+    "anchor": {
+     "game": "0x68c0cebfda375a9c5ec5ef8e0ceed663cf876b35",
+     "l1_block_hash": "0x6e4d8bb54a650a38a950ccc2530a30314149ca5f316bc9f811f7834c10ce5895",
+     "l1_block_number": 26321847,
+     "l1_network": "eip155:1",
+     "root_index": 10
+    },
+    "block_hash": "0x211ef87af1d877b0536266f267eb11bdca3b6d88560c33d4af273aa49ce88f9d",
+    "block_number": 52813276,
+    "log_index": 78,
+    "receipt_hash": "0xdaabbfe956a7f2473716dc4f629e6dfd10f2e7a494719bfacbb69855104bc028",
+    "receipt_root_verified": true,
+    "state": {
+     "code_keccak": "d09e34b2e51f09092e73e3ba1d520a42972496bf2a3bfdb22bb50b9729a9fd66",
+     "implementation": "0x9c6e09bc32d1e012dcaa2623e66d2cc9860c1aed",
+     "owner_keccak": "59a79ccc0c1bad7960aba5b0fecb8a21403e2a48c1a1925d1f5c33c9f3d67be4"
+    },
+    "tx_hash": "0xb4155f2c08ae38dd1b73cd04940843f40f1be1750aa95ee8627b7648c61662ee",
+    "tx_index": 18
+   },
+   "checks_sha256": "299607d42c01aae25f63bed5126feec8d955f9e3d1e4119a58cc68456952d4bc",
+   "content_sha256": "37acd770117425d49eca8509780c22a17c1f228bdf8420cd4b085fdebc4bce24",
+   "file": "real_msca_20261101/m019_anchored_b4155f2c_envelope_reconstructed.json",
+   "network": "eip155:8453",
+   "ours": {
+    "extraction": "calldata",
+    "inclusion": true,
+    "payer_state": "proof"
+   },
+   "set": "real_msca_20261101",
+   "sha256": "4ff58a9d344026bfa7691c458f43e0cdf835bd1ecc426c53c40477d71c8aab79",
+   "verdict": "chain_verified"
+  },
+  {
+   "bundle_version": "apc-0.3",
+   "chain": {
     "block_hash": "0x211ef87af1d877b0536266f267eb11bdca3b6d88560c33d4af273aa49ce88f9d",
     "block_number": 52813276,
     "log_index": 78,
@@ -16149,6 +16833,42 @@
    "set": "real_msca_20261101",
    "sha256": "7b0449e32cd2aa43aef82271b59e1fbf9a7bfa602b4ef4ece20d7f08dfab5713",
    "verdict": "chain_incomplete"
+  },
+  {
+   "bundle_version": "apc-0.3",
+   "chain": {
+    "anchor": {
+     "game": "0x68c0cebfda375a9c5ec5ef8e0ceed663cf876b35",
+     "l1_block_hash": "0x6e4d8bb54a650a38a950ccc2530a30314149ca5f316bc9f811f7834c10ce5895",
+     "l1_block_number": 26321847,
+     "l1_network": "eip155:1",
+     "root_index": 10
+    },
+    "block_hash": "0xfde57cf01890df0f4eb6a1971468337c4d058fdf6110aa8a0fcb7a32bf03e358",
+    "block_number": 52813280,
+    "log_index": 199,
+    "receipt_hash": "0x64bf72f6fc19e738619f64c54e24ef013dd6ad629c1c715f1d5b7e0584991bf5",
+    "receipt_root_verified": true,
+    "state": {
+     "code_keccak": "d09e34b2e51f09092e73e3ba1d520a42972496bf2a3bfdb22bb50b9729a9fd66",
+     "implementation": "0x9c6e09bc32d1e012dcaa2623e66d2cc9860c1aed",
+     "owner_keccak": "59a79ccc0c1bad7960aba5b0fecb8a21403e2a48c1a1925d1f5c33c9f3d67be4"
+    },
+    "tx_hash": "0xc5333487bdca927ed7fcf49b24524f5b6eb972affe324989078dffe229a03f58",
+    "tx_index": 60
+   },
+   "checks_sha256": "299607d42c01aae25f63bed5126feec8d955f9e3d1e4119a58cc68456952d4bc",
+   "content_sha256": "6606a9328eca38519e3ea65dbf8fb9ebc7394a39efb20eb1bbc311d016c98085",
+   "file": "real_msca_20261101/m020_anchored_c5333487_envelope_reconstructed.json",
+   "network": "eip155:8453",
+   "ours": {
+    "extraction": "calldata",
+    "inclusion": true,
+    "payer_state": "proof"
+   },
+   "set": "real_msca_20261101",
+   "sha256": "035a0f56608c7f7024c4616717c97cb6d94b3264dc6d48b280c4ce7c2694f891",
+   "verdict": "chain_verified"
   },
   {
    "bundle_version": "apc-0.3",
@@ -16210,6 +16930,42 @@
   {
    "bundle_version": "apc-0.3",
    "chain": {
+    "anchor": {
+     "game": "0x68c0cebfda375a9c5ec5ef8e0ceed663cf876b35",
+     "l1_block_hash": "0x6e4d8bb54a650a38a950ccc2530a30314149ca5f316bc9f811f7834c10ce5895",
+     "l1_block_number": 26321847,
+     "l1_network": "eip155:1",
+     "root_index": 10
+    },
+    "block_hash": "0x0870431901f808dc20a3a62d66bf06e169705501987f0b4a7286012088e49825",
+    "block_number": 52813284,
+    "log_index": 427,
+    "receipt_hash": "0x644a4644817eb88ebad38618cda46e3f69f6ceb1384d859a7fc65157ecb899bc",
+    "receipt_root_verified": true,
+    "state": {
+     "code_keccak": "d09e34b2e51f09092e73e3ba1d520a42972496bf2a3bfdb22bb50b9729a9fd66",
+     "implementation": "0x9c6e09bc32d1e012dcaa2623e66d2cc9860c1aed",
+     "owner_keccak": "59a79ccc0c1bad7960aba5b0fecb8a21403e2a48c1a1925d1f5c33c9f3d67be4"
+    },
+    "tx_hash": "0x60a54bb2cdd9f633d77b4589f09cb263fa07971d7b057edbed07a434b92dfbd0",
+    "tx_index": 124
+   },
+   "checks_sha256": "299607d42c01aae25f63bed5126feec8d955f9e3d1e4119a58cc68456952d4bc",
+   "content_sha256": "4da406d3cb45c299b51268241c70d48466d7fe28a28400ec02eb2fabe6f2e7e5",
+   "file": "real_msca_20261101/m021_anchored_60a54bb2_envelope_reconstructed.json",
+   "network": "eip155:8453",
+   "ours": {
+    "extraction": "calldata",
+    "inclusion": true,
+    "payer_state": "proof"
+   },
+   "set": "real_msca_20261101",
+   "sha256": "5e55ca2ee4617595dba792c5411dac818c577f90a7f369a3b32435d5765a3817",
+   "verdict": "chain_verified"
+  },
+  {
+   "bundle_version": "apc-0.3",
+   "chain": {
     "block_hash": "0x0870431901f808dc20a3a62d66bf06e169705501987f0b4a7286012088e49825",
     "block_number": 52813284,
     "log_index": 427,
@@ -16263,6 +17019,42 @@
    "set": "real_msca_20261101",
    "sha256": "b85b70786006cf6024580106054f764db32eb050124f8a476bc1a84fbc094e00",
    "verdict": "chain_incomplete"
+  },
+  {
+   "bundle_version": "apc-0.3",
+   "chain": {
+    "anchor": {
+     "game": "0x68c0cebfda375a9c5ec5ef8e0ceed663cf876b35",
+     "l1_block_hash": "0x6e4d8bb54a650a38a950ccc2530a30314149ca5f316bc9f811f7834c10ce5895",
+     "l1_block_number": 26321847,
+     "l1_network": "eip155:1",
+     "root_index": 10
+    },
+    "block_hash": "0x23aaa8cc4071b66ae015d7acf5b7e11b6b7f3256fc6a7d095761a2864e65ff0c",
+    "block_number": 52813288,
+    "log_index": 177,
+    "receipt_hash": "0x64b599acd207f2190e360e7dc9d9535a97dc2687e89188fdff71967f19dd2133",
+    "receipt_root_verified": true,
+    "state": {
+     "code_keccak": "d09e34b2e51f09092e73e3ba1d520a42972496bf2a3bfdb22bb50b9729a9fd66",
+     "implementation": "0x9c6e09bc32d1e012dcaa2623e66d2cc9860c1aed",
+     "owner_keccak": "59a79ccc0c1bad7960aba5b0fecb8a21403e2a48c1a1925d1f5c33c9f3d67be4"
+    },
+    "tx_hash": "0xadc3d57b87733329b3f6883c8aa569493be529d474f2611f5a67c09225d2324e",
+    "tx_index": 29
+   },
+   "checks_sha256": "299607d42c01aae25f63bed5126feec8d955f9e3d1e4119a58cc68456952d4bc",
+   "content_sha256": "b5a10350cb4c816adeb7f19171f253ccac95ca3bf9fca3911ed7067b7c97ab52",
+   "file": "real_msca_20261101/m022_anchored_adc3d57b_envelope_reconstructed.json",
+   "network": "eip155:8453",
+   "ours": {
+    "extraction": "calldata",
+    "inclusion": true,
+    "payer_state": "proof"
+   },
+   "set": "real_msca_20261101",
+   "sha256": "0bee0980d63dd809381cdf423af78d75ea672a2e00090a805c8a445e638a8216",
+   "verdict": "chain_verified"
   },
   {
    "bundle_version": "apc-0.3",
@@ -16324,6 +17116,42 @@
   {
    "bundle_version": "apc-0.3",
    "chain": {
+    "anchor": {
+     "game": "0x68c0cebfda375a9c5ec5ef8e0ceed663cf876b35",
+     "l1_block_hash": "0x6e4d8bb54a650a38a950ccc2530a30314149ca5f316bc9f811f7834c10ce5895",
+     "l1_block_number": 26321847,
+     "l1_network": "eip155:1",
+     "root_index": 11
+    },
+    "block_hash": "0xaab990274f2b651f5de9e3ba36255d5ec49b71ff0e17c5731fca5e418364ef8d",
+    "block_number": 52813291,
+    "log_index": 718,
+    "receipt_hash": "0xd42f712e2089f01160aa72ab092ddc6b4a00fabc9aa28d9e55cb060acce30782",
+    "receipt_root_verified": true,
+    "state": {
+     "code_keccak": "d09e34b2e51f09092e73e3ba1d520a42972496bf2a3bfdb22bb50b9729a9fd66",
+     "implementation": "0x9c6e09bc32d1e012dcaa2623e66d2cc9860c1aed",
+     "owner_keccak": "59a79ccc0c1bad7960aba5b0fecb8a21403e2a48c1a1925d1f5c33c9f3d67be4"
+    },
+    "tx_hash": "0xfb608d62fb78d72f0f2f6c92f1ee4ebc176a042626ecb237e50ba68af95d01c7",
+    "tx_index": 255
+   },
+   "checks_sha256": "299607d42c01aae25f63bed5126feec8d955f9e3d1e4119a58cc68456952d4bc",
+   "content_sha256": "518c93286eb39a740f52b664fd7d26ff31aa6cb2d3a79303b7ff698a047c7fdc",
+   "file": "real_msca_20261101/m023_anchored_fb608d62_envelope_reconstructed.json",
+   "network": "eip155:8453",
+   "ours": {
+    "extraction": "calldata",
+    "inclusion": true,
+    "payer_state": "proof"
+   },
+   "set": "real_msca_20261101",
+   "sha256": "9eaf8020e52d8ee996bb415fe1e74675c38b68933736f766e0bcd0e139079608",
+   "verdict": "chain_verified"
+  },
+  {
+   "bundle_version": "apc-0.3",
+   "chain": {
     "block_hash": "0xaab990274f2b651f5de9e3ba36255d5ec49b71ff0e17c5731fca5e418364ef8d",
     "block_number": 52813291,
     "log_index": 718,
@@ -16377,6 +17205,42 @@
    "set": "real_msca_20261101",
    "sha256": "f6be13312efde2f33860ca0de99b3acc8653f6d98bcd27b0ffdae7f4dd04c16f",
    "verdict": "chain_incomplete"
+  },
+  {
+   "bundle_version": "apc-0.3",
+   "chain": {
+    "anchor": {
+     "game": "0x68c0cebfda375a9c5ec5ef8e0ceed663cf876b35",
+     "l1_block_hash": "0x6e4d8bb54a650a38a950ccc2530a30314149ca5f316bc9f811f7834c10ce5895",
+     "l1_block_number": 26321847,
+     "l1_network": "eip155:1",
+     "root_index": 11
+    },
+    "block_hash": "0x02e1fd0ef6db31fb3d9a903b525b5cb337131b0cd6959644d1d3f86dfbf0da6b",
+    "block_number": 52813295,
+    "log_index": 279,
+    "receipt_hash": "0xa0730756517f20ae28e7a9d65f2cae780ae047a7245ff7ed1ee1785f4b9fe6d4",
+    "receipt_root_verified": true,
+    "state": {
+     "code_keccak": "d09e34b2e51f09092e73e3ba1d520a42972496bf2a3bfdb22bb50b9729a9fd66",
+     "implementation": "0x9c6e09bc32d1e012dcaa2623e66d2cc9860c1aed",
+     "owner_keccak": "59a79ccc0c1bad7960aba5b0fecb8a21403e2a48c1a1925d1f5c33c9f3d67be4"
+    },
+    "tx_hash": "0x3f45487b92b3c78994c9302d671c97f5fc4734b598c151ce4b2803853baaa831",
+    "tx_index": 71
+   },
+   "checks_sha256": "299607d42c01aae25f63bed5126feec8d955f9e3d1e4119a58cc68456952d4bc",
+   "content_sha256": "2ce49ca502c03d6fb8fcfcb3c63d2636b124fd94d828a347b233bb880ffb9a7b",
+   "file": "real_msca_20261101/m024_anchored_3f45487b_envelope_reconstructed.json",
+   "network": "eip155:8453",
+   "ours": {
+    "extraction": "calldata",
+    "inclusion": true,
+    "payer_state": "proof"
+   },
+   "set": "real_msca_20261101",
+   "sha256": "abf2219e61af727ea2600e35d578c1fdf6d8057f07cef3b295accb0af53151c9",
+   "verdict": "chain_verified"
   },
   {
    "bundle_version": "apc-0.3",
@@ -16438,6 +17302,42 @@
   {
    "bundle_version": "apc-0.3",
    "chain": {
+    "anchor": {
+     "game": "0x68c0cebfda375a9c5ec5ef8e0ceed663cf876b35",
+     "l1_block_hash": "0x6e4d8bb54a650a38a950ccc2530a30314149ca5f316bc9f811f7834c10ce5895",
+     "l1_block_number": 26321847,
+     "l1_network": "eip155:1",
+     "root_index": 11
+    },
+    "block_hash": "0xa817015199ef0baaecbf9e01305fc834a8324d14ae829f651c13445eb88f77d6",
+    "block_number": 52813299,
+    "log_index": 432,
+    "receipt_hash": "0x4aaa92a9ea63c18eaac27f5bf9b50989c31d2ed9a45733f17a9c3afbaf2311f9",
+    "receipt_root_verified": true,
+    "state": {
+     "code_keccak": "d09e34b2e51f09092e73e3ba1d520a42972496bf2a3bfdb22bb50b9729a9fd66",
+     "implementation": "0x9c6e09bc32d1e012dcaa2623e66d2cc9860c1aed",
+     "owner_keccak": "59a79ccc0c1bad7960aba5b0fecb8a21403e2a48c1a1925d1f5c33c9f3d67be4"
+    },
+    "tx_hash": "0xd0561ba8bdb43c79c44c952a879dcce25ce5e8712a10272e41f21eee8fc1dcd3",
+    "tx_index": 106
+   },
+   "checks_sha256": "299607d42c01aae25f63bed5126feec8d955f9e3d1e4119a58cc68456952d4bc",
+   "content_sha256": "a16ca2b1d9938dee95a8dff1ab1e3ec56d09bf944ef4b3232fa5a9ed8fdeb6a0",
+   "file": "real_msca_20261101/m025_anchored_d0561ba8_envelope_reconstructed.json",
+   "network": "eip155:8453",
+   "ours": {
+    "extraction": "calldata",
+    "inclusion": true,
+    "payer_state": "proof"
+   },
+   "set": "real_msca_20261101",
+   "sha256": "1c20fed7a9f323b12ce139002729fe12c9b763b24ddb922e28bc072204fff29b",
+   "verdict": "chain_verified"
+  },
+  {
+   "bundle_version": "apc-0.3",
+   "chain": {
     "block_hash": "0xa817015199ef0baaecbf9e01305fc834a8324d14ae829f651c13445eb88f77d6",
     "block_number": 52813299,
     "log_index": 432,
@@ -16491,6 +17391,42 @@
    "set": "real_msca_20261101",
    "sha256": "93ee121ec91bd4173d249527ab892da9bfa8505fcfcf4b189387a00b058a0a84",
    "verdict": "chain_incomplete"
+  },
+  {
+   "bundle_version": "apc-0.3",
+   "chain": {
+    "anchor": {
+     "game": "0x68c0cebfda375a9c5ec5ef8e0ceed663cf876b35",
+     "l1_block_hash": "0x6e4d8bb54a650a38a950ccc2530a30314149ca5f316bc9f811f7834c10ce5895",
+     "l1_block_number": 26321847,
+     "l1_network": "eip155:1",
+     "root_index": 11
+    },
+    "block_hash": "0x07f8a197825c38cd17e9be7c904b897dc6ad40e21e3f54410a4cd3845f44015d",
+    "block_number": 52813303,
+    "log_index": 283,
+    "receipt_hash": "0x382a0aa6f37da897e796a78b0700cec71d6880bc871d3d6aa9fa02145bc4ce08",
+    "receipt_root_verified": true,
+    "state": {
+     "code_keccak": "d09e34b2e51f09092e73e3ba1d520a42972496bf2a3bfdb22bb50b9729a9fd66",
+     "implementation": "0x9c6e09bc32d1e012dcaa2623e66d2cc9860c1aed",
+     "owner_keccak": "59a79ccc0c1bad7960aba5b0fecb8a21403e2a48c1a1925d1f5c33c9f3d67be4"
+    },
+    "tx_hash": "0x8a23a460994fb8a5a55a978f58858e2f7b8aa4907f0a5157fb825e7a0e0ce570",
+    "tx_index": 90
+   },
+   "checks_sha256": "299607d42c01aae25f63bed5126feec8d955f9e3d1e4119a58cc68456952d4bc",
+   "content_sha256": "4e721ad0876703f029ba94fe0b04e5db046a8f0b938e6a6e969fbaed8f5561f8",
+   "file": "real_msca_20261101/m026_anchored_8a23a460_envelope_reconstructed.json",
+   "network": "eip155:8453",
+   "ours": {
+    "extraction": "calldata",
+    "inclusion": true,
+    "payer_state": "proof"
+   },
+   "set": "real_msca_20261101",
+   "sha256": "c97aeaace890baf42d7488c899ecdaed63a17cd34439edbb8543dc31539b6ac6",
+   "verdict": "chain_verified"
   },
   {
    "bundle_version": "apc-0.3",
@@ -16552,6 +17488,42 @@
   {
    "bundle_version": "apc-0.3",
    "chain": {
+    "anchor": {
+     "game": "0x68c0cebfda375a9c5ec5ef8e0ceed663cf876b35",
+     "l1_block_hash": "0x6e4d8bb54a650a38a950ccc2530a30314149ca5f316bc9f811f7834c10ce5895",
+     "l1_block_number": 26321847,
+     "l1_network": "eip155:1",
+     "root_index": 11
+    },
+    "block_hash": "0xf4a9df486e42ac02144e4116d030c53851c526f8eb1c189c8c7bca2b32f223cb",
+    "block_number": 52813306,
+    "log_index": 653,
+    "receipt_hash": "0xdaf1ec4e2793ae91fb4e0dfee4d326c7a46434067e8c418c2ae5291ee44b7eee",
+    "receipt_root_verified": true,
+    "state": {
+     "code_keccak": "d09e34b2e51f09092e73e3ba1d520a42972496bf2a3bfdb22bb50b9729a9fd66",
+     "implementation": "0x9c6e09bc32d1e012dcaa2623e66d2cc9860c1aed",
+     "owner_keccak": "59a79ccc0c1bad7960aba5b0fecb8a21403e2a48c1a1925d1f5c33c9f3d67be4"
+    },
+    "tx_hash": "0x22714b33e4bbcf9557ada1874aba8eaff1927503946006047dd7a22a91b7c376",
+    "tx_index": 110
+   },
+   "checks_sha256": "299607d42c01aae25f63bed5126feec8d955f9e3d1e4119a58cc68456952d4bc",
+   "content_sha256": "9a61ab592b8c29ce219a4944804300d2083abaf34b8643fee09f46ff1abad6d0",
+   "file": "real_msca_20261101/m027_anchored_22714b33_envelope_reconstructed.json",
+   "network": "eip155:8453",
+   "ours": {
+    "extraction": "calldata",
+    "inclusion": true,
+    "payer_state": "proof"
+   },
+   "set": "real_msca_20261101",
+   "sha256": "e113d043d987a97191175134645b07b0bb7e1412be9d01cb1e5cdfcffb6614a2",
+   "verdict": "chain_verified"
+  },
+  {
+   "bundle_version": "apc-0.3",
+   "chain": {
     "block_hash": "0xf4a9df486e42ac02144e4116d030c53851c526f8eb1c189c8c7bca2b32f223cb",
     "block_number": 52813306,
     "log_index": 653,
@@ -16605,6 +17577,42 @@
    "set": "real_msca_20261101",
    "sha256": "25371bbe13363e2f551232b522b8c0a98fe40aa26b94c93c6fec8e66d2c855ba",
    "verdict": "chain_incomplete"
+  },
+  {
+   "bundle_version": "apc-0.3",
+   "chain": {
+    "anchor": {
+     "game": "0x3a46a62f36b4123a06e3fc80947cb4526e6a2295",
+     "l1_block_hash": "0x6e4d8bb54a650a38a950ccc2530a30314149ca5f316bc9f811f7834c10ce5895",
+     "l1_block_number": 26321847,
+     "l1_network": "eip155:1",
+     "root_index": 10
+    },
+    "block_hash": "0xf182ef0cb6ceef6bcc71a4a569decdc195e0ad05d0a385b97f5c47dad064ff14",
+    "block_number": 52899686,
+    "log_index": 414,
+    "receipt_hash": "0xa7eb9d85bd7f91868bb5632cd1ed67507e240335ea195ccb578f291c7ef8e13a",
+    "receipt_root_verified": true,
+    "state": {
+     "code_keccak": "d09e34b2e51f09092e73e3ba1d520a42972496bf2a3bfdb22bb50b9729a9fd66",
+     "implementation": "0x9c6e09bc32d1e012dcaa2623e66d2cc9860c1aed",
+     "owner_keccak": "59a79ccc0c1bad7960aba5b0fecb8a21403e2a48c1a1925d1f5c33c9f3d67be4"
+    },
+    "tx_hash": "0xe84608ed43048df313cad54b8c690bdce53a6338c94115117ad0d8b699eff885",
+    "tx_index": 122
+   },
+   "checks_sha256": "299607d42c01aae25f63bed5126feec8d955f9e3d1e4119a58cc68456952d4bc",
+   "content_sha256": "8ea9f88eb472190873e63b6323dc2678dc40c72c8cbb4dd7e8f1f85e5aba14a2",
+   "file": "real_msca_20261101/m028_anchored_e84608ed_envelope_reconstructed.json",
+   "network": "eip155:8453",
+   "ours": {
+    "extraction": "calldata",
+    "inclusion": true,
+    "payer_state": "proof"
+   },
+   "set": "real_msca_20261101",
+   "sha256": "3b6f8165576f639c5b4044964f216465a6375a328130c14fbd2724e0782fe304",
+   "verdict": "chain_verified"
   },
   {
    "bundle_version": "apc-0.3",
@@ -20522,7 +21530,7 @@
    "verdict": "chain_incomplete"
   }
  ],
- "format": "apc-corpus-0.2",
+ "format": "apc-corpus-0.3",
  "oracle": {
   "blocks_v03": {
    "files": [
@@ -20878,9 +21886,12 @@
     "apc-0.2",
     "apc-0.3"
    ],
-   "count": 56,
+   "count": 84,
    "dir": "bundles/real_msca_20261101",
    "params": {
+    "options": {
+     "l1_checkpoint": "0x6e4d8bb54a650a38a950ccc2530a30314149ca5f316bc9f811f7834c10ce5895"
+    },
     "token": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
     "token_name": "USD Coin",
     "token_version": "2"
@@ -21258,5 +22269,5 @@
   }
  },
  "verifier": "apc_verify 0.21.3",
- "written": "2026-11-02T07:16:05Z"
+ "written": "2026-11-02T08:57:34Z"
 }

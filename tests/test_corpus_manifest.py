@@ -6,16 +6,21 @@ the package loader (a module that raises SkipTest at import is reported skipped,
 With the local corpus (bundles/, oracle/): the digests of the list are those of our files; and the positive controls of
 the rebuild through a fake endpoint that serves the saved replies — the unaltered data rebuilds a bundle to the byte,
 and an altered block hash, transaction input, receipt log, XRPL metadata blob or Solana message byte is refused with its
-reason. No network."""
+reason; for the anchored bundles (33.10) an altered L2 header, L1 proof, L1 header, L1 reply, game code, another game or
+root index in the list. No network."""
 import base64
 import copy
 import glob
 import gzip
 import hashlib
+import io
 import json
 import os
+import subprocess
 import sys
+import tempfile
 import unittest
+import urllib.error
 from unittest import mock
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -134,6 +139,8 @@ class NoAddressInClear(unittest.TestCase):
         for e in MAN["bundles"]:
             st = e["chain"].get("state") or {}
             contracts.update(a.lower() for a in [st.get("implementation"), st.get("delegate")] if a)
+            if "anchor" in e["chain"]:                 # 33.10: the dispute game, the clone the factory deployed
+                contracts.add(e["chain"]["anchor"]["game"].lower())
         text = json.dumps({"sets": MAN["sets"], "bundles": [{k: v for k, v in e.items() if k != "ours"} for e in MAN["bundles"]]})
         found = {a.lower() for a in re.findall(r"0x[0-9a-fA-F]{40}(?![0-9a-fA-F])", text)}
         self.assertEqual(found - contracts, set())
@@ -199,13 +206,14 @@ class FakeRpc(rc.Rpc):
 
     def __init__(self, replies, alter=None):
         super().__init__({}, rate=1000)
-        self.replies, self.alter = replies, alter or (lambda m, p, r: r)
+        self.replies, self.alter, self.log = replies, alter or (lambda m, p, r: r), []
 
     def url(self, network):
         return "https://fake.invalid/"
 
     def call(self, network, method, params, xrpl=False):
         self.calls += 1
+        self.log.append((method, params))
         key = method if method in ("eth_getBlockReceipts", "ledger", "getTransaction") else (method, rc.canon(params))
         if key not in self.replies and method not in self.replies:
             raise rc.Rejected("rpc_error:fake.invalid:%s:the method %s does not exist/is not available" % (method, method))
@@ -217,6 +225,11 @@ class FakeRpc(rc.Rpc):
 def _gz(p):
     with gzip.open(p) as fh:
         return json.loads(fh.read())["result"]
+
+
+def _jload(p):
+    with open(p) as fh:
+        return json.load(fh)
 
 
 @unittest.skipUnless(real_corpus.has_set("real_v03") and real_corpus.has_oracle("blocks_v03"), "needs bundles/real_v03 and oracle/blocks_v03")
@@ -921,6 +934,12 @@ class ReviewOracleXrpl(unittest.TestCase):
         self.assertEqual(row["status"], "content", row)
         self.assertEqual(files, ["xrpl_20261026"])
 
+    def test_recipe_errors_are_its_row(self):      # review 2026-11-02 (33.11): the second oracle recipe, SHAPE_ERRORS too
+        for exc in (RecursionError("deep"), OverflowError("int too big to convert"), AttributeError("no attribute")):
+            with mock.patch.object(rc, "Ledger", side_effect=exc):
+                row, files = self._run()
+            self.assertEqual((row["status"], files), ("refused:reply_shape:%s:%s" % (type(exc).__name__, exc), []))
+
     def test_json_reply_member_not_written(self):
         def alter(m, p, r):
             if not p.get("binary"):
@@ -1056,12 +1075,682 @@ class ReviewDerivedOwner(unittest.TestCase):
         ListClosed._refused(self, d, "owner_keccak: not 64 lowercase hex")
 
 
-for _cls, _base in ((ReviewHostileEndpoint, EvmControls), (ReviewEachFingerprint, EvmControls), (OracleRebuild, EvmControls), (ReviewOracleBelowContent, OracleRebuild),
+@unittest.skipUnless(real_corpus.has_set("real_msca_20261101") and real_corpus.has_oracle("msca_20261101/raw")
+                     and real_corpus.has_oracle("msca_20261101/anchor"), "needs bundles/real_msca_20261101 and oracle/msca_20261101 (raw, anchor)")
+class AnchoredControls(unittest.TestCase):
+    """33.10: the anchored bundle m001 rebuilt from the saved L2 replies (oracle/msca_20261101/raw, /anchor) and the saved
+    L1 fetch (anchor/l1proof_*.json) through the fake endpoint: unaltered, to the byte and chain_verified at
+    finality_proven under the checkpoint; every alteration of a thing that is proven is refused with its reason."""
+    FILE = "real_msca_20261101/m001_anchored_0119601b_envelope_reconstructed.json"
+
+    @classmethod
+    def setUpClass(cls):
+        cls.e = entry(cls.FILE)
+        cls.s = MAN["sets"]["real_msca_20261101"]
+        with open(os.path.join(ROOT, "bundles", cls.FILE)) as fh:
+            cls.doc = json.load(fh)
+        cls.n = cls.e["chain"]["block_number"]
+        cls.a = cls.e["chain"]["anchor"]
+        cls.bh = hex(cls.a["l1_block_number"])
+        R = os.path.join(ROOT, "oracle", "msca_20261101", "raw")
+        A = os.path.join(ROOT, "oracle", "msca_20261101", "anchor")
+        cls.block = _gz(os.path.join(R, "%d_block.json.gz" % cls.n))
+        cls.receipts = _gz(os.path.join(R, "%d_receipts.json.gz" % cls.n))
+        cls.parent = _gz(os.path.join(R, "%d_header.json.gz" % (cls.n - 1)))
+        cls.l2_proofs, cls.l2_codes = {}, {}
+        for b in (cls.n - 1, cls.n):
+            for q in glob.glob(os.path.join(R, "%d_proof_0x*.json.gz" % b)):
+                cls.l2_proofs[(os.path.basename(q)[len("%d_proof_" % b):-len(".json.gz")], hex(b))] = _gz(q)
+        for q in glob.glob(os.path.join(R, "%d_code_0x*.json.gz" % cls.n)):
+            cls.l2_codes[(os.path.basename(q)[len("%d_code_" % cls.n):-len(".json.gz")], hex(cls.n))] = _gz(q)
+        cls.hdrs = {int(os.path.basename(q)[4:-8]): _gz(q) for q in glob.glob(os.path.join(A, "hdr_*.json.gz"))}
+        cls.l1 = {}
+        for q in glob.glob(os.path.join(A, "l1proof_*.json")):
+            with open(q) as fh:
+                d = json.load(fh)
+            cls.l1[d["game"]] = d
+        cls.games = sorted(cls.l1)
+
+    def rpc(self, alter=None):
+        tx = self.doc["chain_tx"]["tx"]
+        hdr = dict(self.block, transactions=[t["hash"] for t in self.block["transactions"]])
+        T = self
+
+        def logs(params):
+            f = params[0]
+            return [lg for r in T.receipts for lg in r["logs"]
+                    if lg["address"].lower() == f["address"].lower() and lg["topics"][0].lower() == f["topics"][0].lower()]
+
+        def by_number(params):
+            if params[1] is True:
+                return T.block
+            if params[0] == T.bh:                                     # L1: the checkpoint header
+                return T.l1[T.games[0]]["header"]
+            b = int(params[0], 16)
+            return {T.n: hdr, T.n - 1: T.parent}.get(b) or T.hdrs[b]   # KeyError: not saved (reply_shape in the driver)
+
+        def proof(params):
+            addr, slots, blk = params[0].lower(), params[1], params[2]
+            if blk == T.bh:
+                same = [pf for d in T.l1.values() for pf in d["proofs"].values() if pf["address"].lower() == addr]
+                exact = [pf for pf in same if [sp["key"] for sp in pf["storageProof"]] == slots]
+                if exact or same:        # other slots asked (an altered reply moved a key): the saved proof, as a node
+                    return (exact or same)[0]     # would answer with proofs of the slots asked, which are then not read
+                raise rc.Rejected("rpc_error:fake.invalid:eth_getProof:not saved")
+            return T.l2_proofs[(addr, blk)]
+
+        def code(params):
+            addr, blk = params[0].lower(), params[1]
+            if blk == T.bh:
+                for d in T.l1.values():
+                    for k, who in (("game", d["game"]), ("impl", d["impl"])):
+                        if who.lower() == addr:
+                            return d["codes"][k]
+                raise rc.Rejected("rpc_error:fake.invalid:eth_getCode:not saved")
+            return T.l2_codes[(addr, blk)]
+
+        def call(params):
+            to, data = params[0]["to"].lower(), params[0]["data"].lower()
+            for d in T.l1.values():
+                for c in d["calls"]:
+                    if c["to"].lower() == to and c["data"].lower() == data:
+                        return c["result"]
+            raise rc.Rejected("rpc_error:fake.invalid:eth_call:not saved")
+        rep = {"eth_getBlockByNumber": by_number, "eth_getBlockReceipts": self.receipts, "eth_getLogs": logs,
+               ("eth_getTransactionByHash", rc.canon([tx["hash"]])): tx, "eth_getProof": proof, "eth_getCode": code,
+               "eth_call": call}
+        return FakeRpc(rep, alter)
+
+    def build(self, rpc, e=None, blocks=None):
+        return rc.recipe_evm_eip3009(rpc, self.s, e or self.e, blocks or rc.Blocks())
+
+    def _refused(self, needle, alter=None, e=None):
+        with self.assertRaises(rc.Rejected) as cm:
+            self.build(self.rpc(alter), e)
+        self.assertIn(needle, str(cm.exception))
+        return str(cm.exception)
+
+    def test_unaltered_rebuilds_to_the_byte_and_verifies(self):
+        rpc = self.rpc()
+        doc = self.build(rpc)
+        data = rc.serialize(doc, self.s["serialization"])
+        self.assertEqual(hashlib.sha256(data).hexdigest(), self.e["sha256"])
+        self.assertEqual(rc.compare(self.e, self.s, data, doc), "bytes")
+        self.assertEqual(self.s["params"]["options"]["l1_checkpoint"], self.a["l1_block_hash"])
+        rep = __import__("apc_verify").verify_bundle(json.loads(data), l1_checkpoint=self.a["l1_block_hash"])
+        self.assertEqual((rep["verdict"], rep["evidence_level"], rep["checks"]["O4"], rep["checks"]["L1"], rep["canonical"], rep["l1_state"]),
+                         ("chain_verified", "finality_proven", "verified", "verified", "final", "proven"))
+        # without the checkpoint the same bytes are not finality_proven: the anchor is the reader's, not the file's
+        rep0 = __import__("apc_verify").verify_bundle(json.loads(data))
+        self.assertNotEqual(rep0["evidence_level"], "finality_proven")
+        # the L1 side is fetched once per (L1 block, game) and each L2 header once, across the 28 bundles (33.10)
+        blocks = rc.Blocks()
+        rpc = self.rpc()
+        self.build(rpc, blocks=blocks)
+        n1 = rpc.calls
+        twin = next(b for b in MAN["bundles"] if b["set"] == self.e["set"] and "anchor" in b["chain"]
+                    and b["chain"]["anchor"]["game"] == self.a["game"] and b["file"] != self.FILE)
+        with mock.patch.object(AnchoredControls, "block", _gz(os.path.join(ROOT, "oracle", "msca_20261101", "raw", "%d_block.json.gz" % twin["chain"]["block_number"]))), \
+                mock.patch.object(AnchoredControls, "receipts", _gz(os.path.join(ROOT, "oracle", "msca_20261101", "raw", "%d_receipts.json.gz" % twin["chain"]["block_number"]))), \
+                mock.patch.object(AnchoredControls, "parent", _gz(os.path.join(ROOT, "oracle", "msca_20261101", "raw", "%d_header.json.gz" % (twin["chain"]["block_number"] - 1)))), \
+                mock.patch.object(AnchoredControls, "n", twin["chain"]["block_number"]), \
+                mock.patch.object(AnchoredControls, "doc", _jload(os.path.join(ROOT, "bundles", twin["file"]))):
+            R = os.path.join(ROOT, "oracle", "msca_20261101", "raw")
+            for b in (self.n - 1, self.n):
+                for q in glob.glob(os.path.join(R, "%d_proof_0x*.json.gz" % b)):
+                    self.l2_proofs[(os.path.basename(q)[len("%d_proof_" % b):-len(".json.gz")], hex(b))] = _gz(q)
+            for q in glob.glob(os.path.join(R, "%d_code_0x*.json.gz" % self.n)):
+                self.l2_codes[(os.path.basename(q)[len("%d_code_" % self.n):-len(".json.gz")], hex(self.n))] = _gz(q)
+            rpc2 = self.rpc()
+            doc2 = self.build(rpc2, twin, blocks)
+        self.assertEqual(hashlib.sha256(rc.serialize(doc2, self.s["serialization"])).hexdigest(), twin["sha256"])
+        self.assertEqual(sum(1 for m, p in rpc2.log if self.bh in (p[0], p[-1])), 0)    # no L1 call the second time
+        self.assertLess(rpc2.calls, n1)
+
+    def test_l1_refusal_kept_for_the_other_bundles_of_the_game(self):
+        # the first bundle meets an endpoint that refuses the archive eth_call (measured 2026-11-02, 33.10): the refusal
+        # is kept per (L1 block, game) and the second bundle of the same game is refused without asking the L1 again
+        def alter(m, p, r):
+            if m == "eth_call" and p[1] == self.bh:
+                raise rc.Rejected("rpc_error:fake.invalid:eth_call:archive requests need a token")
+            return r
+        rpc, blocks = self.rpc(alter), rc.Blocks()
+        with self.assertRaises(rc.Rejected) as cm:
+            self.build(rpc, blocks=blocks)
+        self.assertIn("archive requests need a token", str(cm.exception))
+        l1_calls = lambda: sum(1 for m, p in rpc.log if self.bh in (p[0], p[-1]))     # noqa: E731
+        n1 = l1_calls()
+        self.assertEqual(n1, 2)                                   # the L1 header, then the first eth_call
+        twin = copy.deepcopy(self.e)                              # the same payment named as another entry of the game
+        twin["file"] = twin["file"].replace("m001", "m0xx")
+        with self.assertRaises(rc.Rejected) as cm:
+            self.build(rpc, twin, blocks)
+        self.assertIn("archive requests need a token", str(cm.exception))
+        self.assertEqual(l1_calls(), n1)
+        # a fresh Blocks asks again (the refusal is of one run, not of the list)
+        with self.assertRaises(rc.Rejected):
+            self.build(self.rpc(alter), blocks=rc.Blocks())
+
+    def test_altered_l2_header(self):
+        lo = self.n
+
+        def alter(m, p, r):
+            if m == "eth_getBlockByNumber" and p[1] is False and p[0] != self.bh and int(p[0], 16) > lo:
+                r["gasUsed"] = hex(int(r["gasUsed"], 16) + 1)
+            return r
+        self._refused("canonical_not_recomputed:O2:failed:header_hash_mismatch", alter)
+
+    def test_altered_l1_proof_node(self):
+        def alter(m, p, r):
+            if m == "eth_getProof" and p[2] == self.bh and p[0].lower() == self.a["game"]:
+                node = r["accountProof"][0]
+                r["accountProof"][0] = node[:-2] + ("00" if node[-2:] != "00" else "01")
+            return r
+        self._refused("l1_state_not_recomputed", alter)
+
+    def test_another_game_in_the_list(self):
+        e = copy.deepcopy(self.e)
+        e["chain"]["anchor"]["game"] = next(g for g in self.games if g != self.a["game"])
+        self._refused("block_not_in_game_range", e=e)
+
+    def test_l1_header_altered_by_the_endpoint_or_in_the_list(self):
+        def alter(m, p, r):
+            if m == "eth_getBlockByNumber" and p[0] == self.bh:
+                r["gasUsed"] = hex(int(r["gasUsed"], 16) + 1)
+            return r
+        self.assertNotIn("stated", self._refused("header_hash_mismatch", alter))
+        e = copy.deepcopy(self.e)
+        e["chain"]["anchor"]["l1_block_hash"] = "0x" + "22" * 32
+        self._refused("header_hash_mismatch:stated", e=e)
+
+    def test_altered_l1_reply(self):
+        def alter(m, p, r):
+            if m == "eth_call" and p[0]["data"].lower() == "0xbcef3b55":          # rootClaim(): one bit flipped
+                return "0x" + "%064x" % (int(r, 16) ^ 1)
+            return r
+        # the fetch derives the factory's slot from the game's uuid (gameType, rootClaim, extraData): an altered rootClaim
+        # asks the factory for another slot, and the replies recomputed from the real game's code do not find theirs
+        self._refused("l1_state_not_recomputed:storage_proof_missing", alter)
+        # a reply that feeds no key of the fetch, altered: the L1 check of the verifier finds it not proven by the proofs
+        self._refused("canonical_not_recomputed:L1:failed:l1_reply_not_proven:isGameClaimValid",
+                      lambda m, p, r: "0x" + "%064x" % 0 if m == "eth_call" and p[0]["data"].lower().startswith("0x6c4f4467") else r)
+        # a status outside GameStatus is a grammar refusal of the verifier, before L1
+        self._refused("canonical_refused:canonical.l1_replies: status 3 is not a GameStatus",
+                      lambda m, p, r: "0x" + "%064x" % 3 if m == "eth_call" and p[0]["data"].lower() == "0x200d2ed2" else r)
+
+    def test_altered_root_index_and_game_code(self):
+        e = copy.deepcopy(self.e)
+        e["chain"]["anchor"]["root_index"] += 1
+        self._refused("root_index_not_the_first_root_at_or_after_the_block:%d" % self.a["root_index"], e=e)
+
+        def alter(m, p, r):
+            if m == "eth_getCode" and p[1] == self.bh and p[0].lower() == self.a["game"]:
+                return r[:-2] + ("00" if r[-2:] != "00" else "01")
+            return r
+        self._refused("l1_state_not_recomputed", alter)
+
+    def game_facts(self):
+        # start, l2SequenceNumber, roots from the saved replies of the pinned game, as the tool reads them
+        d = self.l1[self.a["game"]]
+        ed = bytes.fromhex(d["calls"][2]["result"][2:])
+        return {"start": int(d["calls"][3]["result"], 16), "seq": int.from_bytes(ed[64:96], "big"),
+                "roots": (int.from_bytes(ed[32:64], "big") - 52) // 32}
+
+    def test_top_l2_header_altered_with_its_hash_recomputed(self):
+        # 33.10, what anchors what: the top header m is held only by O3 (its output root is the game's root, proven from
+        # L1 state); no parent link reaches it. An endpoint that serves another header m, hashing to the `hash` it states,
+        # passes O2 (every header hashes to its hash, the links hold from m down) and is refused at O3
+        import anchor_msca
+        import apc_block as ab
+        i, m, _k = anchor_msca.place(self.game_facts(), self.n)
+        self.assertEqual(i, self.a["root_index"])
+        self.assertLessEqual(m - self.n, rc.MAX_CANONICAL_HEADERS)
+
+        def alter(meth, p, r):
+            if meth == "eth_getBlockByNumber" and p[1] is False and p[0] == hex(m):
+                r["stateRoot"] = "0x" + "%064x" % (int(r["stateRoot"], 16) ^ 1)
+                r["hash"] = ab.header_hash({k: v for k, v in r.items() if k in rc.HEADER_KEYS})
+            return r
+        self._refused("canonical_not_recomputed:O3:failed:output_root_not_the_game_root", alter)
+        # the same alteration without the hash recomputed is O2, before O3
+        self._refused("canonical_not_recomputed:O2:failed:header_hash_mismatch",
+                      lambda meth, p, r: dict(r, stateRoot="0x" + "%064x" % (int(r["stateRoot"], 16) ^ 1))
+                      if meth == "eth_getBlockByNumber" and p[1] is False and p[0] == hex(m) else r)
+
+    def test_root_block_too_far(self):
+        # an endpoint that states a smaller startingBlockNumber widens the root spacing: the root's block m moves above
+        # the 64 headers section 6 allows, and the rebuild is refused before any header is asked (startingBlockNumber
+        # feeds no key of the fetch, so the L1 side is built; the root index is the one that spacing gives)
+        import anchor_msca
+        f = self.game_facts()
+        span = f["seq"] - f["start"]
+        for mult in range(2, 40):
+            g = dict(f, start=f["start"] - span * mult)
+            i, m, _k = anchor_msca.place(g, self.n)
+            if m - self.n > rc.MAX_CANONICAL_HEADERS:
+                break
+        else:
+            self.fail("no spacing found")
+        e = copy.deepcopy(self.e)
+        e["chain"]["anchor"]["root_index"] = i
+
+        def alter(meth, p, r):
+            if meth == "eth_call" and p[1] == self.bh and p[0]["data"].lower() == self.l1[self.a["game"]]["calls"][3]["data"].lower():
+                return "0x%064x" % g["start"]
+            return r
+        rpc = self.rpc(alter)
+        with self.assertRaises(rc.Rejected) as cm:
+            self.build(rpc, e)
+        self.assertEqual(str(cm.exception), "root_block_too_far:%d" % (m - self.n))
+        self.assertEqual(sum(1 for mm, p in rpc.log if mm == "eth_getBlockByNumber" and p[1] is False and p[0] != self.bh
+                             and int(p[0], 16) > self.n), 0)                # no L2 header above n was asked
+
+    def test_block_outside_the_game_range(self):
+        # 33.10: the payment's block must sit in (startingBlockNumber, l2SequenceNumber]; an endpoint that states a
+        # startingBlockNumber at or above it is refused at the range, before the root is placed (M07 of the bench of
+        # 2026-11-02 lived: the guard was loosened to `start <= n` and no test asked). l2SequenceNumber is in extraData,
+        # a key of the fetch: altered, the proofs are not found first (test_altered_l1_reply)
+        data = self.l1[self.a["game"]]["calls"][3]["data"].lower()
+        for start in (self.n, self.n + 1):
+            rpc = self.rpc(lambda meth, p, r, s=start: "0x%064x" % s
+                           if meth == "eth_call" and p[1] == self.bh and p[0]["data"].lower() == data else r)
+            with self.assertRaises(rc.Rejected) as cm:
+                self.build(rpc)
+            self.assertEqual(str(cm.exception), "block_not_in_game_range")
+            self.assertEqual(sum(1 for mm, p in rpc.log if mm == "eth_getBlockByNumber" and p[1] is False and p[0] != self.bh
+                                 and int(p[0], 16) > self.n), 0)
+
+    def test_l2_headers_fetched_once_across_the_bundles_of_a_root(self):
+        # 33.10: each L2 header once per run. m002 sits under the same root as m001 (root_index 10, both): after m001 the
+        # headers m..n+1 of m002 are all in the cache, and its build asks the L2 for no header above its block
+        twin = next(b for b in MAN["bundles"] if b["set"] == self.e["set"] and "anchor" in b["chain"]
+                    and b["chain"]["anchor"] == self.a and b["file"] != self.FILE)
+        self.assertGreater(twin["chain"]["block_number"], self.n)
+        blocks = rc.Blocks()
+        self.build(self.rpc(), blocks=blocks)
+        n2 = twin["chain"]["block_number"]
+        R = os.path.join(ROOT, "oracle", "msca_20261101", "raw")
+        with mock.patch.object(AnchoredControls, "block", _gz(os.path.join(R, "%d_block.json.gz" % n2))), \
+                mock.patch.object(AnchoredControls, "receipts", _gz(os.path.join(R, "%d_receipts.json.gz" % n2))), \
+                mock.patch.object(AnchoredControls, "parent", _gz(os.path.join(R, "%d_header.json.gz" % (n2 - 1)))), \
+                mock.patch.object(AnchoredControls, "n", n2), \
+                mock.patch.object(AnchoredControls, "doc", _jload(os.path.join(ROOT, "bundles", twin["file"]))):
+            for b in (n2 - 1, n2):
+                for q in glob.glob(os.path.join(R, "%d_proof_0x*.json.gz" % b)):
+                    self.l2_proofs[(os.path.basename(q)[len("%d_proof_" % b):-len(".json.gz")], hex(b))] = _gz(q)
+            for q in glob.glob(os.path.join(R, "%d_code_0x*.json.gz" % n2)):
+                self.l2_codes[(os.path.basename(q)[len("%d_code_" % n2):-len(".json.gz")], hex(n2))] = _gz(q)
+            rpc2 = self.rpc()
+            doc2 = self.build(rpc2, twin, blocks)
+        self.assertEqual(hashlib.sha256(rc.serialize(doc2, self.s["serialization"])).hexdigest(), twin["sha256"])
+        asked = [int(p[0], 16) for mm, p in rpc2.log if mm == "eth_getBlockByNumber" and p[1] is False and p[0] != self.bh]
+        self.assertEqual([b for b in asked if b > n2], [])                   # the headers above n2: all from the cache
+        self.assertIn(n2 - 1, asked)                                          # the parent header of its own block: asked
+
+    def test_l1_side_per_game_across_games(self):
+        # review 2026-11-02: the L1 cache is per (L1 block, game); a bundle of ANOTHER game in the same run must fetch its
+        # own L1 side (a cache keyed by the block alone hands it the first game's replies: refused, 19 of the 28 lost)
+        blocks = rc.Blocks()
+        self.build(self.rpc(), blocks=blocks)
+        other = next(b for b in MAN["bundles"] if b["set"] == self.e["set"] and "anchor" in b["chain"]
+                     and b["chain"]["anchor"]["game"] != self.a["game"])
+        R = os.path.join(ROOT, "oracle", "msca_20261101", "raw")
+        on = other["chain"]["block_number"]
+        with mock.patch.object(AnchoredControls, "block", _gz(os.path.join(R, "%d_block.json.gz" % on))), \
+                mock.patch.object(AnchoredControls, "receipts", _gz(os.path.join(R, "%d_receipts.json.gz" % on))), \
+                mock.patch.object(AnchoredControls, "parent", _gz(os.path.join(R, "%d_header.json.gz" % (on - 1)))), \
+                mock.patch.object(AnchoredControls, "n", on), \
+                mock.patch.object(AnchoredControls, "doc", _jload(os.path.join(ROOT, "bundles", other["file"]))):
+            for b in (on - 1, on):
+                for q in glob.glob(os.path.join(R, "%d_proof_0x*.json.gz" % b)):
+                    self.l2_proofs[(os.path.basename(q)[len("%d_proof_" % b):-len(".json.gz")], hex(b))] = _gz(q)
+            for q in glob.glob(os.path.join(R, "%d_code_0x*.json.gz" % on)):
+                self.l2_codes[(os.path.basename(q)[len("%d_code_" % on):-len(".json.gz")], hex(on))] = _gz(q)
+            rpc2 = self.rpc()
+            doc2 = self.build(rpc2, other, blocks)
+        self.assertEqual(hashlib.sha256(rc.serialize(doc2, self.s["serialization"])).hexdigest(), other["sha256"])
+        self.assertGreater(sum(1 for m, p in rpc2.log if m == "eth_getProof" and p[-1] == self.bh), 0)
+
+    def test_reply_beyond_32_bytes_is_refused_not_a_crash(self):
+        # review 2026-11-02: an eth_call word of 33 bytes made fetch_l1proof.word / int.to_bytes raise OverflowError, which
+        # rebuild() did not catch: the run ended with a traceback, no report, the other bundles never asked
+        man = {"sets": MAN["sets"], "bundles": [self.e]}
+        with tempfile.TemporaryDirectory() as out:                  # control: unaltered, written, the report says how
+            rep = rc.rebuild(man, self.rpc(), out, log=lambda *a: None)
+            self.assertEqual([(r["status"], r["written"], r["anchors"]["canonical"]) for r in rep["results"]],
+                             [("bytes", True, "recomputed")])
+            self.assertEqual(rep["summary"]["anchors"]["canonical_recomputed"], 1)
+        for data in ("0xbbdc02db", "0xbcef3b55"):                   # gameType, rootClaim
+            alter = (lambda d: lambda m, p, r: "0x01" + "00" * 32 if m == "eth_call" and p[0]["data"].lower() == d else r)(data)
+            with tempfile.TemporaryDirectory() as out:
+                rep = rc.rebuild(man, self.rpc(alter), out, log=lambda *a: None)
+                self.assertEqual([r["status"].split(":")[:3] for r in rep["results"]], [["refused", "reply_shape", "OverflowError"]])
+                self.assertEqual([r.get("written", False) for r in rep["results"]], [False])
+                self.assertEqual(os.listdir(out), [])
+
+    def test_anchor_grammar_closed(self):
+        def with_anchor(fn):
+            d = copy.deepcopy(MAN)
+            fn(next(b for b in d["bundles"] if b["file"] == self.FILE))
+            return d
+        ListClosed._refused(self, with_anchor(lambda b: b["chain"]["anchor"].__setitem__("owner", "0x" + "11" * 20)), "chain.anchor.owner: unknown member")
+        ListClosed._refused(self, with_anchor(lambda b: b["chain"]["anchor"].__setitem__("game", self.a["game"].upper())), "chain.anchor: l1_block_hash or game")
+        ListClosed._refused(self, with_anchor(lambda b: b["chain"]["anchor"].__setitem__("l1_network", "eip155:10")), "canonical rules are for")
+        ListClosed._refused(self, with_anchor(lambda b: b.__setitem__("network", "eip155:1")), "canonical rules are for")
+        ListClosed._refused(self, with_anchor(lambda b: b["chain"]["anchor"].__setitem__("root_index", True)), "chain.anchor.root_index: wrong type")
+        ListClosed._refused(self, with_anchor(lambda b: b["chain"]["anchor"].__setitem__("root_index", -1)), "negative l1_block_number or root_index")
+        ListClosed._refused(self, with_anchor(lambda b: b["chain"]["anchor"].pop("game")), "chain.anchor.game: missing")
+        ListClosed._refused(self, with_anchor(lambda b: b["ours"].pop("inclusion")), "canonical needs an apc-0.3 entry with inclusion")
+        # one checkpoint: the anchor's L1 header hash is the set's params.options.l1_checkpoint (review 2026-11-02)
+        ListClosed._refused(self, with_anchor(lambda b: b["chain"]["anchor"].__setitem__("l1_block_hash", "0x" + "22" * 32)),
+                            "is not the set's params.options.l1_checkpoint")
+        d = copy.deepcopy(MAN)
+        d["sets"][self.e["set"]]["params"].pop("options")
+        ListClosed._refused(self, d, "is not the set's params.options.l1_checkpoint")
+        d = copy.deepcopy(MAN)
+        d["format"] = "apc-corpus-0.2"
+        ListClosed._refused(self, d, "'apc-corpus-0.2' is not 'apc-corpus-0.3'")
+        # an anchor on another recipe is an unknown member of its chain
+        d = copy.deepcopy(MAN)
+        b = next(x for x in d["bundles"] if x["set"] == "real_permit2")
+        b["chain"]["anchor"] = dict(self.a)
+        ListClosed._refused(self, d, "chain.anchor: unknown member")
+        # and the real list holds the 28, all under one checkpoint, each with its proof and rpc twins
+        anchored = [b for b in MAN["bundles"] if "anchor" in b["chain"]]
+        self.assertEqual(len(anchored), 28)
+        self.assertEqual({b["chain"]["anchor"]["l1_block_hash"] for b in anchored}, {self.a["l1_block_hash"]})
+        files = {b["file"] for b in MAN["bundles"]}
+        for b in anchored:
+            self.assertEqual((b["set"], b["bundle_version"], b["ours"]["payer_state"], b["ours"]["inclusion"], b["verdict"]),
+                             ("real_msca_20261101", "apc-0.3", "proof", True, "chain_verified"))
+            self.assertIn(b["file"].replace("_anchored_", "_proof_"), files)
+            self.assertIn(b["file"].replace("_anchored_", "_rpc_"), files)
+
+
+class NestedInputPublic(unittest.TestCase):
+    """33.11 (2026-11-02): a JSON document nested beyond the interpreter's limit — a reply, an HTTP error body, a file
+    read back from --out-oracle — is refused with where it came from. No saved block is needed: these run in the public
+    tree too. Before, json.loads raised RecursionError through rebuild(): a traceback, no report, the other bundles never
+    asked (positive control: NestedInputPublic and NestedInput on the tool of 82f5ec4 error in every test but the
+    fixture's own and the two unaltered ones)."""
+    NESTED = b"[" * 100000 + b"]" * 100000
+
+    @classmethod
+    def setUpClass(cls):
+        cls.e = entry(EvmControls.FILE)                          # the list's entry: the bundle itself is not read
+
+    def man(self):
+        return {"sets": MAN["sets"], "bundles": [self.e]}
+
+    def real_rpc(self, **kw):
+        return rc.Rpc({self.e["network"]: "http://127.0.0.1:9/"}, rate=1000, **kw)
+
+    def test_nested_parses_to_a_recursion_error_here(self):      # the fixture is what it says: RecursionError, not ValueError
+        with self.assertRaises(RecursionError):
+            json.loads(self.NESTED)
+
+    def test_reply_nested_beyond_the_limit_is_refused(self):
+        rpc = self.real_rpc()
+        rpc._post = lambda url, body: self.NESTED
+        with tempfile.TemporaryDirectory() as out:
+            rep = rc.rebuild(self.man(), rpc, out, log=lambda *a: None)
+            self.assertEqual([(r["status"], r.get("written", False)) for r in rep["results"]],
+                             [("refused:json_too_nested:rpc:127.0.0.1:eth_getBlockByNumber", False)])
+            self.assertEqual(os.listdir(out), [])
+        self.assertEqual((rep["summary"]["refused"], rep["summary"]["below_declared_level"]), (1, 1))
+
+    def test_http_error_body_nested_is_no_json_rpc_error(self):
+        def boom(req, timeout=None):
+            raise urllib.error.HTTPError(req.full_url, 400, "bad", {}, io.BytesIO(self.NESTED))
+        with mock.patch.object(rc.urllib.request, "urlopen", boom), mock.patch.object(rc.time, "sleep", lambda s: None):
+            with self.assertRaises(rc.Rejected) as cm:
+                self.real_rpc().call(self.e["network"], "eth_chainId", [])
+        self.assertEqual(str(cm.exception), "rpc_unreachable:127.0.0.1:HTTP 400")
+
+    def test_oracle_files_nested_are_not_ours(self):
+        with tempfile.TemporaryDirectory() as d:
+            gz = os.path.join(d, "x.json.gz")
+            with gzip.open(gz, "wb") as fh:
+                fh.write(self.NESTED)
+            self.assertIsNone(rc._existing_result(gz))
+            p = os.path.join(d, "ledgers.json")
+            with open(p, "wb") as fh:
+                fh.write(self.NESTED)
+            self.assertIs(rc._existing_xrpl_is_ours(p, {"items": [], "result_sha256": {}}), False)
+
+
+class ReplyShapePublic(unittest.TestCase):
+    """Review 2026-11-02 (runs in the public tree too): a reply that is JSON but not a JSON-RPC object (a list, a string,
+    a number, null), an error member that is a string or a list, a member of another type inside a recipe
+    (AttributeError) is the bundle's row, never a traceback. Before, `d.get` / `(error or {}).get` raised AttributeError
+    out of rebuild(): no report, the other bundles never asked (`{"error": "rate limited"}` after 155 s of retries)."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.e = entry(EvmControls.FILE)
+
+    def run_with(self, raw):
+        rpc = rc.Rpc({self.e["network"]: "http://127.0.0.1:9/"}, rate=1000)
+        rpc._post = lambda url, body: raw
+        with tempfile.TemporaryDirectory() as out, mock.patch.object(rc.time, "sleep", lambda s: None):
+            rep = rc.rebuild({"sets": MAN["sets"], "bundles": [self.e]}, rpc, out, log=lambda *a: None)
+            self.assertEqual(os.listdir(out), [])
+        return [r["status"] for r in rep["results"]]
+
+    def test_reply_not_an_object_is_refused(self):
+        for raw in (b"[]", b'[{"jsonrpc":"2.0","id":1,"result":"0x1"}]', b'"error"', b"5", b"null"):
+            self.assertEqual(self.run_with(raw), ["refused:rpc_not_object:127.0.0.1:eth_getBlockByNumber"], raw)
+
+    def test_error_member_not_an_object_is_refused_with_it(self):
+        for err, text in ((b'"boom"', "boom"), (b"[1]", "error_not_text:list"), (b"5", "error_not_text:int"),
+                          (b'{"message":{"a":1}}', "error_not_text:dict"), (b'{"code":1}', "null result")):
+            self.assertEqual(self.run_with(b'{"jsonrpc":"2.0","id":1,"error":' + err + b"}"),
+                             ["refused:rpc_error:127.0.0.1:eth_getBlockByNumber:" + text], err)
+
+    def test_xrpl_result_not_an_object_is_refused(self):
+        rpc = rc.Rpc({"xrpl:0": "http://127.0.0.1:9/"}, rate=1000)
+        for raw, text in ((b'{"result":[1]}', "no result"), (b'{"result":"x"}', "no result"),
+                          (b'{"result":{"status":"error","error":["x"]}}', "error_not_text:list")):
+            rpc._post = lambda url, body, raw=raw: raw
+            with self.assertRaises(rc.Rejected) as cm:
+                rpc.call("xrpl:0", "ledger", {}, xrpl=True)
+            self.assertEqual(str(cm.exception), "rpc_error:127.0.0.1:ledger:" + text)
+
+    def test_attribute_error_in_a_recipe_is_its_row(self):
+        recipe = self.e.get("recipe", MAN["sets"][self.e["set"]]["recipe"])
+
+        def boom(*a):
+            raise AttributeError("'list' object has no attribute 'lower'")
+        with mock.patch.dict(rc.RECIPE_FN, {recipe: boom}):
+            self.assertEqual(self.run_with(b"{}"), ["refused:reply_shape:AttributeError:'list' object has no attribute 'lower'"])
+
+    def test_object_reply_still_reaches_the_recipe(self):      # control: an object with a result is read, not refused here
+        self.assertEqual(self.run_with(b'{"jsonrpc":"2.0","id":1,"result":[]}'), ["refused:header_not_object"])
+
+
+class FetchL1proofProgram(unittest.TestCase):
+    """Review 2026-11-02 (runs in the public tree too): sources/l1proof_20261024/fetch_l1proof.py says "at most one
+    request per second" and "the output records the endpoint's scheme and host only"; before these tests, rpc() without
+    the wait and main() writing the whole URL passed every test."""
+
+    def run_code(self, body):
+        code = ("import io, json, os, sys, tempfile, urllib.error\n"
+                "sys.path[:0] = ['sources/l1proof_20261024']\n"
+                "import fetch_l1proof as FL\n" + body)
+        e = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}
+        r = subprocess.run([sys.executable, "-B", "-c", code], capture_output=True, cwd=ROOT, env=e, stdin=subprocess.DEVNULL)
+        self.assertEqual((r.returncode, r.stderr.decode("utf-8", "replace")[-400:]), (0, ""))
+
+    def test_paced_retries_included(self):
+        self.run_code(
+            "now, sent = [1000.0], []\n"
+            "FL.time.monotonic = lambda: now[0]\n"
+            "def sleep(s):\n    now[0] += s\n"
+            "FL.time.sleep = sleep\n"
+            "def urlopen(req, timeout=None):\n"
+            "    sent.append(now[0])\n"
+            "    if len(sent) == 2:\n        raise urllib.error.URLError('down')\n"
+            "    return io.BytesIO(b'{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":\"0x1\"}')\n"
+            "FL.urllib.request.urlopen = urlopen\n"
+            "for _ in range(3):\n    assert FL.rpc('http://127.0.0.1:9', 'eth_chainId', []) == '0x1'\n"
+            "gaps = [b - a for a, b in zip(sent, sent[1:])]\n"
+            "assert len(sent) == 4 and min(gaps) >= 1.0 and gaps[0] == 1.0, sent\n")
+
+    def test_output_records_scheme_and_host_only(self):
+        self.run_code(
+            "assert FL.where('https://u:pw@rpc.example:8545/v2/KEY?apikey=K#f') == 'https://rpc.example:8545'\n"
+            "assert FL.where('https://rpc.example/KEY') == 'https://rpc.example'\n"
+            "FL.fetch = lambda game, b, call: {'impl': 'i', 'sysconf': 's', 'impls': []}\n"
+            "out = os.path.join(tempfile.mkdtemp(), 'o.json')\n"
+            "sys.argv = ['fetch_l1proof.py', '0x' + '11' * 20, out, 'https://u:pw@rpc.example/v2/SECRETKEY?k=1', '100']\n"
+            "import contextlib\n"
+            "with contextlib.redirect_stdout(io.StringIO()):\n    FL.main()\n"
+            "raw = open(out).read()\n"
+            "assert json.loads(raw)['rpc'] == 'https://rpc.example' and 'SECRETKEY' not in raw and 'pw' not in raw, raw\n")
+
+
+class NestedInput(OracleRebuild):
+    """33.11 with the saved block and receipts of oracle/blocks_v03: the cached reply, the file under --out, an error
+    while a recipe processes, the oracle recipes; the same fixtures unaltered rebuild."""
+    NESTED = NestedInputPublic.NESTED
+    man, real_rpc = NestedInputPublic.man, NestedInputPublic.real_rpc
+
+    def test_cached_reply_nested_beyond_the_limit_is_refused(self):
+        first = self.rpc()
+        self.build(first)
+        m, p = first.log[0]
+        with tempfile.TemporaryDirectory() as cache, tempfile.TemporaryDirectory() as out:
+            key = hashlib.sha256(rc.canon([self.e["network"], m, p]).encode()).hexdigest()
+            with gzip.open(os.path.join(cache, key + ".json.gz"), "wb") as fh:
+                fh.write(self.NESTED)
+            rpc = self.real_rpc(cache=cache)
+            rpc._post = mock.Mock(side_effect=AssertionError("the cache answers first"))
+            rep = rc.rebuild(self.man(), rpc, out, log=lambda *a: None)
+            self.assertEqual([r["status"] for r in rep["results"]], ["refused:json_too_nested:cache:%s" % m])
+            self.assertEqual(os.listdir(out), [])
+            self.assertEqual(rpc._post.call_count, 0)
+
+    def test_file_under_out_nested_is_unreadable_not_a_crash(self):
+        with tempfile.TemporaryDirectory() as out:
+            p = os.path.join(out, self.e["file"])
+            os.makedirs(os.path.dirname(p))
+            with open(p, "wb") as fh:
+                fh.write(self.NESTED)
+            rep = rc.rebuild(self.man(), self.rpc(), out, log=lambda *a: None)
+            row = rep["results"][0]
+            self.assertEqual((row["status"], row["ok"], row["written"]), ("bytes", False, False))
+            self.assertIn("unreadable:RecursionError", row["note"])
+            with open(p, "rb") as fh:
+                self.assertEqual(fh.read(), self.NESTED)                   # not overwritten
+
+    def test_recursion_while_a_recipe_processes_is_its_row(self):
+        with tempfile.TemporaryDirectory() as out, \
+                mock.patch.object(rc, "serialize", side_effect=RecursionError("maximum recursion depth exceeded")):
+            rep = rc.rebuild(self.man(), self.rpc(), out, log=lambda *a: None)
+            self.assertEqual([r["status"] for r in rep["results"]],
+                             ["refused:reply_shape:RecursionError:maximum recursion depth exceeded"])
+            self.assertEqual(os.listdir(out), [])
+
+    def test_oracle_recipe_errors_are_its_row(self):
+        for exc in (RecursionError("deep"), OverflowError("int too big to convert")):
+            with tempfile.TemporaryDirectory() as out, mock.patch("inclusion.build", side_effect=exc):
+                rep = rc.rebuild_oracle(self._man(), self.rpc(), out, log=lambda *a: None)
+                self.assertEqual([r["status"] for r in rep["results"]],
+                                 ["refused:reply_shape:%s:%s" % (type(exc).__name__, exc)])
+                self.assertEqual(os.listdir(out), [])
+
+    def test_oracle_file_ours_is_read(self):                   # control of NestedInputPublic.test_oracle_files_nested_are_not_ours
+        n = self.e["chain"]["block_number"]
+        ours = os.path.join(ROOT, "oracle", "blocks_v03", "%d_block.json.gz" % n)
+        self.assertEqual(rc._existing_result(ours), MAN["oracle"]["blocks_v03"]["result_sha256"]["%d_block.json.gz" % n])
+
+    def test_unaltered_still_rebuilds(self):                     # the bound costs nothing on a reply within the limit
+        with tempfile.TemporaryDirectory() as out:
+            rep = rc.rebuild(self.man(), self.rpc(), out, log=lambda *a: None)
+            self.assertEqual([(r["status"], r["written"]) for r in rep["results"]], [("bytes", True)])
+            rep = rc.rebuild_oracle(self._man(), self.rpc(), out, log=lambda *a: None)
+            self.assertEqual([r["status"] for r in rep["results"]], ["content"])
+
+
+for _cls, _base in ((ReviewHostileEndpoint, EvmControls), (ReviewEachFingerprint, EvmControls), (OracleRebuild, EvmControls), (ReviewOracleBelowContent, OracleRebuild), (NestedInput, OracleRebuild),
                     (ReviewSvmReasons, SvmControls), (ReviewXrplReasons, XrplControls)):
     for _n in dir(_base):
         if _n.startswith("test_"):
             setattr(_cls, _n, None)          # the fixture is inherited, the base tests are not run twice
 del _cls, _base, _n                          # module globals that are TestCase classes would be collected again
+
+
+
+class RebuildImportsItsRecipes(unittest.TestCase):
+    """Review 2026-11-02 (runs in the public tree too): every module tools/rebuild_corpus.py imports inside a function
+    imports when the program runs with its own arguments. In the public tree of a3d0362, make_bundles_l1state (the anchored
+    bundles, 33.10) and make_bundles_svm (real_svm) ended the program at import (`the saved RPC replies are not in the
+    public tree`, exit 1, no report) as soon as a recipe reached them."""
+
+    def test_lazy_imports_with_the_programs_argv(self):
+        import ast
+        with open(os.path.join(ROOT, "tools", "rebuild_corpus.py"), encoding="utf-8") as fh:
+            tree = ast.parse(fh.read())
+        mods = sorted({a.name.split(".")[0] for f in ast.walk(tree) if isinstance(f, ast.FunctionDef)
+                       for n in ast.walk(f) if isinstance(n, ast.Import) for a in n.names}
+                      | {n.module.split(".")[0] for f in ast.walk(tree) if isinstance(f, ast.FunctionDef)
+                         for n in ast.walk(f) if isinstance(n, ast.ImportFrom) and n.module}
+                      | {n.args[0].value for n in ast.walk(tree) if isinstance(n, ast.Call)        # _tool_module("x")
+                         and getattr(n.func, "id", None) == "_tool_module" and n.args and isinstance(n.args[0], ast.Constant)})
+        self.assertIn("make_bundles_l1state", mods)
+        self.assertIn("make_bundles_svm", mods)
+        plain = {a.name.split(".")[0] for f in ast.walk(tree) if isinstance(f, ast.FunctionDef)
+                 for n in ast.walk(f) if isinstance(n, (ast.Import, ast.ImportFrom))
+                 for a in (n.names if isinstance(n, ast.Import) else [ast.alias(name=n.module or "")])}
+        self.assertFalse(plain & {"make_bundles_l1state", "make_bundles_svm"},           # review 2026-11-02: imported
+                         "read ROOT from argv at import: only through _tool_module")      # plain, ROOT = `--rpc` in sys.path
+        code = ("import importlib, sys\n"
+                "sys.argv = ['tools/rebuild_corpus.py', '--rpc', 'eip155:1=http://127.0.0.1:9', '--only', 'x']\n"
+                "sys.path[:0] = ['tools', 'sources/l1proof_20261024']\n"
+                "import rebuild_corpus\n"
+                "for m in %r:\n    importlib.import_module(m)\n" % mods)
+        e = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}
+        r = subprocess.run([sys.executable, "-B", "-c", code], capture_output=True, cwd=ROOT, env=e, stdin=subprocess.DEVNULL)
+        self.assertEqual((r.returncode, r.stderr.decode("utf-8", "replace")[-400:]), (0, ""))
+
+    def test_tool_modules_read_root_from_the_tool_not_from_argv(self):
+        # 2026-11-02: make_bundles_l1state and make_bundles_svm read ROOT from sys.argv[1] at import; imported by
+        # rebuild_corpus under its own arguments they read `--rpc` (a path that is not there). _tool_module imports them
+        # under the tool's ROOT, once; before, make_bundles_l1state was imported plain (ROOT `--rpc`, SRC under it)
+        code = ("import sys\n"
+                "sys.argv = ['tools/rebuild_corpus.py', '--rpc', 'eip155:1=http://127.0.0.1:9', '--only', 'x']\n"
+                "sys.path[:0] = ['tools', 'sources/l1proof_20261024']\n"
+                "import rebuild_corpus as rc\n"
+                "for name in ('make_bundles_l1state', 'make_bundles_svm'):\n"
+                "    m = rc._tool_module(name)\n"
+                "    assert m.ROOT == rc.ROOT and m.SRC.startswith(rc.ROOT + '/'), (name, m.ROOT, m.SRC)\n"
+                "    assert sys.argv[1] == '--rpc', sys.argv\n"
+                "    assert rc._tool_module(name) is m\n")
+        e = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}
+        r = subprocess.run([sys.executable, "-B", "-c", code], capture_output=True, cwd=ROOT, env=e, stdin=subprocess.DEVNULL)
+        self.assertEqual((r.returncode, r.stderr.decode("utf-8", "replace")[-400:]), (0, ""))
+
+    def test_anchor_msca_paces_only_when_run(self):
+        # review 2026-11-02: tools/anchor_msca.py says "at most one request per second"; the overrides moved from import
+        # time into main (throttle_all): import leaves the three fetch modules alone, main rewires all three, and the
+        # wrapper waits a second between two requests. Before this test, main without throttle_all() passed every test.
+        code = ("import io, sys, time, contextlib\n"
+                "sys.path[:0] = ['tools', 'sources/l1proof_20261024']\n"
+                "import canonical as C, fetch_l1proof as FL, make_bundles_msca as mb\n"
+                "before = (C.rpc, FL.rpc, mb.rpc)\n"
+                "import anchor_msca as A\n"
+                "assert (C.rpc, FL.rpc, mb.rpc) == before, 'rewired at import'\n"
+                "with contextlib.redirect_stderr(io.StringIO()):\n"
+                "    assert A.main(['anchor_msca.py']) == 64\n"
+                "assert (C.rpc, FL.rpc, mb.rpc) == (A.rpc, A.rpc, A.raw_rpc), 'not rewired by main'\n"
+                "t = []\n"
+                "A._raw_rpc = lambda u, m, p: t.append(time.monotonic()) or b'{}'\n"
+                "A.raw_rpc('http://127.0.0.1:9', 'eth_chainId', []); A.raw_rpc('http://127.0.0.1:9', 'eth_chainId', [])\n"
+                "assert t[1] - t[0] >= 0.99, t\n")
+        e = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}
+        r = subprocess.run([sys.executable, "-B", "-c", code], capture_output=True, cwd=ROOT, env=e, stdin=subprocess.DEVNULL)
+        self.assertEqual((r.returncode, r.stderr.decode("utf-8", "replace")[-400:]), (0, ""))
+
 
 if __name__ == "__main__":
     unittest.main()

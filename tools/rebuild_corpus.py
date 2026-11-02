@@ -9,6 +9,8 @@ tool asks the endpoint YOU name for the data, accepts a reply ONLY when those fi
 received (a block header that hashes to the pinned hash, a transaction whose RLP hashes to its id, a receipt inside
 that header's receiptsRoot, a ledger whose SHAMap root is the header's, a Solana message signed by its fee payer),
 and only then rebuilds the bundle as our tools built it. A reply that does not recompute is refused with the reason.
+For the anchored bundles (SPEC 33.10) the `canonical` member is fetched from the L1 endpoint too and accepted only when
+apc_verify recomputes it under the pinned L1 header hash (L1, O1-O3 verified).
 Where a fingerprint cannot be recomputed (a header layout our encoder does not know, on the networks the list names;
 a receipt set that does not recompute; the Solana execution record; the declared state replies) the list's own digest
 is the anchor and the report says so: the reader then gets OUR bytes, not consensus (SPEC 33.5). A bundle below its
@@ -32,6 +34,7 @@ import base64
 import copy
 import gzip
 import hashlib
+import importlib
 import json
 import os
 import re
@@ -44,13 +47,15 @@ import urllib.request
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 sys.path.insert(0, os.path.join(ROOT, "tools"))
+sys.path.insert(0, os.path.join(ROOT, "sources", "l1proof_20261024"))     # fetch_l1proof (SPEC 33.10)
 import apc_siglib  # noqa: E402
 apc_siglib.guard("tools/rebuild_corpus", __name__ == "__main__")  # SPEC 32.12 (f): without the signature library one line, exit 64, no traceback
 import apc_block as ab  # noqa: E402
+import apc_l1proof  # noqa: E402
 import apc_verify as av  # noqa: E402
 from apc_verify import keccak256  # noqa: E402
 
-FORMAT = "apc-corpus-0.2"
+FORMAT = "apc-corpus-0.3"           # 0.3: the `anchor` member of an evm_eip3009 entry (SPEC 33.10)
 MANIFEST = os.path.join(ROOT, "corpus", "MANIFEST.json")
 LEVELS = ("bytes", "content", "verdict", "local_only")
 RECIPES = ("evm_eip3009", "evm_authcap", "evm_permit2", "svm_exact", "xrpl_exact", "xlm_exact")
@@ -67,6 +72,30 @@ class ManifestRefusal(Exception):
 
 class Rejected(Exception):
     """A reply, or a bundle, refused: the reason names the fingerprint that did not recompute."""
+
+
+# a reply outside the shape a recipe reads (33.4, 33.8, 33.11): the recipe's row says so, the run goes on. One list for
+# the bundle recipes and the two oracle recipes; RecursionError is a document nested beyond the interpreter's limit that
+# passed the parse and a recipe wrapped deeper, ArithmeticError a reply word longer than 32 bytes, AttributeError a
+# member of another JSON type where a recipe reads an object or a string (2026-11-02)
+SHAPE_ERRORS = (KeyError, TypeError, ValueError, IndexError, AttributeError, ArithmeticError, RecursionError)
+
+
+def loads(raw, where):
+    """json.loads bounded (33.11): a document nested beyond the interpreter's recursion limit is refused with where it
+    came from (`rpc:<host>:<method>`, `cache:<method>`), never a traceback. ValueError (not JSON) is the caller's."""
+    try:
+        return json.loads(raw)
+    except RecursionError:
+        raise Rejected("json_too_nested:%s" % where)
+
+
+def _err_text(x, absent):
+    """The endpoint's error, as the row prints it: its text, or the JSON type it came as (an error member that is not an
+    object nor a string, or a message that is not a string, 33.11)."""
+    if x is None or x == "":
+        return absent
+    return x if isinstance(x, str) else "error_not_text:%s" % type(x).__name__
 
 
 _HEX32 = re.compile(r"^0x[0-9a-f]{64}\Z")
@@ -96,7 +125,7 @@ ENTRY_KEYS = {"file": str, "set": str, "network": str, "bundle_version": str, "r
 ENTRY_REQUIRED = ("file", "set", "network", "bundle_version", "chain", "sha256", "content_sha256", "verdict", "checks_sha256")
 CHAIN_KEYS = {
     "evm_eip3009": {"block_number": int, "block_hash": str, "tx_hash": str, "tx_index": int, "receipt_hash": (str, type(None)),
-                    "receipt_root_verified": bool, "log_index": (int, type(None)), "state": (dict, type(None))},
+                    "receipt_root_verified": bool, "log_index": (int, type(None)), "state": (dict, type(None)), "anchor": dict},
     "evm_authcap": {"block_number": int, "block_hash": str, "tx_hash": str, "tx_index": int, "receipt_hash": (str, type(None)),
                     "receipt_root_verified": bool},
     "evm_permit2": {"block_number": int, "block_hash": str, "tx_hash": str, "tx_index": int, "receipt_hash": (str, type(None)),
@@ -109,6 +138,11 @@ OURS_KEYS = {"form": str, "extraction": str, "inclusion": bool, "settlement": di
              "payer_state": str, "payer_code": str, "memo": str, "mandate": dict, "state_sha256": dict}
 # no address of a person in clear (33.2): the payer is derived from the log or the calldata, the owner pinned by keccak
 STATE_KEYS = {"code_keccak": str, "implementation": str, "owner_keccak": str, "slots": list, "delegate": str}
+# 33.10: the anchored bundles (32.10). Optional, only in an evm_eip3009 entry of Base mainnet with inclusion; the game is a
+# contract (the clone the factory deployed), the L1 header hash is the checkpoint the reader passes to the verifier
+ANCHOR_KEYS = {"l1_network": str, "l1_block_number": int, "l1_block_hash": str, "game": str, "root_index": int}
+ANCHOR_L1, ANCHOR_L2 = "eip155:1", "eip155:8453"
+MAX_CANONICAL_HEADERS = 64                   # SPEC section 6: canonical.headers holds at most 64 headers
 
 
 def _typed(obj, keys, required, where):
@@ -222,8 +256,22 @@ def load_manifest(path=MANIFEST):
         if recipe not in RECIPES:
             raise ManifestRefusal("%s.recipe: unknown %r" % (w, recipe))
         ck = CHAIN_KEYS[recipe]
-        _typed(e["chain"], ck, tuple(ck), w + ".chain")
+        _typed(e["chain"], ck, tuple(k for k in ck if k != "anchor"), w + ".chain")
         c = e["chain"]
+        if "anchor" in c:                                            # 33.10
+            an = c["anchor"]
+            _typed(an, ANCHOR_KEYS, tuple(ANCHOR_KEYS), w + ".chain.anchor")
+            if an["l1_network"] != ANCHOR_L1 or e["network"] != ANCHOR_L2:
+                raise ManifestRefusal("%s.chain.anchor: the canonical rules are for %s under %s" % (w, ANCHOR_L2, ANCHOR_L1))
+            if not _HEX32.match(an["l1_block_hash"]) or not _HEX20.match(an["game"]):
+                raise ManifestRefusal("%s.chain.anchor: l1_block_hash or game is not 0x + lowercase hex of its length" % w)
+            if an["l1_block_number"] < 0 or an["root_index"] < 0:
+                raise ManifestRefusal("%s.chain.anchor: negative l1_block_number or root_index" % w)
+            if e["bundle_version"] != "apc-0.3" or not e.get("ours", {}).get("inclusion"):
+                raise ManifestRefusal("%s.chain.anchor: canonical needs an apc-0.3 entry with inclusion (SPEC 0.3)" % w)
+            if an["l1_block_hash"] != doc["sets"].get(e["set"], {}).get("params", {}).get("options", {}).get("l1_checkpoint"):
+                raise ManifestRefusal("%s.chain.anchor: l1_block_hash is not the set's params.options.l1_checkpoint (one "
+                                      "checkpoint for the rebuild and the frozen verdict)" % w)
         if recipe.startswith("evm_"):
             if not _EVM_NET.match(e["network"]):
                 raise ManifestRefusal("%s.network: not eip155:<id>" % w)
@@ -329,8 +377,8 @@ class Rpc:
                     if isinstance(d, dict) and "error" in d:
                         self.calls += 1
                         return json.dumps(d).encode()
-                except ValueError:
-                    pass
+                except (ValueError, RecursionError):    # no JSON-RPC error body (not JSON, or nested beyond the limit,
+                    pass                                # 33.11): the HTTP status stands
                 if e.code not in (403, 429, 500, 502, 503, 504):     # public endpoints throttle with 403 too
                     break
             except (urllib.error.URLError, TimeoutError, OSError) as e:
@@ -345,15 +393,17 @@ class Rpc:
             p = os.path.join(self.cache, key + ".json.gz")
             if os.path.exists(p):
                 with gzip.open(p) as fh:
-                    return json.loads(fh.read())
+                    return loads(fh.read(), "cache:%s" % method)
         body = json.dumps({"method": method, "params": [params]} if xrpl
                           else {"jsonrpc": "2.0", "id": 1, "method": method, "params": params}).encode()
         for attempt in range(6):
             raw = self._post(url, body)
             try:
-                d = json.loads(raw)
+                d = loads(raw, "rpc:%s:%s" % (host_of(url), method))
             except ValueError:
                 raise Rejected("rpc_not_json:%s:%s" % (host_of(url), method))
+            if not isinstance(d, dict):                   # a JSON-RPC reply is an object (33.11)
+                raise Rejected("rpc_not_object:%s:%s" % (host_of(url), method))
             msg = ""
             if isinstance(d, dict):
                 err = d.get("error")
@@ -366,10 +416,11 @@ class Rpc:
         if xrpl:
             res = d.get("result")
             if not isinstance(res, dict) or res.get("status") != "success":
-                raise Rejected("rpc_error:%s:%s:%s" % (host_of(url), method, (res or {}).get("error") or "no result"))
+                raise Rejected("rpc_error:%s:%s:%s" % (host_of(url), method, _err_text(res.get("error") if isinstance(res, dict) else None, "no result")))
         else:
             if "error" in d or d.get("result") is None:
-                raise Rejected("rpc_error:%s:%s:%s" % (host_of(url), method, (d.get("error") or {}).get("message", "null result")))
+                er = d.get("error")
+                raise Rejected("rpc_error:%s:%s:%s" % (host_of(url), method, _err_text(er.get("message", "null result") if isinstance(er, dict) else er, "null result")))
             res = d["result"]
         if self.cache:
             os.makedirs(self.cache, exist_ok=True)
@@ -730,6 +781,8 @@ def recipe_evm_eip3009(rpc, s, e, blocks):
         bundle = dict(bundle)
         bundle["bundle_version"] = ver
         bundle["payer_state"] = payer_state(rpc, blk, c["state"], ours["payer_state"], frm)
+    if "anchor" in c:                                                    # the anchored twins (SPEC 33.10)
+        bundle["canonical"] = canonical_member(rpc, c, blk, bundle["inclusion"]["block_header"], blocks)
     bundle["bundle_version"] = ver
     return bundle
 
@@ -811,6 +864,67 @@ def payer_state(rpc, blk, state, form, payer):
                       "at_parent": ends["at_parent"], "at_block": ends["at_block"]}}
 
 
+def canonical_member(rpc, c, blk, inc_header, blocks):
+    """SPEC 33.10: the `canonical` member of an anchored bundle (32.10), built as tools/anchor_msca.py builds it — the L1
+    side as sources/l1proof_20261024/fetch_l1proof.fetch at the pinned L1 block for the pinned game, `l1_state` as
+    tools/make_bundles_l1state.l1_state, the L2 headers from the root's block down to the block after the payment's — and
+    accepted only through apc_verify.check_canonical with the pinned L1 header hash as the checkpoint: L1, O1, O2 and O3
+    verified, else refused with the check and its reason. Nothing here is declared data."""
+    import anchor_msca
+    import fetch_l1proof as FL
+    ML = _tool_module("make_bundles_l1state")
+    a, net, n = c["anchor"], blk.network, blk.number
+    key = (a["l1_network"], a["l1_block_hash"], a["game"])
+    if key not in blocks.l1:                              # once per (L1 block, game), whatever the number of bundles
+        try:
+            d = FL.fetch(a["game"], hex(a["l1_block_number"]), lambda m, p: rpc.call(a["l1_network"], m, p), pins=False)
+            check_header(d["header"], a["l1_block_hash"])     # the checkpoint: no declared layout here
+            try:
+                st = ML.l1_state(d)
+            except (ab.BlockRefusal, apc_l1proof.NotPinned) as e:
+                raise Rejected("l1_state_not_recomputed:%s" % e)
+            blocks.l1[key] = (d, st)
+        except Rejected as e:                             # kept: the other bundles of the game do not ask again
+            blocks.l1[key] = e                            # (measured 2026-11-02: 28 refusals for one endpoint answer)
+            raise
+    if isinstance(blocks.l1[key], Rejected):
+        raise blocks.l1[key]
+    d, st = blocks.l1[key]
+    replies = [{"method": "eth_call", "params": [{"to": x["to"], "data": x["data"]}, d["block"]], "result": x["result"]}
+               for x in d["calls"]]
+    try:                                                  # start, l2SequenceNumber, roots: as tools/anchor_msca.game_facts
+        ed = bytes.fromhex(d["calls"][2]["result"][2:])
+        f = {"start": int(d["calls"][3]["result"], 16), "seq": int.from_bytes(ed[64:96], "big"),
+             "roots": (int.from_bytes(ed[32:64], "big") - 52) // 32}
+        if not f["start"] < n <= f["seq"]:
+            raise Rejected("block_not_in_game_range")
+        i, m, _k = anchor_msca.place(f, n)
+    except (ValueError, ZeroDivisionError) as e:
+        raise Rejected("game_replies_not_readable:%s" % type(e).__name__)
+    if i != a["root_index"]:
+        raise Rejected("root_index_not_the_first_root_at_or_after_the_block:%d" % i)
+    if m - n > MAX_CANONICAL_HEADERS:
+        raise Rejected("root_block_too_far:%d" % (m - n))
+    headers = []
+    for b in range(m, n, -1):
+        if (net, b) not in blocks.headers:
+            h = rpc.call(net, "eth_getBlockByNumber", [hex(b), False])
+            if not isinstance(h, dict):
+                raise Rejected("header_not_object")
+            blocks.headers[(net, b)] = {k: h[k] for k in HEADER_KEYS if k in h}
+        headers.append(blocks.headers[(net, b)])
+    can = {"l1_network": a["l1_network"], "game": a["game"], "root_index": a["root_index"], "l1_replies": replies,
+           "headers": headers, "l1_state": st}
+    try:
+        checks, _notes = av.check_canonical(json.loads(json.dumps(can)), json.loads(json.dumps(inc_header)), net, a["l1_block_hash"])
+    except av.Refusal as e:
+        raise Rejected("canonical_refused:%s" % e)
+    for k in ("L1", "O1", "O2", "O3"):
+        if checks[k] != "verified":
+            raise Rejected("canonical_not_recomputed:%s:%s" % (k, checks[k]))
+    return can
+
+
 def recipe_evm_authcap(rpc, s, e, blocks):
     """apc-0.15 bundles of commerce-payments authorizations (tools/make_bundles_authcap.py), provenance of THIS fetch."""
     import make_bundles_authcap as mk
@@ -875,13 +989,14 @@ def recipe_evm_permit2(rpc, s, e, blocks):
     return b
 
 
-def _svm_module():
-    argv, sys.argv = sys.argv, [sys.argv[0], ROOT]          # make_bundles_svm reads ROOT from argv at import
+def _tool_module(name):
+    """tools/make_bundles_svm.py and tools/make_bundles_l1state.py read ROOT from sys.argv[1] at import (their own
+    programs); imported here with this program's argv they would read `--rpc`. Imported once, under the right ROOT."""
+    argv, sys.argv = sys.argv, [sys.argv[0], ROOT]
     try:
-        import make_bundles_svm as m
+        return importlib.import_module(name)
     finally:
         sys.argv = argv
-    return m
 
 
 def recipe_svm_exact(rpc, s, e, blocks):
@@ -889,7 +1004,7 @@ def recipe_svm_exact(rpc, s, e, blocks):
     message must verify and be the pinned id (consensus); slot, blockTime and the reduced meta are the endpoint's
     execution record, accepted only if their sha256 is the one the list recorded (declared data, 33.5)."""
     import apc_solana as sol
-    m = _svm_module()
+    m = _tool_module("make_bundles_svm")
     c, ours = e["chain"], e.get("ours", {})
     r = rpc.call(e["network"], "getTransaction", [c["signature"], {"encoding": "base64", "maxSupportedTransactionVersion": 0}])
     if not isinstance(r, dict) or not isinstance(r.get("transaction"), list) or not isinstance(r.get("meta"), dict):
@@ -979,6 +1094,7 @@ RECIPE_FN = {"evm_eip3009": recipe_evm_eip3009, "evm_authcap": recipe_evm_authca
 class Blocks:
     def __init__(self):
         self.d = {}
+        self.l1, self.headers = {}, {}             # 33.10: the L1 fetch per (L1 block, game), the L2 headers per block
 
     def get(self, rpc, net, number, block_hash):
         k = (net, block_hash)
@@ -1045,6 +1161,8 @@ def rebuild(man, rpc, out, only=None, sample=None, force=False, log=print):
                     blk = blocks.d.get((e["network"], e["chain"]["block_hash"]))
                     row["anchors"] = {"header": "declared" if any(n.startswith("header_declared") for n in blk.notes) else "recomputed",
                                       "receipt": "receiptsRoot" if blk.receipts_root_verified else "receipt_hash"}
+                    if "anchor" in e["chain"]:
+                        row["anchors"]["canonical"] = "recomputed"          # L1, O1-O3 under the pinned checkpoint (33.10)
                     if blk.notes:
                         row["notes"] = sorted(set(blk.notes))
                 path = os.path.join(out, e["file"])
@@ -1056,7 +1174,7 @@ def rebuild(man, rpc, out, only=None, sample=None, force=False, log=print):
                         old = fh.read()
                     try:
                         old_level = compare(e, s, old, json.loads(old))
-                    except (ValueError, KeyError, TypeError, av.Refusal) as ex:
+                    except (ValueError, KeyError, TypeError, RecursionError, av.Refusal) as ex:    # 33.11: nested too
                         old_level = "unreadable:%s" % type(ex).__name__
                     row["note"] = "exists, not overwritten (--force); the file there: %s" % old_level
                     if old_level not in LEVELS or LEVELS.index(old_level) > LEVELS.index(s["rebuild"]):
@@ -1068,7 +1186,7 @@ def rebuild(man, rpc, out, only=None, sample=None, force=False, log=print):
                     row["written"] = True
             except Rejected as ex:
                 row["status"], row["ok"] = "refused:%s" % ex, False
-            except (KeyError, TypeError, ValueError, IndexError) as ex:      # a reply outside the shape the recipe reads
+            except SHAPE_ERRORS as ex:                    # a reply outside the shape the recipe reads (33.11)
                 row["status"], row["ok"] = "refused:reply_shape:%s:%s" % (type(ex).__name__, ex), False
             report["results"].append(row)
             log("%s %s" % (row["status"], e["file"]))
@@ -1080,7 +1198,8 @@ def rebuild(man, rpc, out, only=None, sample=None, force=False, log=print):
     agg["anchors"] = {"header_recomputed": sum(1 for r in report["results"] if r.get("anchors", {}).get("header") == "recomputed"),
                       "header_declared": sum(1 for r in report["results"] if r.get("anchors", {}).get("header") == "declared"),
                       "receipt_in_receiptsRoot": sum(1 for r in report["results"] if r.get("anchors", {}).get("receipt") == "receiptsRoot"),
-                      "receipt_by_list_hash": sum(1 for r in report["results"] if r.get("anchors", {}).get("receipt") == "receipt_hash")}
+                      "receipt_by_list_hash": sum(1 for r in report["results"] if r.get("anchors", {}).get("receipt") == "receipt_hash"),
+                      "canonical_recomputed": sum(1 for r in report["results"] if r.get("anchors", {}).get("canonical") == "recomputed")}
     report["summary"] = agg
     report["rpc_calls"] = rpc.calls
     return report
@@ -1095,7 +1214,7 @@ def _existing_result(path):
     try:
         with gzip.open(path) as fh:
             return hashlib.sha256(canon(json.loads(fh.read())["result"]).encode()).hexdigest()
-    except (OSError, ValueError, KeyError, TypeError, EOFError):
+    except (OSError, ValueError, KeyError, TypeError, EOFError, RecursionError):      # 33.11: nested too deep = not ours
         return None
 
 
@@ -1113,7 +1232,7 @@ def _existing_xrpl_is_ours(path, o):
         return all(set(got.get(it["ledger_index"], {})) == {"binary", "json"} and
                    hashlib.sha256(canon(got[it["ledger_index"]]).encode()).hexdigest() == o["result_sha256"][str(it["ledger_index"])]
                    for it in o["items"])
-    except (OSError, ValueError, KeyError, TypeError, AttributeError):
+    except (OSError, ValueError, KeyError, TypeError, AttributeError, RecursionError):   # 33.11
         return False
 
 
@@ -1171,7 +1290,7 @@ def rebuild_oracle(man, rpc, out, only=None, force=False, log=print):
                                                               _gz_write(os.path.join(out, name, fname), _envelope(res), force)}
                 except Rejected as e:
                     row["status"] = "refused:%s" % e
-                except (KeyError, TypeError, ValueError, IndexError) as e:
+                except SHAPE_ERRORS as e:
                     row["status"] = "refused:reply_shape:%s:%s" % (type(e).__name__, e)
                 report["results"].append(row)
                 log("%s %s/%d" % (row["status"], name, it["number"]))
@@ -1211,7 +1330,7 @@ def rebuild_oracle(man, rpc, out, only=None, force=False, log=print):
                 row["ledgers"] = {"content": levels.count("content"), "anchored": levels.count("anchored")}
             except Rejected as e:
                 row["status"] = "refused:%s" % e
-            except (KeyError, TypeError, ValueError, IndexError) as e:
+            except SHAPE_ERRORS as e:
                 row["status"] = "refused:reply_shape:%s:%s" % (type(e).__name__, e)
             report["results"].append(row)
             log("%s %s/%s" % (row["status"], name, o["file"]))

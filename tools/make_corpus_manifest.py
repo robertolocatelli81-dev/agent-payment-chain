@@ -13,7 +13,7 @@ Per bundle: the chain facts that locate the payment and the consensus fingerprin
 (block hash, transaction hash and index, the receipt's keccak when a verified receipt is at hand; the Solana id, slot,
 fee payer and the sha256 of the execution record; the XRPL ledger hash and transaction id), what of OURS the recipe
 needs (the extraction path, the settlement reply quoted from a public issue, the mandate fixture, the accepted of a
-payment made for this work), the sha256 of the file, of its content without `provenance`, its frozen verdict and the
+payment made for this work; for an anchored bundle the `anchor` member, SPEC 33.10), the sha256 of the file, of its content without `provenance`, its frozen verdict and the
 sha256 of its checks. Per set: the recipe, the rebuild level (33.3) and its reason, the serialization that reproduces
 the bytes (found by re-serializing), the parameters of the reconstruction."""
 import glob
@@ -244,12 +244,19 @@ def entry_evm(name, rel, doc, params, tokens):
             impl = "0x" + ps["rpc"]["wallet"]["implementation"]["result"][-40:]
             owner = "0x%040x" % (int(ps["rpc"]["wallet"]["owner"]["result"], 16) >> 16)
         else:
-            # the proof form carries proofs, not values: read them from the rpc twin of the same payment
-            twin = json.load(open(os.path.join(B, name, os.path.basename(rel).replace("_proof_", "_rpc_"))))["payer_state"]["rpc"]
+            # the proof form (and its anchored twin, 33.10) carries proofs, not values: read them from the rpc twin
+            twin = json.load(open(os.path.join(B, name, os.path.basename(rel).replace("_proof_", "_rpc_").replace("_anchored_", "_rpc_"))))["payer_state"]["rpc"]
             impl = "0x" + twin["wallet"]["implementation"]["result"][-40:]
             owner = "0x%040x" % (int(twin["wallet"]["owner"]["result"], 16) >> 16)
         c["state"] = {"code_keccak": keccak256(bytes.fromhex(code[2:])).hex(), "implementation": impl,
                       "owner_keccak": rc._addr_keccak(owner)}          # no address of a person in clear (33.2)
+    if "l1_state" in doc.get("canonical", {}) and SETS[name][1] != "local_only":     # the anchored bundles (SPEC 33.10)
+        can = doc["canonical"]
+        hs = can["l1_state"]["headers"]
+        assert len(hs) == 1, (rel, "the anchor member describes one L1 header: the replies' block is the checkpoint")
+        assert hs[0]["hash"].lower() == regress.DIRS["bundles/" + name][2][1].lower(), (rel, "checkpoint is not regress.py's")
+        c["anchor"] = {"l1_network": can["l1_network"], "l1_block_number": int(hs[0]["number"], 16),
+                       "l1_block_hash": hs[0]["hash"].lower(), "game": can["game"].lower(), "root_index": can["root_index"]}
     return net, c, ours
 
 
@@ -379,13 +386,6 @@ def main(argv):
         d = os.path.join(B, name)
         paths = sorted(p for p in glob.glob(os.path.join(d, "**", "*.json"), recursive=True)
                        if os.path.basename(p) not in ("MANIFEST.json", "ANCHORED.json"))     # the manifests of a directory, as regress.corpus()
-        # the anchored twins of real_msca_20261101 (SPEC 32.10: `canonical` and `l1_state` beside the proof form) are not
-        # described by the recipes of 33.4 and tools/rebuild_corpus.py does not rebuild them: left out of the list, said
-        # here, open in SPEC 33.9 (2026-11-02). Until then the tool opened the twin's own file as its rpc twin and crashed.
-        anchored = [p for p in paths if "_anchored_" in os.path.basename(p)]
-        if anchored:
-            print("%s: %d anchored bundles left out of the list (SPEC 33.9)" % (name, len(anchored)), file=sys.stderr)
-            paths = [p for p in paths if p not in anchored]
         params = dict(params)
         tokens = {}
         sers, versions = set(), set()
@@ -430,8 +430,10 @@ def main(argv):
             params["recipes_by_prefix"] = {"evm": "evm_eip3009", "svm": "svm_exact", "xrp": "xrpl_exact"}
         if tokens:
             params["tokens"] = tokens
-        if name == "real_v04_l1state":
-            params["options"] = {"l1_checkpoint": regress.L1CP}
+        opts = regress.DIRS["bundles/" + name][2]           # the options the verdicts were frozen with (--l1-checkpoint)
+        if opts:
+            assert opts[0] == "--l1-checkpoint" and len(opts) == 2, (name, opts)
+            params["options"] = {"l1_checkpoint": opts[1]}
         assert len(sers) == 1, (name, sers)
         s = {"dir": "bundles/" + name, "recipe": recipe, "bundle_versions": sorted(versions), "real": regress.DIRS["bundles/" + name][0],
              "reconstructed": RECONSTRUCTED[recipe], "rebuild": level, "serialization": json.loads(sers.pop()), "params": params,

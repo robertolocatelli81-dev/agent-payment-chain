@@ -1,6 +1,6 @@
 # The real corpus, as a list (SPEC section 33)
 
-`MANIFEST.json` (format `apc-corpus-0.2`) lists every real payment the verifier was measured on: the chain, the
+`MANIFEST.json` (format `apc-corpus-0.3`, SPEC 33.10) lists every real payment the verifier was measured on: the chain, the
 transaction, the block or ledger, the consensus fingerprints (block hash, transaction hash and index, receipt digest,
 ledger hash, Solana id), what of the bundle is our reconstruction, and the sha256 of the file we built. It carries no
 address of a person in clear: payers and the Solana fee payer are derived from the chain, an MSCA owner is pinned by

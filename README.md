@@ -8,7 +8,7 @@ transactions, receipts, inclusion proofs, state proofs). The specification is `S
 `apc_verify.py` (0.21.3) with its modules `apc_*.py`; the tools that built and measured it are in `tools/`; the tests in
 `tests/`. Code identifiers and docstrings are in English.
 
-This tree is built from commit df2c536 of the author's working tree by a publication tool; the earlier history is
+This tree is built from commit 3095ea5 of the author's working tree by a publication tool; the earlier history is
 not carried over. `SPEC.md` is the author's working document: a measure stated "on this tree" means the author's
 working tree at the date given, with the real corpus, not this public tree; sections marked "local" were written before
 publication.
@@ -73,7 +73,7 @@ list in `sources/`, `sources/labels_ours.json`, and one Stellar testnet signer o
 `owner-D`, `feepayer-S4`...; the same label always stands for the same account) and the tests use addresses derived
 from the author's deterministic test keys. The limit of this pseudonymisation is stated plainly: the transaction
 identifiers stay in `corpus/MANIFEST.json` and in the text, and on a public chain a transaction identifier leads to the
-accounts that took part in it. `corpus/MANIFEST.json` (format apc-corpus-0.2) names no account: payers and fee payers
+accounts that took part in it. `corpus/MANIFEST.json` (format apc-corpus-0.3) names no account: payers and fee payers
 are derived from the chain data the rebuild fetches, an MSCA owner is pinned by its keccak256 (SPEC 33.2); the
 addresses of contracts stay. No person's name, e-mail or other enrichment is attached to any account address in the
 author's files; the third-party lists in `sources/` name the operator (a service) of each facilitator key, as

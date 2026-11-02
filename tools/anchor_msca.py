@@ -52,9 +52,14 @@ def rpc(url, method, params):
     return json.loads(raw_rpc(url, method, params))["result"]
 
 
-mb.rpc = raw_rpc          # make_bundles_msca.fetch_one (the L2 headers) goes through the same throttle
-C.rpc = rpc
-FL.rpc = rpc
+
+def throttle_all():
+    """Every fetch of this run through raw_rpc: make_bundles_msca.fetch_one (the L2 headers), canonical, fetch_l1proof.
+    Called by main, not at import (2026-11-02): tools/rebuild_corpus.py imports this module for `place` and must not
+    have those three modules rewired under it."""
+    mb.rpc = raw_rpc
+    C.rpc = rpc
+    FL.rpc = rpc
 
 
 def where(url):
@@ -234,6 +239,7 @@ def build(raw, out_dir):
 
 
 def main(argv):
+    throttle_all()
     if len(argv) == 3 and argv[1] == "fetch" and os.environ.get("L1_RPC") and os.environ.get("BASE_RPC"):
         fetch(argv[2], os.environ["L1_RPC"], os.environ["BASE_RPC"])
     elif len(argv) == 4 and argv[1] == "build":
