@@ -40,6 +40,8 @@ DIRS = {
     "bundles/real": ("Base USDC EIP-3009 executions, head 52929129; envelope reconstructed", "bundles/real/README", []),
     "bundles/real_msca_20261101": ("Base USDC (v,r,s) executions of a Circle_SingleOwnerMSCA 1.0.0 payer, the 28 code_not_known payments of the 2026-10-22 census, each as apc-0.2 with payer_state.rpc, apc-0.3 with inclusion and payer_state.proof, and the same anchored (canonical and l1_state at L1 block 26321847, one checkpoint; SPEC 32.10); envelope reconstructed", "bundles/real_msca_20261101/MANIFEST.json and ANCHORED.json, SPEC §32 and §32.10",
                                    ["--l1-checkpoint", "0x6e4d8bb54a650a38a950ccc2530a30314149ca5f316bc9f811f7834c10ce5895"]),
+    "bundles/real_giskard_issue1": ("Base tx of agent-payment-chain issue 1 (giskard09), anchored (canonical and l1_state at L1 block 26329354, one checkpoint; SPEC 33.13); envelope and reply reconstructed", "bundles/real_giskard_issue1/README",
+                                    ["--l1-checkpoint", "0x7717e1e2a07cd03552c896eaa5a325cc8379d9b607f10a9a3ce75976a4662c5c"]),
     "bundles/real_issue1062": ("Base tx of x402 issue 1062; reply from the issue, envelope reconstructed", "bundles/real_issue1062/README", []),
     "bundles/real_negatives_20261026": ("chain-reverted EIP-3009 calls and failed Solana settlements; envelope and reply reconstructed", "oracle/negatives_20261026/README", []),
     "bundles/real_permit2": ("Base x402ExactPermit2Proxy settlements; envelope reconstructed", "bundles/real_permit2/README", []),

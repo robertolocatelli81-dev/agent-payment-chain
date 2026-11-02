@@ -2481,6 +2481,37 @@
    "verdict": "chain_verified"
   },
   {
+   "bundle_version": "apc-0.3",
+   "chain": {
+    "anchor": {
+     "game": "0x7b534dcc72a310837667ab1d66453baddb61ae0a",
+     "l1_block_hash": "0x7717e1e2a07cd03552c896eaa5a325cc8379d9b607f10a9a3ce75976a4662c5c",
+     "l1_block_number": 26329354,
+     "l1_network": "eip155:1",
+     "root_index": 10
+    },
+    "block_hash": "0x01d8505b68e1f10785279bf53ee59191c1ae6263a2838ee0ca5eb712a7f68061",
+    "block_number": 53154089,
+    "log_index": 38,
+    "receipt_hash": "0xc90cb347165bb8f37c73a4fb531ccd99417542fbf612133edc7c1e5321c6e789",
+    "receipt_root_verified": true,
+    "state": null,
+    "tx_hash": "0xc8599161b6a9a7ffaa66fde11f0ac2971a813148b071ca66da4b9a69d41c8425",
+    "tx_index": 8
+   },
+   "checks_sha256": "7b46a143ad06f7ec80d52ddb6992ad3bf2684d3c34af7b03519ce64c961217a1",
+   "content_sha256": "4028043119b9ff7c23ab15443260eb770bbd353d23a2af1b2a62d697562e88d4",
+   "file": "real_giskard_issue1/issue1_envelope_reconstructed.json",
+   "network": "eip155:8453",
+   "ours": {
+    "extraction": "calldata",
+    "inclusion": true
+   },
+   "set": "real_giskard_issue1",
+   "sha256": "fe05c1fc02b6e1e38bf0773252fd6b031b778867cbe016732a3d6d0240fd4677",
+   "verdict": "chain_verified"
+  },
+  {
    "bundle_version": "apc-0.1",
    "chain": {
     "block_hash": "0xb363c2ffd9766368ac90489db65cb0cbaf2d8eb45ad83911f8f96f7c3b0813a0",
@@ -21860,6 +21891,30 @@
     "sort_keys": false
    }
   },
+  "real_giskard_issue1": {
+   "bundle_versions": [
+    "apc-0.3"
+   ],
+   "count": 1,
+   "dir": "bundles/real_giskard_issue1",
+   "params": {
+    "options": {
+     "l1_checkpoint": "0x7717e1e2a07cd03552c896eaa5a325cc8379d9b607f10a9a3ce75976a4662c5c"
+    },
+    "token": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+    "token_name": "USD Coin",
+    "token_version": "2"
+   },
+   "real": "Base tx of agent-payment-chain issue 1 (giskard09), anchored (canonical and l1_state at L1 block 26329354, one checkpoint; SPEC 33.13); envelope and reply reconstructed",
+   "rebuild": "bytes",
+   "recipe": "evm_eip3009",
+   "reconstructed": "the x402 envelope (accepted: payTo = to, amount = value, maxTimeoutSeconds 60, the token's EIP-712 name and version) and the settlement reply; the chain data is as the RPC returned it",
+   "serialization": {
+    "indent": 1,
+    "newline": false,
+    "sort_keys": true
+   }
+  },
   "real_issue1062": {
    "bundle_versions": [
     "apc-0.1"
@@ -22269,5 +22324,5 @@
   }
  },
  "verifier": "apc_verify 0.21.3",
- "written": "2026-11-02T08:57:34Z"
+ "written": "2026-11-02T20:56:35Z"
 }

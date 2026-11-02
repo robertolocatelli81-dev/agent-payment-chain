@@ -52,7 +52,7 @@ class ListClosed(unittest.TestCase):
 
     def test_reads_back(self):
         self.assertEqual(MAN["format"], rc.FORMAT)
-        self.assertEqual(len(MAN["sets"]), 20)
+        self.assertEqual(len(MAN["sets"]), 21)       # 33.13: + real_giskard_issue1
         self.assertEqual({o["kind"] for n, o in MAN["oracle"].items() if n in ("blocks_v03", "xrpl_20261026")}, {"evm_blocks", "xrpl_ledgers"})
         self.assertEqual(len(MAN["bundles"]), sum(s["count"] for s in MAN["sets"].values()))
         for s in MAN["sets"].values():
@@ -1455,8 +1455,15 @@ class AnchoredControls(unittest.TestCase):
         b = next(x for x in d["bundles"] if x["set"] == "real_permit2")
         b["chain"]["anchor"] = dict(self.a)
         ListClosed._refused(self, d, "chain.anchor: unknown member")
-        # and the real list holds the 28, all under one checkpoint, each with its proof and rpc twins
-        anchored = [b for b in MAN["bundles"] if "anchor" in b["chain"]]
+        # and the real list holds the 28 of real_msca_20261101, all under one checkpoint, each with its proof and rpc
+        # twins, and the payment of agent-payment-chain issue #1 under its own (SPEC 33.13: an EOA payer, no payer_state)
+        everyone = [b for b in MAN["bundles"] if "anchor" in b["chain"]]
+        self.assertEqual(len(everyone), 29)
+        g = [b for b in everyone if b["set"] == "real_giskard_issue1"]
+        self.assertEqual([(b["file"], b["bundle_version"], b["ours"], b["verdict"], b["chain"]["anchor"]["l1_block_hash"]) for b in g],
+                         [("real_giskard_issue1/issue1_envelope_reconstructed.json", "apc-0.3", {"extraction": "calldata", "inclusion": True},
+                           "chain_verified", "0x7717e1e2a07cd03552c896eaa5a325cc8379d9b607f10a9a3ce75976a4662c5c")])
+        anchored = [b for b in everyone if b["set"] == "real_msca_20261101"]
         self.assertEqual(len(anchored), 28)
         self.assertEqual({b["chain"]["anchor"]["l1_block_hash"] for b in anchored}, {self.a["l1_block_hash"]})
         files = {b["file"] for b in MAN["bundles"]}
@@ -1729,6 +1736,24 @@ class RebuildImportsItsRecipes(unittest.TestCase):
         e = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}
         r = subprocess.run([sys.executable, "-B", "-c", code], capture_output=True, cwd=ROOT, env=e, stdin=subprocess.DEVNULL)
         self.assertEqual((r.returncode, r.stderr.decode("utf-8", "replace")[-400:]), (0, ""))
+        # 2026-11-02 (SPEC 33.13): the rename of _svm_module to _tool_module left tools/make_corpus_manifest.py calling
+        # rc._svm_module, an AttributeError the first time the list was written again; every rc.<name> it reads must be
+        # a name rebuild_corpus defines at module level
+        import ast
+        rc_names = {n.name for n in ast.parse(open(os.path.join(ROOT, "tools", "rebuild_corpus.py")).read()).body
+                    if isinstance(n, (ast.FunctionDef, ast.ClassDef))} | {t.id for n in ast.parse(open(os.path.join(
+                        ROOT, "tools", "rebuild_corpus.py")).read()).body if isinstance(n, ast.Assign) for t in n.targets
+                        if isinstance(t, ast.Name)}
+        used = {n.attr for n in ast.walk(ast.parse(open(os.path.join(ROOT, "tools", "make_corpus_manifest.py")).read()))
+                if isinstance(n, ast.Attribute) and isinstance(n.value, ast.Name) and n.value.id == "rc"}
+        self.assertTrue(used)
+        self.assertEqual(sorted(used - rc_names), [])
+        # and its one rc._tool_module call names make_bundles_svm (review 2026-11-02: a wrong name there survived the
+        # check above, and no test runs entry_svm)
+        tools = [n.args[0].value for n in ast.walk(ast.parse(open(os.path.join(ROOT, "tools", "make_corpus_manifest.py")).read()))
+                 if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute) and n.func.attr == "_tool_module"
+                 and isinstance(n.func.value, ast.Name) and n.func.value.id == "rc"]
+        self.assertEqual(tools, ["make_bundles_svm"])
 
     def test_anchor_msca_paces_only_when_run(self):
         # review 2026-11-02: tools/anchor_msca.py says "at most one request per second"; the overrides moved from import

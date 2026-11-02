@@ -3376,6 +3376,38 @@ the endpoint and the status, as 33.6 says. Every file written at level bytes is 
 (real_world: Celo 11, Ethereum 5, Optimism 4), by construction of the level (33.3). The notes of the review hold the
 reports (the author's notes (not distributed) ANCORATI_FIX_20261102.md).
 
+### 33.13 A payment brought by a third party: agent-payment-chain issue #1 (2026-11-02, local)
+On 2026-11-02 giskard09 opened issue #1 of this repository with a real x402 v2 payment (Base mainnet, transaction
+0xc8599161b6a9a7ffaa66fde11f0ac2971a813148b071ca66da4b9a69d41c8425, 0.001 USDC) and its payment payload, so that a
+bundle is built and the outcome published whatever it is. It is in the list as the set `real_giskard_issue1`, one entry,
+recipe `evm_eip3009` with the `anchor` member of 33.10, level `bytes`. Nothing of the grammar changes.
+
+- What was checked before the entry was written: the transaction (block 53154089, status 1, a direct
+  transferWithAuthorization on USDC) decoded to the same `from`, `to`, `value`, `validAfter`, `validBefore`, `nonce` and
+  signature as the payload of the issue, 7 of 7; the bundle the recipe builds gives `chain_verified` and
+  `finality_proven` under `--l1-checkpoint 0x7717e1e2a07cd03552c896eaa5a325cc8379d9b607f10a9a3ce75976a4662c5c` (Ethereum
+  block 26329354, the same hash from ethereum-rpc.publicnode.com, eth.drpc.org and eth-mainnet.public.blastapi.io;
+  dispute game 0x7b534dcc72a310837667ab1d66453baddb61ae0a, root index 10), `inclusion_proof` without it. Positive
+  control, one change at a time on the bundle of the list: `value`, `to`, the signature, `accepted.amount` give
+  `chain_failed`, the transaction input cut by its last byte `chain_incomplete` (cut by its whole 33-byte suffix,
+  `chain_failed` on C2), a changed `parentHash` fails B1 and O2, a changed transaction-proof node B2, a changed
+  checkpoint and a changed L1 storage-proof node fail L1: 9 of 9 refused.
+- What is ours: `accepted` (the issue says the 402 response was not logged) and the settlement reply, reconstructed as
+  for the sets built from chain data alone (real_issue1062 keeps members of the reply quoted in its issue; no
+  facilitator reply was supplied, so `facilitator_reply` checks our reconstruction and is no evidence). The payer is an
+  account without code here: no `payer_state`.
+- Serialization with sorted keys, as the anchored bundles of real_msca_20261101: the members of the L1 header come in
+  the endpoint's order (ethereum-rpc.publicnode.com and eth-mainnet.public.blastapi.io differ, measured), so a file in
+  the endpoint's order rebuilt only to `content`. Sorted, the entry rebuilt from base.drpc.org and
+  eth-mainnet.public.blastapi.io (28 requests, cache empty) is byte-identical to ours.
+- Fixed on the way: tools/make_corpus_manifest.py still called `rc._svm_module`, renamed `_tool_module` in 5d402b3, an
+  AttributeError the first time the list was written again (the published tree has the same line). A test now reads
+  every `rc.<name>` of that tool against the names rebuild_corpus defines (red on the old line, green on the fix), and
+  its `rc._tool_module` calls are a closed list, `make_bundles_svm` alone (the review found two names that passed the
+  first check: no test runs `entry_svm`).
+- Measured: tools/regress.py check 1123 bundles, no unjustified difference, then write; tests.test_corpus_manifest 103
+  tests OK; `tools/rebuild_corpus.py --check-manifest`: apc-corpus-0.3, 21 sets, 1123 bundles.
+
 ## Open after 0.3
 - (33.10) bundles/real_v04_l1state (8 bundles, `canonical` with `l1_state` at L1 block 26259631, one header) has the
   shape the `anchor` member describes; it stays `local_only` in this version of the list because its rebuild from a

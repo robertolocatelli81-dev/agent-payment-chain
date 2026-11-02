@@ -8,7 +8,7 @@ transactions, receipts, inclusion proofs, state proofs). The specification is `S
 `apc_verify.py` (0.21.3) with its modules `apc_*.py`; the tools that built and measured it are in `tools/`; the tests in
 `tests/`. Code identifiers and docstrings are in English.
 
-This tree is built from commit 3095ea5 of the author's working tree by a publication tool; the earlier history is
+This tree is built from commit abd7a3b of the author's working tree by a publication tool; the earlier history is
 not carried over. `SPEC.md` is the author's working document: a measure stated "on this tree" means the author's
 working tree at the date given, with the real corpus, not this public tree; sections marked "local" were written before
 publication.

@@ -47,6 +47,7 @@ SETS = {
                             "blockTimestamp is what the client fills (Arbitrum gave 0x0 on 2026-10-26 and the real time on 2026-11-01; Celo "
                             "omits it today); on Arbitrum, Celo and Avalanche the header or the receipts are not re-encodable here "
                             "(declared anchors, 33.4). The verdict and the checks are the same", {}),
+    "real_giskard_issue1": ("evm_eip3009", "bytes", None, {"token": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913", "token_name": "USD Coin", "token_version": "2"}),
     "real_issue1062": ("evm_eip3009", "bytes", None, {"token": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913", "token_name": "USD Coin", "token_version": "2"}),
     "real_reverted": ("evm_eip3009", "bytes", None, {"token": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913", "token_name": "USD Coin", "token_version": "2"}),
     "real_negatives_20261026": ("evm_eip3009", "verdict", "mixed set: the EVM negatives rebuild to the byte, the Solana ones to the verdict "
@@ -280,7 +281,7 @@ def entry_permit2(rel, doc):
 
 
 def entry_svm(doc):
-    m = rc._svm_module()
+    m = rc._tool_module("make_bundles_svm")
     ct = doc["chain_tx"]
     acc = doc["payment_payload"]["accepted"]
     c = {"signature": doc["settlement"]["transaction"], "slot": ct["slot"], "chain_tx_sha256": rc._hash_result(ct)}
