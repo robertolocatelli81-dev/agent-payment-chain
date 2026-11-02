@@ -44,6 +44,8 @@ import urllib.request
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 sys.path.insert(0, os.path.join(ROOT, "tools"))
+import apc_siglib  # noqa: E402
+apc_siglib.guard("tools/rebuild_corpus", __name__ == "__main__")  # SPEC 32.12 (f): without the signature library one line, exit 64, no traceback
 import apc_block as ab  # noqa: E402
 import apc_verify as av  # noqa: E402
 from apc_verify import keccak256  # noqa: E402

@@ -8,14 +8,14 @@ transactions, receipts, inclusion proofs, state proofs). The specification is `S
 `apc_verify.py` (0.21.3) with its modules `apc_*.py`; the tools that built and measured it are in `tools/`; the tests in
 `tests/`. Code identifiers and docstrings are in English.
 
-This tree is built from commit c0f699c of the author's working tree by a publication tool; the earlier history is
+This tree is built from commit df2c536 of the author's working tree by a publication tool; the earlier history is
 not carried over. `SPEC.md` is the author's working document: a measure stated "on this tree" means the author's
 working tree at the date given, with the real corpus, not this public tree; sections marked "local" were written before
 publication.
 
 ## Running it
 
-Python 3.10 or later, standard library only (the mandate checks of SPEC 31 apart: below). Two sibling checkouts by the
+Python 3.9 or later, standard library only (the mandate checks of SPEC 31 apart: below). Two sibling checkouts by the
 same author are read, both public:
 
 - [x402-signature-vectors](https://github.com/robertolocatelli81-dev/x402-signature-vectors) at tag `v1.4.0`
@@ -60,7 +60,7 @@ x402 reference implementation for the paid terms of two real payments) are kept 
 and are not in this tree; the tests that read them skip with the reason. The NMEA captures of gpsd that
 `tests/test_registry.py` reads are fetched by `python3 tools/fetch_nmea_captures.py` (their headers name the people
 who submitted them). The positive controls that extract an older version of the verifier from the git history skip
-in this tree, which starts at one commit.
+in this tree, whose history does not hold those versions.
 
 ## Addresses, privacy, removal
 

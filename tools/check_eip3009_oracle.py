@@ -11,7 +11,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import apc_siglib  # noqa: E402
-apc_siglib.load()      # SPEC 32.12 (f): x402-signature-vectors v1.4.0 run from the bytes hashed, never by name from a path
+apc_siglib.guard("tools/check_eip3009_oracle", __name__ == "__main__")  # SPEC 32.12 (f): without the signature library one line, exit 64, no traceback
 from lib.eip712 import keccak256, signing_digest  # noqa: E402
 from lib.secp256k1 import public_key_to_address, recover_public_key  # noqa: E402
 

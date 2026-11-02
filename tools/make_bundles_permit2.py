@@ -11,6 +11,8 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import apc_siglib  # noqa: E402
+apc_siglib.guard("tools/make_bundles_permit2", __name__ == "__main__")  # SPEC 32.12 (f): without the signature library one line, exit 64, no traceback
 import apc_verify  # noqa: E402,F401
 import apc_permit2 as p2  # noqa: E402
 

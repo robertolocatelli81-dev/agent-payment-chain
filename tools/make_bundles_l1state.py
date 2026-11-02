@@ -11,6 +11,8 @@ import sys
 
 ROOT = sys.argv[1] if len(sys.argv) > 1 else os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
+import apc_siglib  # noqa: E402
+apc_siglib.guard("tools/make_bundles_l1state", __name__ == "__main__")  # SPEC 32.12 (f): without the signature library one line, exit 64, no traceback
 import apc_block  # noqa: E402
 import apc_l1proof  # noqa: E402
 

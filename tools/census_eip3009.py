@@ -11,6 +11,8 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import apc_siglib  # noqa: E402
+apc_siglib.guard("tools/census_eip3009", __name__ == "__main__")  # SPEC 32.12 (f): without the signature library one line, exit 64, no traceback
 from tools.fetch_base_eip3009 import rpc, keccak256, abi_string, SIG_VRS, SIG_BYTES, EVENT  # noqa: E402
 from apc_verify import erc8021_schema2  # noqa: E402
 

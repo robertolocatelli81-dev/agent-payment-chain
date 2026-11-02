@@ -47,6 +47,8 @@ import traceback
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
+import apc_siglib  # noqa: E402
+apc_siglib.guard("tools/fuzz_bundles", __name__ == "__main__")  # SPEC 32.12 (f): without the signature library one line, exit 64, no traceback
 
 FAMILIES = {
     "F01": "new member at a random level",

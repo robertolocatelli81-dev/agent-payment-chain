@@ -11,6 +11,8 @@ import sys
 import unittest
 
 sys.path.insert(0, os.getcwd())
+import apc_siglib  # noqa: E402
+apc_siglib.guard("tools/run_ordered", __name__ == "__main__")  # SPEC 32.12 (f): without the signature library one line, exit 64, no traceback
 MODS = ["test_apc03", "test_removed", "test_l1proof", "test_high_s", "test_failed_but_executed", "test_amend032",
         "test_review032", "test_reverted", "test_self_payment", "test_sender", "test_svm", "test_l1state",
         "test_report", "test_mcp", "test_provenance", "test_ap2", "test_review070",

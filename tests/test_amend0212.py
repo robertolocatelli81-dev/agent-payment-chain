@@ -540,6 +540,88 @@ class OtherProgramsWithoutTheLibrary(unittest.TestCase):
             self.assertNotIn("APC_SIGLIB", err)
 
 
+class ToolsWithoutTheLibrary(unittest.TestCase):
+    """32.12 (f), second commit (2026-11-02): the 35 tools under tools/ that need the library behave as the programs do.
+    Run as the program without it (absent, or one byte appended): one line `tools/<name>: <sentence>` on standard error,
+    exit 64, nothing on standard output, never a traceback. Imported as a module without it: a SiglibError naming the tool.
+    Control: with the library each imports (exit 0, nothing on standard error), but those whose import needs what the
+    bench may not have (the AP2 SDK; the real corpus; in the public tree, the saved RPC replies of sources/l1proof_20261024,
+    kept with the corpus), which end with that reason and never with the library's. On c0f699c each program ended with
+    a traceback, exit 1."""
+
+    TOOLS = ("anchor_msca", "canonical", "census_eip3009", "check_eip3009_oracle", "count_removed_zero", "coverage_census",
+             "fetch_authcap_permit2", "fetch_authcapture", "fetch_base_eip3009", "fetch_payer_wallets", "fetch_permit2_state",
+             "fuzz_bundles", "gen_mandate_fixtures", "inclusion", "log_pairs", "make_bundle_issue1062", "make_bundle_reverted",
+             "make_bundles_authcap", "make_bundles_l1state", "make_bundles_msca", "make_bundles_negatives", "make_bundles_permit2",
+             "make_bundles_permit2_state", "make_bundles_v02", "make_bundles_v03", "make_corpus_manifest", "make_real_bundles",
+             "make_webauthn_oracle", "rebuild_corpus", "regress", "run_ordered", "scan_logs", "scan_webauthn",
+             "synth_mandate_block", "world_bundles")
+    # the import with the library may end for a reason of its own, named here (closed list), never for the library
+    IMPORT_NEEDS = {"gen_mandate_fixtures": "KeyError: 'AP2_SDK_PATH'",
+                    "synth_mandate_block": "unittest.case.SkipTest: real corpus not present: bundles/real_svm_mandate",
+                    "make_bundles_l1state": "sources/l1proof_20261024: the saved RPC replies are not in the public tree",
+                    "anchor_msca": "sources/l1proof_20261024: the saved RPC replies are not in the public tree"}
+
+    def run_tool(self, t, e, program=True):
+        cmd = [sys.executable, "-B"] + ([os.path.join(ROOT, "tools", t + ".py")] if program else ["-c", "import tools." + t])
+        return subprocess.run(cmd, capture_output=True, env=e, cwd=ROOT, stdin=subprocess.DEVNULL)
+
+    def test_the_list_and_the_guard_line(self):
+        self.assertEqual(len(self.TOOLS), 35)
+        self.assertEqual(len(set(self.TOOLS)), 35)
+        for t in self.TOOLS:
+            with self.subTest(t):
+                with open(os.path.join(ROOT, "tools", t + ".py"), encoding="utf-8") as fh:
+                    lines = fh.read().split("\n")
+                guard = 'apc_siglib.guard("tools/%s", __name__ == "__main__")' % t
+                at = [i for i, l in enumerate(lines) if l.startswith(guard)]
+                self.assertEqual(len(at), 1, (t, at))
+                # the guard precedes every import of this folder's code (apc_*, lib.*, tools.*, another tool by name)
+                first = [i for i, l in enumerate(lines) if (l.startswith("import ") or l.startswith("from "))
+                         and "# noqa: E402" in l and not l.startswith("import apc_siglib")]
+                self.assertTrue(not first or first[0] > at[0], (t, first[:1], at))
+
+    def test_as_the_program_one_line_exit_64(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            changed = SignatureLibraryIsTheHashedBytes.lib_copy(self, tmp, "changed")
+            with open(os.path.join(changed, "lib", "eip712.py"), "ab") as fh:
+                fh.write(b"\n# one byte more\n")
+            cases = [("absent", os.path.join(tmp, "nowhere"), "APC_SIGLIB"), ("one byte appended", changed, "v1.4.0")]
+            for t in self.TOOLS:
+                for name, d, said in cases:
+                    with self.subTest(t, case=name):
+                        r = self.run_tool(t, env(APC_SIGLIB=d))
+                        err = r.stderr.decode("utf-8")
+                        self.assertEqual(r.returncode, 64, err[-300:])
+                        self.assertEqual(r.stdout, b"")
+                        self.assertNotIn("Traceback", err)
+                        self.assertEqual(err.count("\n"), 1, err)
+                        self.assertTrue(err.startswith("tools/" + t + ": the signature library"), err)
+                        self.assertIn(d, err)
+                        self.assertIn(said, err)
+
+    def test_as_a_module_the_error_and_the_control(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            for t in self.TOOLS:
+                with self.subTest(t):
+                    r = self.run_tool(t, env(APC_SIGLIB=os.path.join(tmp, "nowhere")), program=False)
+                    err = r.stderr.decode("utf-8")
+                    self.assertEqual(r.returncode, 1, err[-300:])
+                    self.assertIn("apc_siglib.SiglibError: tools/%s: the signature library of x402-signature-vectors" % t, err)
+                    self.assertIn("APC_SIGLIB", err)
+                    r = self.run_tool(t, env(), program=False)           # control: with the library the guard is silent
+                    err = r.stderr.decode("utf-8")
+                    self.assertEqual(r.stdout, b"")
+                    self.assertNotIn("signature library", err)
+                    self.assertNotIn("SiglibError", err)
+                    if r.returncode == 0:
+                        self.assertEqual(err, "")
+                    else:
+                        self.assertIn(t, self.IMPORT_NEEDS, err[-300:])
+                        self.assertEqual(r.returncode, 1, err[-300:])
+                        self.assertIn(self.IMPORT_NEEDS[t], err.strip().splitlines()[-1])
+
+
 class RequireDepsSwitch(unittest.TestCase):
     """32.12 (i): under APC_REQUIRE_DEPS=1 a test that would skip for the pack fails with the skip's reason."""
 

@@ -14,6 +14,8 @@ import time
 import urllib.request
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import apc_siglib  # noqa: E402
+apc_siglib.guard("tools/canonical", __name__ == "__main__")  # SPEC 32.12 (f): without the signature library one line, exit 64, no traceback
 import apc_block as ab  # noqa: E402
 from apc_block import keccak256  # noqa: E402
 

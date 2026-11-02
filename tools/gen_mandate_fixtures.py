@@ -7,7 +7,6 @@ v1.7.1 (APC_AP2EV), the EIP-3009 authorization signed with anvil key 0 (the AP2 
 
 Writes OUT_DIR/<case>.json (apc-0.1 bundles with a `mandate` member) and OUT_DIR/MANIFEST.json (case -> expected MP
 outcomes as generated, and the SHA-256 of each file)."""
-import copy
 import hashlib
 import json
 import os
@@ -17,6 +16,8 @@ import time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
+import apc_siglib  # noqa: E402
+apc_siglib.guard("tools/gen_mandate_fixtures", __name__ == "__main__")  # SPEC 32.12 (f): without the signature library one line, exit 64, no traceback
 sys.path.insert(0, os.environ["AP2_SDK_PATH"])
 sys.path.insert(0, os.environ["APC_AP2EV"])
 import ap2_evidence  # noqa: E402

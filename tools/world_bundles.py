@@ -16,6 +16,8 @@ import tempfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
+import apc_siglib  # noqa: E402
+apc_siglib.guard("tools/world_bundles", __name__ == "__main__")  # SPEC 32.12 (f): without the signature library one line, exit 64, no traceback
 import apc_verify as av  # noqa: E402
 
 CANDIDATES = ("1", "2", "3")

@@ -28,6 +28,8 @@ import tempfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
+import apc_siglib  # noqa: E402
+apc_siglib.guard("tools/make_bundles_negatives", __name__ == "__main__")  # SPEC 32.12 (f): without the signature library one line, exit 64, no traceback
 from tools.check_eip3009_oracle import decode  # noqa: E402
 from tools.scan_negatives_evm import CHAINS, SEL, is_revert  # noqa: E402
 

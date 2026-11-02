@@ -9,6 +9,8 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import apc_siglib  # noqa: E402
+apc_siglib.guard("tools/make_real_bundles", __name__ == "__main__")  # SPEC 32.12 (f): without the signature library one line, exit 64, no traceback
 from tools.check_eip3009_oracle import decode  # noqa: E402
 
 

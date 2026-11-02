@@ -12,6 +12,9 @@ import sys
 import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import apc_siglib  # noqa: E402
+apc_siglib.guard("tools/fetch_authcap_permit2", __name__ == "__main__")  # SPEC 32.12 (f): without the signature library one line, exit 64, no traceback
 from fetch_base_eip3009 import RPC, keccak256, rpc  # noqa: E402
 
 PI = "(address,address,address,address,uint120,uint48,uint48,uint48,uint16,uint16,address,uint256)"

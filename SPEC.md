@@ -2938,7 +2938,25 @@ expected, the two ways to have the library) and exit 64; imported as a module, a
 apc_report.py and apc_mcp.py, do the same (apc_siglib.guard, the program's name at the start of the line): run as the
 program, one line and exit 64 (for apc_batch, 1 is a D1, D3 or D4 failure, so a traceback's 1 read as one) and nothing
 of a report; imported as a module, a SiglibError with the same sentence; until this amendment the five ended with a
-traceback, exit 1 (the ImportError of apc_verify, or the SiglibError of apc_block, raised as it was). A module `lib`,
+traceback, exit 1 (the ImportError of apc_verify, or the SiglibError of apc_block, raised as it was). The 35 tools under
+tools/ that need the library, directly or through apc_verify, apc_block or another tool, at their start or inside a
+function (anchor_msca, canonical, census_eip3009, check_eip3009_oracle, count_removed_zero, coverage_census,
+fetch_authcap_permit2, fetch_authcapture, fetch_base_eip3009, fetch_payer_wallets, fetch_permit2_state, fuzz_bundles,
+gen_mandate_fixtures, inclusion, log_pairs, make_bundle_issue1062, make_bundle_reverted, make_bundles_authcap,
+make_bundles_l1state, make_bundles_msca, make_bundles_negatives, make_bundles_permit2, make_bundles_permit2_state,
+make_bundles_v02, make_bundles_v03, make_corpus_manifest, make_real_bundles, make_webauthn_oracle, rebuild_corpus,
+regress, run_ordered, scan_logs, scan_webauthn, synth_mandate_block, world_bundles), do the same since the second
+commit of this amendment (2026-11-02; the version stays 0.21.3: no byte of apc_verify.py changes):
+`apc_siglib.guard("tools/<name>", __name__ == "__main__")` right after the root is put on sys.path and before the first
+import of this folder's code (the three whose sys.path held only tools/, fetch_authcap_permit2, fetch_authcapture and
+make_bundles_v03, put the root first); run as the program, one line `tools/<name>: <sentence>` and exit 64, nothing on
+standard output; imported as a module, a SiglibError with the same sentence; with the library, nothing changes (the
+load the guard does is the one their imports did, now at the start also for the three that imported inside a function:
+fuzz_bundles, gen_mandate_fixtures, regress). Until then each ended with a traceback, exit 1 (7 to 26 lines of
+standard error, measured on c0f699c: 32 when run without arguments, `tools/regress.py check` too; fuzz_bundles and
+gen_mandate_fixtures only once a run reached the import). The 17 other tools with a `__main__` do not reach a load of
+the library (apc_mandate's `_keccak_hex` is reached by check(), not by eval_terms(); apc_xrpl's secp256k1_verify is
+not called by make_bundles_xrp) and are not guarded. A module `lib`,
 `lib.eip712` or `lib.secp256k1` already loaded from another place (one without
 apc_siglib's mark) is refused the same way, the place named. Once loaded in a process the modules stay (every `from lib.x
 import` of the verifier and the tests resolves to them); a second load returns them. Consequence, stated: the stand-in of
@@ -2974,7 +2992,16 @@ modules carry the hashes of (f), `import lib.other` with `lib/other.py` in the f
 library absent and with one byte appended (exit 64, standard output empty, one line without "Traceback" that starts with
 the program's name, the control exit of each with the library), with standard error closed and full (64), each imported
 as a module (a SiglibError with the same sentence), and a failure of the load that is not a SiglibError raised as it is
-(the guard is closed on that one type). (i) DependenciesRequired, and `APC_REQUIRE_DEPS=1` with
+(the guard is closed on that one type); ToolsWithoutTheLibrary (3, second commit of 2026-11-02): the list of the 35
+tools and, in each, the guard line with its own name before the first import of this folder's code; each tool run as the
+program with the library absent and with one byte appended (exit 64, standard output empty, one line without
+"Traceback" that starts with `tools/<name>: the signature library`, naming the directory tried and "APC_SIGLIB" or
+"v1.4.0"); each imported as a module without the library (exit 1, `apc_siglib.SiglibError: tools/<name>: ...`) and with
+it (the control: exit 0 and nothing on standard error, but gen_mandate_fixtures, `KeyError: 'AP2_SDK_PATH'`,
+synth_mandate_block without the real corpus, the SkipTest of tests/test_mandate, and in the public tree anchor_msca and
+make_bundles_l1state, whose saved RPC replies of sources/l1proof_20261024 are kept with the corpus: a closed list of
+four, never the library's sentence; measured in the public tree, where the first run of this control failed on the
+last two). (i) DependenciesRequired, and `APC_REQUIRE_DEPS=1` with
 `APC_AP2EV` at a folder without the pack: the pack tests of this file FAIL (`failures=`), none skips; tests/test_mandate.py
 under `discover` with the corpus present, the pack absent and the variable: `errors=1`, RuntimeError (MandateSuiteSkips).
 Measured 2026-11-02 on this tree (the author's working tree with the corpus, Python 3.11.2): this test file on the code of
@@ -2989,7 +3016,15 @@ sha256: 14 of 14 killed by an AssertionError; in review two more lived, the earl
 the three modules is apc_siglib's (`all` -> `any`) and the restore of sys.modules after a load failed half-way removed,
 killed by the two tests added for them (both re-run on the final tree: killed); on the guard of the five other programs (apc_siglib.guard 9, its five calls 15:
 `except Exception`, the name dropped, the branch inverted, ImportError for SiglibError, no newline, `except OSError` only,
-no dup2, exit 1, None returned; each call with True, with False, with apc_verify's name), 24 of 24 killed by an AssertionError. On the final tree of this amendment (2026-11-02): tools/run_ordered.py, 951 tests, OK
+no dup2, exit 1, None returned; each call with True, with False, with apc_verify's name), 24 of 24 killed by an AssertionError. Second commit (2026-11-02, the 35 tools):
+ToolsWithoutTheLibrary on the code of c0f699c (the test file copied into a checkout of it), 3 of 3 failed, 140 subcases,
+every one an AssertionError (a traceback's exit 1; the usage of regress on standard output; no guard line); on this tree,
+3 of 3 OK in 8 s; tests.test_amend0212, 29 tests, OK (skipped=1), and 29 OK with `APC_REQUIRE_DEPS=1`. Mutants on the
+guard lines of the tools, one at a time, each file restored and checked by sha256 (the branch inverted, the folder
+dropped from the name, the guard line removed in regress and in run_ordered, `False` and `True` in place of the
+`__main__` test, the root not put on sys.path in make_bundles_v03, `load()` in place of the guard, the guard after the
+environment-dependent inserts of gen_mandate_fixtures, the name misspelt, exit 64 also with the library, the exit
+swallowed): 12 of 12 killed by an AssertionError. On the final tree of this amendment (2026-11-02): tools/run_ordered.py, 951 tests, OK
 (skipped=12), 1756 s; `tools/regress.py check` with `APC_AP2EV` at the pack of v1.7.1, 1122 bundles, 0 differences, 0
 unjustified, 165 s (the verifier string is unchanged, nothing refrozen; without the pack the 14 MP checks of the two
 mandate bundles differ, `not_1.7.1`: the environment, not the code).
@@ -3148,7 +3183,28 @@ authors' censuses and scans over thousands of blocks, state replies behind bundl
 tests skip with that reason, never with a rebuild command that cannot produce them. For the sets, `need("*")` means
 every set that is not `local_only`; a test that reads a `local_only` set names it.
 
+### 33.9 The list rewritten on 0.21.3 (2026-11-02, local)
+
+corpus/MANIFEST.json of 2026-11-01 was written on apc_verify 0.21.0 and gave `chain_verified` to the 56 bundles of
+real_msca_20261101 (rpc and proof forms), which since 0.21.1 (32.10) are `chain_incomplete`: regress/VERDICTS.json,
+refrozen then, said so; the list did not. Rewritten with tools/make_corpus_manifest.py on this tree (`--cache` at the
+raw-reply caches of the 2026-11-01 runs, kept beside the author's bench; no network), measured against the old file:
+1094 bundles, the same files in the same order; `verifier` apc_verify 0.21.3, `written`; 56 `verdict` and 56
+`checks_sha256` changed, all of real_msca_20261101; no other member of any entry changes (0 `receipt_hash` null, as
+before); the `oracle` section identical; of the `sets`, only the `real` text of real_msca_20261101 (the text of
+tools/regress.py, which since 32.10 also names the anchored twins). Two defects of the tool found on the way, fixed:
+it took bundles/real_msca_20261101/ANCHORED.json (the record anchor_msca writes, 32.10) for a bundle, a KeyError on the
+frozen verdicts (regress.corpus() already left it out: the two walks now agree); and for an `_anchored_` bundle it
+opened the bundle's own file as its rpc twin, a KeyError on `rpc`. The 28 anchored bundles are left out of the list
+and the tool says so on standard error ("real_msca_20261101: 28 anchored bundles left out of the list (SPEC 33.9)"):
+why, in Open below. tests.test_corpus_manifest, 67 tests, OK (49 s); `tools/rebuild_corpus.py --check-manifest`:
+apc-corpus-0.2, 20 sets, 1094 bundles, exit 0.
+
 ## Open after 0.3
+- (33.9) The 28 anchored bundles of real_msca_20261101 (32.10: the proof form with `canonical` and `l1_state`) are in
+  regress/VERDICTS.json but not in corpus/MANIFEST.json: the recipes of 33.4 do not describe those two members and
+  tools/rebuild_corpus.py does not rebuild them; a recipe or a declared level for them is open (the tool says how many
+  it leaves out).
 - The auth-capture scheme says collectorData is "the ABI-encoded Permit2 signature" (step 3 of settlement); the pinned
   collector passes collectorData to Permit2 as the signature itself (section 25.1 AC8): which bytes a Charge
   signature's collectorDataHash covers on the Permit2 path is read from the contract until the scheme says it.

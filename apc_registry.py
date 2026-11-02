@@ -1,7 +1,7 @@
 """agent-payment-chain register of checks on an external device (SPEC section 11, SPEC 0.9.1, format apc-reg-0.2).
 Python 3.9+ standard library only (zoneinfo; on 3.9 the tz rules come from the system's tzdata or the tzdata
-package); `openssl` (the binary) only for the opt-in RFC 3161 time token. Licence: this module is in the BSL 1.1 part
-of the work (open-core decision of 2026-10-24).
+package); `openssl` (the binary) only for the opt-in RFC 3161 time token. Licence: Apache-2.0, as the rest of the work
+(the author's decision of 2026-11-02, replacing the open-core split of 2026-10-24).
 
 The place is personal data: nothing is recorded until the user opens a register with `init` (SPEC 11.1). Nothing
 leaves the machine unless the user names a time-stamping authority with --tsa: then only the SHA-256 of the entry.

@@ -14,6 +14,8 @@ import time
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import apc_siglib  # noqa: E402
+apc_siglib.guard("tools/fetch_payer_wallets", __name__ == "__main__")  # SPEC 32.12 (f): without the signature library one line, exit 64, no traceback
 import tools.fetch_base_eip3009 as fb  # noqa: E402
 import make_bundles_v02 as mb  # noqa: E402
 

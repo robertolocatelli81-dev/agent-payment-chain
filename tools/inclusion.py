@@ -13,6 +13,8 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import apc_siglib  # noqa: E402
+apc_siglib.guard("tools/inclusion", __name__ == "__main__")  # SPEC 32.12 (f): without the signature library one line, exit 64, no traceback
 import apc_block as ab  # noqa: E402
 from apc_block import BlockRefusal, _int_bytes, keccak256, rlp  # noqa: E402
 

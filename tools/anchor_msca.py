@@ -23,6 +23,8 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 sys.path.insert(0, os.path.join(ROOT, "tools"))
 sys.path.insert(0, os.path.join(ROOT, "sources", "l1proof_20261024"))
+import apc_siglib  # noqa: E402
+apc_siglib.guard("tools/anchor_msca", __name__ == "__main__")  # SPEC 32.12 (f): without the signature library one line, exit 64, no traceback
 import apc_verify as av  # noqa: E402
 import canonical as C  # noqa: E402
 import fetch_l1proof as FL  # noqa: E402

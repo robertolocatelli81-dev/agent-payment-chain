@@ -12,6 +12,8 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import apc_siglib  # noqa: E402
+apc_siglib.guard("tools/fetch_permit2_state", __name__ == "__main__")  # SPEC 32.12 (f): without the signature library one line, exit 64, no traceback
 from make_bundles_v03 import fetch_block, rpc  # noqa: E402
 from make_bundles_permit2 import build, load  # noqa: E402
 

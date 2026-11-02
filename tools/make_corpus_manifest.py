@@ -27,6 +27,8 @@ import time
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 sys.path.insert(0, os.path.join(ROOT, "tools"))
+import apc_siglib  # noqa: E402
+apc_siglib.guard("tools/make_corpus_manifest", __name__ == "__main__")  # SPEC 32.12 (f): without the signature library one line, exit 64, no traceback
 import apc_block as ab  # noqa: E402
 import apc_xrpl as xr  # noqa: E402
 import make_bundles_v02 as v02  # noqa: E402
@@ -375,7 +377,15 @@ def main(argv):
     sets, bundles = {}, []
     for name, (recipe, level, reason, params) in SETS.items():
         d = os.path.join(B, name)
-        paths = sorted(p for p in glob.glob(os.path.join(d, "**", "*.json"), recursive=True) if os.path.basename(p) != "MANIFEST.json")
+        paths = sorted(p for p in glob.glob(os.path.join(d, "**", "*.json"), recursive=True)
+                       if os.path.basename(p) not in ("MANIFEST.json", "ANCHORED.json"))     # the manifests of a directory, as regress.corpus()
+        # the anchored twins of real_msca_20261101 (SPEC 32.10: `canonical` and `l1_state` beside the proof form) are not
+        # described by the recipes of 33.4 and tools/rebuild_corpus.py does not rebuild them: left out of the list, said
+        # here, open in SPEC 33.9 (2026-11-02). Until then the tool opened the twin's own file as its rpc twin and crashed.
+        anchored = [p for p in paths if "_anchored_" in os.path.basename(p)]
+        if anchored:
+            print("%s: %d anchored bundles left out of the list (SPEC 33.9)" % (name, len(anchored)), file=sys.stderr)
+            paths = [p for p in paths if p not in anchored]
         params = dict(params)
         tokens = {}
         sers, versions = set(), set()

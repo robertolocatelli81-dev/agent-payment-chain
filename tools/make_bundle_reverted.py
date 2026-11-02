@@ -14,6 +14,8 @@ import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
+import apc_siglib  # noqa: E402
+apc_siglib.guard("tools/make_bundle_reverted", __name__ == "__main__")  # SPEC 32.12 (f): without the signature library one line, exit 64, no traceback
 from tools.check_eip3009_oracle import decode  # noqa: E402
 
 DATA = os.path.join(ROOT, "oracle", "reverted_53020172")

@@ -29,6 +29,8 @@ import time
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REG = os.path.join(ROOT, "regress")
 sys.path.insert(0, ROOT)
+import apc_siglib  # noqa: E402
+apc_siglib.guard("tools/regress", __name__ == "__main__")  # SPEC 32.12 (f): without the signature library one line, exit 64, no traceback
 L1CP = "0x9140c56ce20a77dca7d648364bca6470be6a7f88297e652a20f7e46e4a14f3a6"   # bundles/real_v04_l1state/MANIFEST.json
 # directory -> (what is real, where it is said, options). Every bundle of bundles/ is real chain data; the x402
 # envelope around it is reconstructed (no facilitator's own PaymentPayload was seen), as each README says.
