@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+fuzz_found/
+# fetched by tools/fetch_nmea_captures.py: their headers name the submitters, never committed here
+sources/nmea_20261026/*.log

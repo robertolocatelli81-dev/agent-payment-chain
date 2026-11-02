@@ -1,0 +1,1 @@
+XRPLF/xrpl-dev-portal 94abc7765e4691f3167c3672a7d9726afccb36bd docs/concepts/payment-types/partial-payments.md, docs/references/protocol/transactions/metadata.md, read 2026-10-26

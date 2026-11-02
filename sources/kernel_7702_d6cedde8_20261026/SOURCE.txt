@@ -1,0 +1,1 @@
+Sourcify v2 API, chain 8453, address 0xd6cedde84be40893d153be9d467cd6ad37875b28, fetched 2026-10-26: match 'match', src/Kernel.sol:Kernel (solc, 0.8.28+commit.7893614a). Runtime code keccak256 measured on Base 2026-10-26 (eth_getCode latest): e5b56d82025d2358308f77833fe29c3856b1a7a0f7a4b9f86b1fd77da3e3b4fb. Files copied from the Sourcify sources (paths with / replaced by _).

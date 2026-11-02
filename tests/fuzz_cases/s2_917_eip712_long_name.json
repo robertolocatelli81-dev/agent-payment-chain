@@ -1,0 +1,25 @@
+{
+ "base": "bundles/real_v02/b001_direct_envelope_reconstructed.json",
+ "expect_verdict": "refused",
+ "found": {
+  "base_found_on": "the a2a seed of `fuzz_bundles.py seeds` (tests/test_transport.a2a_bundle over bundles/real_v03); rebuilt here on a corpus bundle",
+  "before": "17.9 s of CPU, chain_failed (exit 1): the EIP-712 domain name hashed by the pure-Python Keccak-256",
+  "cause": "no bound on the bytes hashed with Keccak-256 (about 3 s of CPU per MiB)",
+  "defect": "time",
+  "family": "F05",
+  "index": 917,
+  "op": "long:6291456",
+  "seed": "s2"
+ },
+ "options": [],
+ "path": [
+  "payment_payload",
+  "accepted",
+  "extra",
+  "name"
+ ],
+ "value": {
+  "repeat": "a",
+  "times": 6291456
+ }
+}

@@ -1,0 +1,50 @@
+{
+ "_note": "Code-pinned values (2026-10-24, L1 block 26259631 via ethereum-rpc.publicnode.com, eth_call). Immutables live in the runtime code, so the same codeHash gives the same values. Layouts: base/contracts snapshots/storageLayout at the commit of each deployed version. Game implementation 0.2.0 measured 2026-10-24 at L1 block 26259645.",
+ "proxy_codehash": {
+  "fa8c9db6c6cab7108dea276f4cd09d575674eb0852c0fa3187e59e98ef977998": "Proxy (ASR, DisputeGameFactory)",
+  "7d1cd19d713c8d64bf663f4168250abfbf690dbb6214c25bf757fee383816914": "Proxy (SystemConfig)",
+  "33920c8270353487e486debc0d8ddbb187fa86727f2daf412d794589e6f26cb5": "Proxy (SuperchainConfig)"
+ },
+ "game_impl": {
+  "5033d9882dccce7a394bc34cc02f8620afe0a5e172eab70f830de2e7a61fa3c4": {
+   "version": "0.1.0",
+   "source": "base/contracts a27edbf3",
+   "game_type": 621,
+   "roots": 20,
+   "asr": "909f6cf47ed12f010a796527f562bfc26c7f4e72"
+  },
+  "9a495e781a85f550788618de994b6d38b6f216ea0b5c50943b0e4c75323842e5": {
+   "version": "0.2.0",
+   "source": "base/contracts a879bfe4",
+   "game_type": 621,
+   "roots": 20,
+   "asr": "909f6cf47ed12f010a796527f562bfc26c7f4e72"
+  }
+ },
+ "asr_impl": {
+  "d01ffe5bb9bdf9cb1e42b2dd12188f9bc2a163e8301b24451d7d8485280148b7": {
+   "version": "3.7.0",
+   "source": "base/contracts affa48e2",
+   "finality_delay": 0
+  }
+ },
+ "dgf_impl": {
+  "910d7bf9e11f1a95aab4e3fceb71f647c8db0431b4510e2155c54dca2b50e444": {
+   "version": "1.5.0",
+   "source": "base/contracts eaa7729"
+  }
+ },
+ "sysconf_impl": {
+  "8f2f3085ef0b85c764a113b72dc3845fbfe7652562634d4e3f6983be8399d78a": {
+   "version": "3.14.0",
+   "source": "base/contracts 4951105b"
+  }
+ },
+ "supc_impl": {
+  "4027ad2266b7a6238263e5ce5943e25037bffacfb4c68905b271d3fef65f15cb": {
+   "version": "2.5.0",
+   "source": "base/contracts 415a6a8c",
+   "pause_expiry": 7884000
+  }
+ }
+}

@@ -1,0 +1,13 @@
+3304 7f7489ba8978a3b6eea0eb9c6a2ccb6c099eb883 open spec(extensions): add response-provenance — receipt attests what was returned, not just that payment settled (#3234)
+3783 737243dc5928db2fe6c202e09490c9deddf3835c open spec(extensions): delivery-receipt — signed, verifiable receipt of delivery for paid calls
+3682 23b5c21125982961a2d4c13faf3cb5a6d6d7c03b open spec(extensions): add execution-evidence and delivery receipt specification
+3186 3dcef3c3dd1f172826247a131b083959d1447fcd open feat(extensions): bind delivered response to offer-receipt (proof-of-delivery)
+2666 76b8cccdc065f3699fb5cdfaa6492aaaadd6db13 open docs(specs): add settlement-receipt binding extension
+3776 09f92e0d874fdab573aef88b075b80c597d447fe open Spec: settlement/refusal identity MUST be derived once at ingress (implements #3772)
+3220 72c3704dfb89851fb7b1f0dca4d327b804faee5c open Add `authority` extension: bounded, offline-verifiable spending mandates
+2853 30a6be4fada8a57d6c46b772f2746bc637435a3e open specs: add compliance-fields extension — tax/audit record + verifier disqualification rules (#2848)
+3681 4acdd1f6cbf14308cddaa399fe3285616ada38e5 open Extension: refund — standardize the path back
+3741 1f5a05a751bb9c9306d7f1694efb08a397c24544 open feat(specs): declare the paid HTTP method on ResourceInfo
+3830 f2cf79802d0bb192b1d5cddf671a8a155d56a9d6 open spec(offer-receipt): add the svm-memo authorization method
+3604 4726ab0ddcab98243036f0fb6a2ed5384923e010 open specs: propose Buyer Delivery Claim extension
+3868 aeb038998b677d8197ab4aeac66886e57c56fa85 open Add Correctness and Dispute Extension (bonded verdicts)

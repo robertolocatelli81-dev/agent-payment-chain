@@ -1,0 +1,8 @@
+{
+ "source": "https://sourcify.dev/server/v2/contract/8453/0x00000110dcdedc9581cb5ecb8467282f2926534d?fields=sources,compilation",
+ "match": "exact_match (runtime and creation)",
+ "read": "2026-10-26",
+ "compiler": "solc 0.8.23+commit.f704f362",
+ "files": "src/CoinbaseSmartWallet.sol only: its other 13 sources have the same sha256 as the 000100ab sources (ERC1271.sol, MultiOwnable.sol, WebAuthn.sol, FCL, Base64, LibString, SignatureCheckerLib among them)",
+ "difference": "against 000100ab, CoinbaseSmartWallet.sol adds error InvalidImplementation and, in validateUserOp, a check that an upgradeToAndCall target has code; _isValidSignature is the same text"
+}

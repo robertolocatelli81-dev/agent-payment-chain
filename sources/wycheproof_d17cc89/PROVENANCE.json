@@ -1,0 +1,9 @@
+{
+ "source": "https://github.com/C2SP/wycheproof",
+ "commit": "d17cc89fa5c8f4f4d378b5385ebf75da5d0926c9",
+ "committed": "2026-10-23T18:06:41Z",
+ "read": "2026-10-26",
+ "license": "Apache-2.0 (LICENSE, copied from the same commit)",
+ "files": "testvectors_v1/<name> at that commit, unmodified",
+ "use": "test vectors for our signature code (tests/test_wycheproof.py); not bundles, not real payments"
+}

@@ -1,0 +1,10 @@
+Real NMEA 0183 captures from the gpsd project's regression logs (BSD-2-Clause, see the header of each file),
+fetched 2026-10-26 from https://gitlab.com/gpsd/gpsd/-/raw/e970bf8d61f0ec75ecbc93adb5ae783c8404892a/test/daemon/<name>.log
+(gpsd commit e970bf8d61f0ec75ecbc93adb5ae783c8404892a, committed 2026-10-22). Copies unchanged; sha256 in SHA256SUMS.
+- bu353s4.log     GlobalSat BU-353-S4, Hamilton NZ (37.8S 175.3E), 2014-12-31: southern + eastern hemisphere, $GPRMC/$GPGGA fix
+- garmin15x.log   Garmin 15x, 2022-10-18, 32.6N 108.4W: western hemisphere, RMC without the mode field (NMEA 2.0, 11 fields)
+- GPSmap-76S.log  Garmin GPSmap 76S, 2011-10-24: RMC status V with mode S (simulator) and coordinates: no fix
+- beidou-gb.log   SiRF-TriG, 2015-03-02: $GNRMC talker, starts without a fix (status V), fix later
+- neo-m8n.log     u-blox NEO-M8N, 2015-03-18, 44.07N 121.31W: $GNRMC/$GNGGA fix with mode A
+Edge cases these captures do not hold (bad checksum, midnight UTC rollover, GGA disagreeing, leap second, sea,
+ambiguous boundary) are generated in tests/test_registry.py and marked there as generated.

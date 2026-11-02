@@ -1,0 +1,1 @@
+iamonuwa/kanon 3d4924042847a8c71ce92492f3fd50e942b3dda5 (Apache-2.0), vectors/x402/exact/evm/eip3009, schema/reason-codes.md (registry 2.0.0); read 2026-10-26

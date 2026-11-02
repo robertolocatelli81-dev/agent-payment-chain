@@ -1,0 +1,78 @@
+import {
+  aurracloudFacilitator,
+  coinbaseFacilitator,
+  thirdwebFacilitator,
+  x402rsFacilitator,
+  obolFacilitator,
+  payaiFacilitator,
+  corbitsFacilitator,
+  dexterFacilitator,
+  daydreamsFacilitator,
+  mogamiFacilitator,
+  openx402Facilitator,
+  f402104Facilitator,
+  questflowFacilitator,
+  xechoFacilitator,
+  codenutFacilitator,
+  ultravioletadaoFacilitator,
+  virtualsFacilitator,
+  heuristFacilitator,
+  treasureFacilitator,
+  anyspendFacilitator,
+  polymerFacilitator,
+  meridianFacilitator,
+  openmidFacilitator,
+  primerFacilitator,
+  x402jobsFacilitator,
+  openfacilitatorFacilitator,
+  relaiFacilitator,
+  bitrefillFacilitator,
+  cascadeFacilitator,
+  fluxaFacilitator,
+  figmentFacilitator,
+  threewsFacilitator,
+} from '../facilitators';
+
+import { validateUniqueFacilitators } from './validate';
+
+import type { Facilitator } from '../types';
+
+const FACILITATORS = validateUniqueFacilitators([
+  coinbaseFacilitator,
+  aurracloudFacilitator,
+  thirdwebFacilitator,
+  x402rsFacilitator,
+  obolFacilitator,
+  payaiFacilitator,
+  corbitsFacilitator,
+  dexterFacilitator,
+  daydreamsFacilitator,
+  mogamiFacilitator,
+  openx402Facilitator,
+  f402104Facilitator,
+  questflowFacilitator,
+  xechoFacilitator,
+  codenutFacilitator,
+  ultravioletadaoFacilitator,
+  virtualsFacilitator,
+  heuristFacilitator,
+  treasureFacilitator,
+  anyspendFacilitator,
+  polymerFacilitator,
+  meridianFacilitator,
+  openmidFacilitator,
+  primerFacilitator,
+  x402jobsFacilitator,
+  openfacilitatorFacilitator,
+  relaiFacilitator,
+  bitrefillFacilitator,
+  cascadeFacilitator,
+  fluxaFacilitator,
+  figmentFacilitator,
+  threewsFacilitator,
+]);
+
+// Some facilitators take facilitator-specific props in their config
+// constructor, so the only honest common element type is `Facilitator<never>`:
+// every entry is assignable to it, and all data fields remain readable.
+export const allFacilitators: Facilitator<never>[] = [...FACILITATORS];

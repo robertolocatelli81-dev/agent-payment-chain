@@ -1,0 +1,24 @@
+# gitleaks configuration of this tree: the default rules, plus an allow-list of what the scanner flags here and is not a
+# secret. Every entry names what it is. Nothing under it is a credential of anyone.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "public test material and chain constants"
+regexTarget = "secret"
+regexes = [
+  '''^0x[0-9a-fA-F]{40}$''',                                                   # EVM addresses (contracts, test accounts)
+  '''^z6Mk[1-9A-HJ-NP-Za-km-z]{44}$''',                                        # did:key Ed25519 PUBLIC keys
+  '''^EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v$''',                          # USDC mint on Solana
+  '''^0x98de503528ee59b575ef0c0a2576a82497bfc029a5685b209e9ec333479b10a5$''',  # EIP-3009 AuthorizationUsed event topic
+  '''^0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80$''',  # Anvil/Hardhat account 0 private key, public test key
+  '''^0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d$''',  # Anvil/Hardhat account 1 private key, public test key
+  '''^0x4c0883a69102937d6231471b5dbb6204fe5129617082792ae468d01a3f362318$''',  # go-ethereum documentation example key
+  '''^9f3b1c2d-4e5f-6a7b-8c9d-0e1f2a3b4c5d$''',                                # a UUID used as idempotency key in examples
+  '''^40b0560cd3637678eef1ff13743dfbac97ed6f153dcabebc536e3bc5e1e9e4a6$''',    # sha256 of a key directory in x402 PR 3783 (a digest)
+]
+paths = [
+  '''sources/l1proof_20261024/.*\.json''',          # eth_getProof replies: storage keys and node hashes, 32-byte hex values
+  '''sources/http_20261025/rfc9421\.txt''',          # RFC 9421 appendix B: the RFC's own published example keys
+  '''sources/x402_prs_20261026/delivery-receipt.*''',  # sha256 digests in the vectors of a pull request
+]

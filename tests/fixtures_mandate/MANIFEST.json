@@ -1,0 +1,65 @@
+{
+ "ap2": "e1ea56d",
+ "ap2_evidence_pack": "v1.7.1",
+ "cases": {
+  "base": {
+   "expect": {
+    "MP1": "verified",
+    "MP2": "verified",
+    "MP3": "verified",
+    "MP4": "not_evaluated:mandate_names_no_address",
+    "MP5": "not_evaluated:absent:no_restriction"
+   },
+   "sha256": "5621eaca662df24125e790c87333d85938bace0dc0b3afd1b6cb5fc2148ab9aa"
+  },
+  "chain_one_hop": {
+   "expect": {
+    "MP2": "failed:chain_not_two_hops"
+   },
+   "sha256": "e9ac1eed1c07aa9ebbe41ac32325a13d99df1a932ed0db87111d392f8071cc23"
+  },
+  "nonce_not_chain_hash": {
+   "expect": {
+    "MP4": "failed:nonce_not_the_chain_hash"
+   },
+   "sha256": "fb9d4e4d3471982706316707b4493c1327b9fc130ea20f8c1c60d2926985e83e"
+  },
+  "over_amount_range": {
+   "expect": {
+    "MP3": "failed:amount_out_of_range"
+   },
+   "sha256": "ec0e6c6ab1a09ed3e22a580c64833e46f2114e17518266a455db4bc4a6bb0c5a"
+  },
+  "pack_tampered": {
+   "expect": {
+    "MP1": "failed:ap2_pack_not_valid"
+   },
+   "sha256": "7efbfbad4d0c7da545af6651cf2ed372c32bcd505761837398e9c5738e510a7e"
+  },
+  "payee_not_allowed": {
+   "expect": {
+    "MP3": "failed:payee_not_allowed"
+   },
+   "sha256": "a9ab6f503cde77c2173323cdf6aa9025488109f1e9ff849cf9319e125450d583"
+  },
+  "restriction_outside": {
+   "expect": {
+    "MP5": "failed:payment_outside_restriction"
+   },
+   "sha256": "fda8153630f9102316bf4ce55f804e5907e26859467c9c863e42839e43892b59"
+  },
+  "restriction_within": {
+   "expect": {
+    "MP5": "verified"
+   },
+   "sha256": "dea521d2c3920cbc3ef74f1cf70ec89ddc92ec50136ec7abccb923546020e416"
+  },
+  "value_not_mandate_amount": {
+   "expect": {
+    "MP4": "failed:value_not_the_mandate_amount"
+   },
+   "sha256": "cf4f153d0e12022687427211c8e7d2c1bcdf45901653075ff5cad67acf0c9050"
+  }
+ },
+ "generated": "2026-10-31T07:50:29Z"
+}

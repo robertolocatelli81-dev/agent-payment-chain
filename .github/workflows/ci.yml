@@ -1,0 +1,74 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    name: tests without the real corpus (python ${{ matrix.python }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.9", "3.11", "3.13"]
+    env:
+      APC_SIGLIB: ${{ github.workspace }}/deps/x402-signature-vectors
+      APC_AP2EV: ${{ github.workspace }}/deps/ap2-evidence-pack
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: agent-payment-chain
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: robertolocatelli81-dev/x402-signature-vectors
+          ref: v1.4.0
+          path: deps/x402-signature-vectors
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: robertolocatelli81-dev/ap2-evidence-pack
+          ref: v1.7.1
+          path: deps/ap2-evidence-pack
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ matrix.python }}
+      - name: interpreter and the one dependency of the tests
+        run: |
+          python --version
+          python -m pip install --disable-pip-version-check cryptography
+      - name: unit tests (the tests that need the real corpus skip with their reason; none may fail)
+        working-directory: agent-payment-chain
+        run: python -m unittest discover -s tests -t . -p 'test_*.py'
+      - name: the two dependencies must load here (SPEC 32.12 (i); a skip for the pack or the library is a failure)
+        working-directory: agent-payment-chain
+        env:
+          APC_REQUIRE_DEPS: "1"
+        run: python -m unittest -v tests.test_amend0212
+
+  gitleaks:
+    name: gitleaks (pinned release, the tree's .gitleaks.toml)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      GITLEAKS_VERSION: "8.30.1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: download gitleaks release and verify its published checksum
+        run: |
+          set -euo pipefail
+          base="https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}"
+          curl -sSfL -o gitleaks.tar.gz "${base}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl -sSfL -o checksums.txt "${base}/gitleaks_${GITLEAKS_VERSION}_checksums.txt"
+          grep " gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz$" checksums.txt | sed 's# .*#  gitleaks.tar.gz#' | sha256sum -c -
+          tar -xzf gitleaks.tar.gz gitleaks
+          ./gitleaks version
+      - name: scan the git history
+        run: ./gitleaks git --config .gitleaks.toml --redact --verbose --exit-code 1 .
+      - name: scan the working tree
+        run: ./gitleaks dir --config .gitleaks.toml --redact --verbose --exit-code 1 --max-target-megabytes 50 .

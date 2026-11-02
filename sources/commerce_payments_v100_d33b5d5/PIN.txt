@@ -1,0 +1,4 @@
+base/commerce-payments tag v1.0.0 d33b5d5f74fff55f1c0857b1cb6fb4995949330b (MIT), read 2026-10-26
+src/collectors/Permit2PaymentCollector.sol added 2026-10-26 from the same commit (raw.githubusercontent.com).
+License, corrected 2026-10-26: all five .sol files here carry SPDX-License-Identifier GPL-3.0; the "(MIT)" of the
+first line is not what they say (v1.1.0, sources/commerce_payments_v110_6b0a5ef, is MIT).

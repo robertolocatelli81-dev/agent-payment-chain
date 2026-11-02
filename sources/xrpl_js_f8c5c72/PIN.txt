@@ -1,0 +1,1 @@
+XRPLF/xrpl.js f8c5c72f65028cdb99d006039c9eeb3e96c95988 packages/ripple-binary-codec/src/enums/definitions.json, read 2026-10-26

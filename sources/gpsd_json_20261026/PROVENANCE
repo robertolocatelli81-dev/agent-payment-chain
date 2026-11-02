@@ -1,0 +1,11 @@
+Real gpsd JSON (TPV/SKY) output from the gpsd project's regression data (BSD-2-Clause), fetched 2026-10-26 from
+https://gitlab.com/gpsd/gpsd/-/raw/e970bf8d61f0ec75ecbc93adb5ae783c8404892a/test/daemon/<name>.log.chk
+(gpsd commit e970bf8d61f0ec75ecbc93adb5ae783c8404892a, committed 2026-10-22). Each .chk is what gpsd printed when it
+read the capture of the same name (see sources/nmea_20261026): the NMEA input lines and gpsd's JSON objects
+interleaved. Copies unchanged; sha256 in SHA256SUMS.
+- bu353s4.log.chk     TPV mode 3, southern/eastern hemisphere (Hamilton NZ), SKY with uSat and no satellites array
+- garmin15x.log.chk   TPV with status 2 (DGPS), mode 2 and 3, SKY with satellites
+- GPSmap-76S.log.chk  TPV status 8 (simulated), mode 1: no fix
+- neo-m8n.log.chk     TPV time 2034-11-01 for a capture whose RMC says 2015-03-18 (the date gpsd's regression run
+                      gives it): a real case of a GPS time that depends on the decoder, so a DECLARED time
+- beidou-gb.log.chk   TPV mode 1 first, mode 3 later

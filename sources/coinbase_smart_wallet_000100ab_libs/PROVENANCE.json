@@ -1,0 +1,8 @@
+{
+ "source": "https://sourcify.dev/server/v2/contract/8453/0x000100abaad02f1cfc8bbe32bd5a564817339e72?fields=sources,compilation,metadata",
+ "match": "exact_match",
+ "read": "2026-10-26",
+ "compiler": "solc 0.8.23+commit.f704f362, optimizer 999999 runs, evm paris",
+ "files": "the library sources of the deployed CoinbaseSmartWallet that its signature check reads, at their Sourcify paths, unmodified; the three src/ files in the same reply have the sha256 of sources/coinbase_smart_wallet_000100ab",
+ "licenses": "SPDX MIT in each file header (FreshCryptoLib files carry no SPDX line)"
+}

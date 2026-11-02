@@ -1,0 +1,80 @@
+agent-payment-chain
+Copyright 2026 Roberto Locatelli
+
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use this work except in compliance with
+the License. You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0 (a copy is the file
+LICENSE). Unless required by applicable law or agreed to in writing, software distributed under the License is
+distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+
+Third-party material. sources/ holds unmodified copies of third-party files, each folder named after its origin and
+commit, used as test oracles and cited specifications. They are not part of this project's code and keep their own
+licences; the licence texts are in LICENSES/ (origin, commit and sha256 of each text in LICENSES/PROVENANCE.txt).
+Some file names have '/' replaced by '_'. Nothing of a third-party service's replies is redistributed: the real
+corpus (bundles/, oracle/) is not in this tree and is rebuilt from the chain by whoever runs tools/rebuild_corpus.py.
+
+x402 (x402-foundation/x402, commits 0aee759, c2a8924, 4241d56, 2ff672c), Apache-2.0; NOTICE of the origin
+  (LICENSES/x402-NOTICE.txt): "Copyright 2026 x402 Foundation. Licensed under the Apache License, Version 2.0".
+  Folders: x402_0aee759, x402_4241d56, x402_4241d56_permit2_20261026, x402_c2a8924_contracts, x402_spec_c2a8924,
+  x402_offer_receipt_20261026, x402_schemes_20261026, x402_stellar_20261026 (the .ts files), x402_transports_20261026,
+  x402_world_20261026/defaultAssets.ts, http_20261025/http.md; x402_prs_20261026 (patches and texts of pull requests
+  opened on that repository, under its licence per GitHub Terms of Service D.6; the texts of two issues are not
+  included) and x402_pr3827_20261026/*.patch.
+Circle stablecoin-evm @fc85788, Apache-2.0: circle_stablecoin-evm_fc85788.
+Circle buidl-wallet-contracts @3c8cd8fb, GPL-3.0-or-later, Copyright 2024 Circle Internet Group, Inc.:
+  circle_msca_v1_3c8cd8fb_20261101 (src_*, docs_*). Verbatim copies, an aggregate with this project (GPL-3.0 section 5,
+  last paragraph); the licence text is LICENSES/GPL-3.0.txt. Its oz_5.0.0_* files: OpenZeppelin Contracts, MIT.
+base/commerce-payments v1.0.0 @d33b5d5, GPL-3.0 (per the SPDX line of each file; the origin carries no LICENSE file at
+  that tag): commerce_payments_v100_d33b5d5. Verbatim copies, an aggregate as above; LICENSES/GPL-3.0.txt.
+base/commerce-payments v1.1.0 @6b0a5ef, MIT, Copyright (c) 2025 Coinbase: commerce_payments_v110_6b0a5ef.
+base/contracts @eaa7729, MIT: base_contracts_eaa7729.
+coinbase/smart-wallet (read through Sourcify, chain 8453), MIT, Copyright (c) 2024 Coinbase: coinbase_smart_wallet_*
+  (LICENSES/coinbase-smart-wallet-MIT.txt).
+base/eip-7702-proxy (read through Sourcify), MIT, Copyright (c) 2025 Coinbase: coinbase_eip7702proxy_7702cb55
+  (LICENSES/base-eip-7702-proxy-MIT.txt).
+OpenZeppelin Contracts 5.0.0, MIT (LICENSES/openzeppelin-contracts-5.0.0-MIT.txt); Solady, MIT, Copyright (c) 2022-2026
+  Solady (LICENSES/solady-MIT.txt); base/webauthn-sol, MIT, Copyright (c) 2024 Base (LICENSES/base-webauthn-sol-MIT.txt);
+  FreshCryptoLib, MIT, Renaud Dubois (LICENSES/FreshCryptoLib-MIT.txt): coinbase_smart_wallet_000100ab_libs,
+  circle_msca_v1_3c8cd8fb_20261101/oz_*, kernel_7702_d6cedde8_20261026, metamask_7702_63c0c19a_20261026.
+ZeroDev Kernel (read through Sourcify), MIT per the SPDX lines and the project README (LICENSES/kernel-MIT.txt):
+  kernel_7702_d6cedde8_20261026.
+MetaMask delegation-framework (read through Sourcify), MIT, Copyright (c) 2022 ConsenSys Software Inc.
+  (LICENSES/metamask-delegation-framework-MIT.txt): metamask_7702_63c0c19a_20261026.
+Uniswap permit2 @cc56ad0, MIT, Copyright (c) 2022 Uniswap Labs: permit2_cc56ad0, permit2_cc56ad0_20261026.
+anza-xyz/solana-sdk @6437e43 (LICENSES/solana-sdk-Apache-2.0.txt), anza-xyz/agave @918b264 (LICENSES/agave-Apache-2.0.txt),
+  stellar/rs-soroban-env @0c99950 (LICENSES/rs-soroban-env-Apache-2.0.txt), Apache-2.0; XRPLF/rippled @1f46f75, ISC
+  (LICENSES/rippled-ISC.txt); XRPLF/conan-center-index, MIT (LICENSES/xrplf-conan-center-index-MIT.txt);
+  floodyberry/ed25519-donna @8757bd4, public domain; curve25519-dalek 4.1.3 and ed25519-dalek 2.1.1, BSD-3-Clause;
+  solana-ed25519 0.2.4 (licence files beside them): ed25519_chains_20261026, solana_sdk_20261025.
+stellar/stellar-xdr @4f524bb, Apache-2.0: stellar_xdr_4f524bb.
+C2SP/wycheproof @d17cc89, Apache-2.0: wycheproof_d17cc89.
+iamonuwa/kanon @3d49240, Apache-2.0: kanon_3d49240.
+peacprotocol/x402-solana-evidence @8a7a1f5, Apache-2.0, Copyright 2026 PEAC Protocol contributors: peac_8a7a1f5.
+stillmarcus24/notary-x402-reference-kit @e6e17a2, MIT, Copyright (c) 2026 StillOS: notary_x402_kit_e6e17a2.
+babyblueviper1/preaction-governance-conformance @0a818e7, MIT, Copyright (c) 2026 babyblueviper1 (the example declares
+  CC0-1.0) (LICENSES/babyblueviper1-preaction-governance-conformance-MIT.txt): x402_pr3827_20261026.
+Merit-Systems/x402scan @5732bb8 (packages/external/facilitators), MIT: x402scan_5732bb8; an extract of the same list in
+  solana_20261024.
+XRPLF/xrpl.js @f8c5c72, ISC, Copyright (c) 2015 Ripple Labs Inc.: xrpl_js_f8c5c72.
+XRPLF/xrpl-dev-portal @94abc77, MIT, Copyright (c) 2023 XRP Ledger Foundation and contributors
+  (LICENSES/xrpl-dev-portal-MIT.txt): xrpl_dev_portal_94abc77.
+jcam1/python-sdk @0fd606b, MIT, Copyright (c) 2025 JPYC (LICENSES/jpyc-python-sdk-MIT.txt): x402_world_20261026/jpyc_*.
+gpsd @e970bf8, BSD-2-Clause, compilation copyright held by the GPSD project (LICENSES/gpsd-COPYING.txt):
+  gpsd_json_20261026; the NMEA captures of nmea_20261026 are fetched by tools/fetch_nmea_captures.py, not redistributed.
+ethereum/ERCs (8dd085d, 4891ba3, PR 1209 @457532f): erc6492_8dd085d, ercs_7710_7579_20261026, erc8021_pr1209_457532f
+  (a draft under review), x402_prs_20261026/erc-8004_4891ba3.md; ethereum-optimism/specs @21d1ff5: optimism_specs_21d1ff5.
+  All CC0-1.0.
+IETF: RFC 8941, 9421, 9530, 9651 (http_20261025) and four Internet-Drafts (ietf/), reproduced in full and without
+  modification under the IETF Trust Legal Provisions, section 3.c.i. Copyright (c) IETF Trust and the persons identified
+  as the document authors.
+centralcity_20261022 holds only the provenance record (URL, date, sha256) of a documentation page read on 2026-10-22;
+  the page itself is not redistributed.
+sources/labels_ours.json is the author's own note (Apache-2.0 with the project).
+The SHA256SUMS files of sources/centralcity_20261022, l1proof_20261024, nmea_20261026, solana_20261024,
+  x402_prs_20261026, x402_stellar_20261026 and x402_world_20261026 also list files that are not redistributed here (no
+  licence to redistribute, names of people, replies of services, or withdrawn by its authors and read by no test); the
+  sums let a reader check a copy fetched from the origin.
+Replies of public JSON-RPC endpoints and of other services (the saved reads in l1proof_20261024, solana_20261024,
+  x402_prs_20261026/real_chain_reads.json and x402_stellar_20261026/x402org_supported.json) are NOT redistributed;
+  their sha256 stays in the folder's SHA256SUMS. sources/l1proof_20261024/fetch_l1proof.py,
+  tools/fetch_solana_feepayers.py and tools/fetch_stellar_x402org.py read such data again from an endpoint you name;
+  real_chain_reads.json has no fetch tool in this tree, and tests/test_drafts2.py skips without it.

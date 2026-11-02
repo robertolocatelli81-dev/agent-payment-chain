@@ -1,0 +1,1680 @@
+
+
+
+
+Individual Submission                                           B. Stone
+Internet-Draft                                              SwarmSync.AI
+Intended status: Informational                          4 September 2026
+Expires: 8 March 2027
+
+
+              VCAP: Verified Commerce for Agent Protocols
+                          draft-stone-vcap-02
+
+Abstract
+
+   This document specifies the *Verified Commerce for Agent Protocols
+   (VCAP)*, an open standard for settling financial transactions between
+   autonomous AI agents using cryptographically verifiable proof of work
+   delivery.  VCAP defines the message formats, state machines,
+   cryptographic bindings, and callback contracts required for any agent
+   marketplace to hold funds in escrow, automatically verify
+   deliverables via independent verification engines, and release or
+   refund payments based on machine-verifiable evidence.
+
+   VCAP is designed as a *settlement layer* that complements agent-to-
+   agent communication protocols (such as Google A2A or the Agent
+   Protocol).  Where those protocols define _how agents discover and
+   talk to each other_, VCAP defines _how agents pay each other with
+   proof that work was done_.
+
+Status of This Memo
+
+   This Internet-Draft is submitted in full conformance with the
+   provisions of BCP 78 and BCP 79.
+
+   Internet-Drafts are working documents of the Internet Engineering
+   Task Force (IETF).  Note that other groups may also distribute
+   working documents as Internet-Drafts.  The list of current Internet-
+   Drafts is at https://datatracker.ietf.org/drafts/current/.
+
+   Internet-Drafts are draft documents valid for a maximum of six months
+   and may be updated, replaced, or obsoleted by other documents at any
+   time.  It is inappropriate to use Internet-Drafts as reference
+   material or to cite them other than as "work in progress."
+
+   This Internet-Draft will expire on 8 March 2027.
+
+Copyright Notice
+
+   Copyright (c) 2026 IETF Trust and the persons identified as the
+   document authors.  All rights reserved.
+
+
+
+
+Stone                     Expires 8 March 2027                  [Page 1]
+
+Internet-Draft                    VCAP                    September 2026
+
+
+   This document is subject to BCP 78 and the IETF Trust's Legal
+   Provisions Relating to IETF Documents (https://trustee.ietf.org/
+   license-info) in effect on the date of publication of this document.
+   Please review these documents carefully, as they describe your rights
+   and restrictions with respect to this document.
+
+Table of Contents
+
+   1.  1.  Introduction  . . . . . . . . . . . . . . . . . . . . . .   3
+     1.1.  1.1 Problem Statement . . . . . . . . . . . . . . . . . .   3
+     1.2.  1.2 Design Goals  . . . . . . . . . . . . . . . . . . . .   4
+     1.3.  1.3 Relationship to Other Protocols . . . . . . . . . . .   4
+     1.4.  1.4 Terminology . . . . . . . . . . . . . . . . . . . . .   5
+   2.  2.  Protocol Overview . . . . . . . . . . . . . . . . . . . .   6
+     2.1.  2.1 Flow Summary  . . . . . . . . . . . . . . . . . . . .   6
+     2.2.  2.2 Protocol Phases . . . . . . . . . . . . . . . . . . .   6
+   3.  3.  Message Formats . . . . . . . . . . . . . . . . . . . . .   7
+     3.1.  3.1 Negotiation Request . . . . . . . . . . . . . . . . .   7
+     3.2.  3.2 Negotiation Response  . . . . . . . . . . . . . . . .   8
+     3.3.  3.3 Escrow Hold . . . . . . . . . . . . . . . . . . . . .   8
+     3.4.  3.4 Service Delivery  . . . . . . . . . . . . . . . . . .   8
+     3.5.  3.5 Verification Request  . . . . . . . . . . . . . . . .   9
+     3.6.  3.6 Verification Callback (Core Message)  . . . . . . . .  10
+     3.7.  3.7 Escrow Settlement . . . . . . . . . . . . . . . . . .  11
+   4.  4.  State Machines  . . . . . . . . . . . . . . . . . . . . .  12
+     4.1.  4.1 Negotiation State Machine . . . . . . . . . . . . . .  12
+     4.2.  4.2 Escrow State Machine  . . . . . . . . . . . . . . . .  13
+     4.3.  4.3 Verification State Machine  . . . . . . . . . . . . .  14
+     4.4.  4.4 Service Agreement State Machine . . . . . . . . . . .  16
+   5.  5.  Cryptographic Binding . . . . . . . . . . . . . . . . . .  16
+     5.1.  5.1 Proof Hash  . . . . . . . . . . . . . . . . . . . . .  16
+     5.2.  5.2 Proof Signature . . . . . . . . . . . . . . . . . . .  17
+     5.3.  5.3 Action Log Hash Chain (OPTIONAL, RECOMMENDED) . . . .  17
+     5.4.  5.4 Agent Identity Binding (OPTIONAL) . . . . . . . . . .  18
+   6.  6.  Verification Engines  . . . . . . . . . . . . . . . . . .  18
+     6.1.  6.1 Verifier Requirements . . . . . . . . . . . . . . . .  18
+     6.2.  6.2 Example Verifier Types  . . . . . . . . . . . . . . .  19
+     6.3.  6.3 Verifier Accountability . . . . . . . . . . . . . . .  19
+     6.4.  6.4 Verification Hints  . . . . . . . . . . . . . . . . .  20
+   7.  7.  Timeout and Escalation  . . . . . . . . . . . . . . . . .  21
+     7.1.  7.1 Timeout Semantics . . . . . . . . . . . . . . . . . .  21
+     7.2.  7.2 Timeout Detection . . . . . . . . . . . . . . . . . .  22
+     7.3.  7.3 Manual Review . . . . . . . . . . . . . . . . . . . .  22
+   8.  8.  Idempotency . . . . . . . . . . . . . . . . . . . . . . .  22
+     8.1.  8.1 Delivery Idempotency  . . . . . . . . . . . . . . . .  22
+     8.2.  8.2 Escrow Idempotency  . . . . . . . . . . . . . . . . .  23
+     8.3.  8.3 Verification Callback Idempotency . . . . . . . . . .  23
+   9.  9.  Security Considerations . . . . . . . . . . . . . . . . .  23
+
+
+
+Stone                     Expires 8 March 2027                  [Page 2]
+
+Internet-Draft                    VCAP                    September 2026
+
+
+     9.1.  9.1 Verifier Key Management . . . . . . . . . . . . . . .  23
+     9.2.  9.2 Transport Security  . . . . . . . . . . . . . . . . .  23
+     9.3.  9.3 Callback Authentication . . . . . . . . . . . . . . .  23
+     9.4.  9.4 Timing-Safe Comparison  . . . . . . . . . . . . . . .  24
+     9.5.  9.5 Proof Integrity . . . . . . . . . . . . . . . . . . .  24
+   10. 10.  Platform Fees  . . . . . . . . . . . . . . . . . . . . .  24
+     10.1.  10.1 Fee Declaration . . . . . . . . . . . . . . . . . .  24
+     10.2.  10.2 Fee Timing  . . . . . . . . . . . . . . . . . . . .  24
+   11. 11.  Extensibility  . . . . . . . . . . . . . . . . . . . . .  25
+     11.1.  11.1 Custom Fields . . . . . . . . . . . . . . . . . . .  25
+     11.2.  11.2 Verification Engine Extensions  . . . . . . . . . .  25
+     11.3.  11.3 Payment Rail Extensions . . . . . . . . . . . . . .  25
+     11.4.  11.4 Upstream Protocol Drift . . . . . . . . . . . . . .  25
+   12. 12.  Conformance  . . . . . . . . . . . . . . . . . . . . . .  26
+     12.1.  12.1 Conformance Levels  . . . . . . . . . . . . . . . .  26
+     12.2.  12.2 Implementation Checklist  . . . . . . . . . . . . .  26
+   13. 13.  Reference Implementation . . . . . . . . . . . . . . . .  27
+   14. Appendix A: Complete Action Type Registry . . . . . . . . . .  27
+   15. Appendix B: JSON Schema . . . . . . . . . . . . . . . . . . .  29
+   16. Appendix C: Relationship to AIVS  . . . . . . . . . . . . . .  29
+   17. Appendix D: Changelog . . . . . . . . . . . . . . . . . . . .  29
+
+1.  1.  Introduction
+
+1.1.  1.1 Problem Statement
+
+   As AI agents proliferate, they increasingly need to transact with one
+   another: hire other agents, delegate subtasks, and pay for completed
+   work.  Today there is no standard for:
+
+   1.  How an agent requests work and holds payment in escrow
+
+   2.  How a delivering agent proves the work was actually done
+
+   3.  How a verification engine independently confirms delivery
+
+   4.  How proof of verification cryptographically triggers fund release
+
+   5.  How timeouts and disputes are escalated to human review
+
+   Each marketplace invents its own ad-hoc system, creating
+   fragmentation and vendor lock-in.  VCAP provides a vendor-neutral
+   protocol that any marketplace, payment processor, or agent framework
+   can implement.
+
+
+
+
+
+
+
+Stone                     Expires 8 March 2027                  [Page 3]
+
+Internet-Draft                    VCAP                    September 2026
+
+
+1.2.  1.2 Design Goals
+
+   +=======================+===========================================+
+   | Goal                  | Description                               |
+   +=======================+===========================================+
+   | Vendor-neutral        | Any marketplace or payment                |
+   |                       | processor can implement VCAP              |
+   +-----------------------+-------------------------------------------+
+   | Verification-agnostic | Any verification engine                   |
+   |                       | (browser automation, LLM                  |
+   |                       | evaluation, human review) can             |
+   |                       | produce VCAP-compliant proofs             |
+   +-----------------------+-------------------------------------------+
+   | Cryptographically     | Every settlement is tied to a             |
+   | auditable             | proof hash and signature that             |
+   |                       | can be independently verified             |
+   +-----------------------+-------------------------------------------+
+   | Graceful degradation  | Automated verification falls              |
+   |                       | back to human review on                   |
+   |                       | timeout or ambiguity                      |
+   +-----------------------+-------------------------------------------+
+   | Composable            | VCAP layers on top of                     |
+   |                       | existing agent communication              |
+   |                       | protocols (A2A, Agent                     |
+   |                       | Protocol, custom)                         |
+   +-----------------------+-------------------------------------------+
+   | Minimal               | The spec defines only what is             |
+   |                       | necessary; implementations                |
+   |                       | may extend it                             |
+   +-----------------------+-------------------------------------------+
+
+                                  Table 1
+
+1.3.  1.3 Relationship to Other Protocols
+
+     +===============+===============+===============================+
+     | Protocol      | Layer         | VCAP Relationship             |
+     +===============+===============+===============================+
+     | Google A2A    | Agent         | VCAP can be carried alongside |
+     |               | Communication | A2A messages; VCAP does not   |
+     |               |               | redefine A2A transport        |
+     +---------------+---------------+-------------------------------+
+     | Agent         | Task          | VCAP wraps Agent Protocol     |
+     | Protocol      | Execution     | tasks with escrow and         |
+     |               |               | verification                  |
+     +---------------+---------------+-------------------------------+
+     | AIVS (Agentic | Proof Format  | AIVS proof bundles are one    |
+     | Integrity     |               | valid VCAP proof format       |
+
+
+
+Stone                     Expires 8 March 2027                  [Page 4]
+
+Internet-Draft                    VCAP                    September 2026
+
+
+     | Verification  |               |                               |
+     | Standard)     |               |                               |
+     +---------------+---------------+-------------------------------+
+     | OAuth 2.0     | Authorization | VCAP agents may use OAuth for |
+     |               |               | identity; VCAP adds payment   |
+     |               |               | semantics                     |
+     +---------------+---------------+-------------------------------+
+
+                                  Table 2
+
+   *AP2/UCP alignment (2026):* AP2 is treated as an authorization and
+   mandate layer used within a commerce protocol such as UCP.  VCAP does
+   not assume AP2 defines escrow, capture, refund, or settlement state
+   transitions.  AP2 mandate objects are referenced by hash or opaque
+   identifier when VCAP binds delivery evidence to an authorized
+   transaction. | Stripe Connect / x402 v2 | Payment Rails | VCAP is
+   rail-agnostic; payment and escrow are performed by an external rail
+   or custody provider |
+
+1.4.  1.4 Terminology
+
+     +=============+================================================+
+     | Term        | Definition                                     |
+     +=============+================================================+
+     | Requester   | The agent (or human) that initiates a service  |
+     |             | request and holds payment                      |
+     +-------------+------------------------------------------------+
+     | Provider    | The agent that performs the work and receives  |
+     |             | payment                                        |
+     +-------------+------------------------------------------------+
+     | Marketplace | The platform that facilitates discovery,       |
+     |             | escrow, and settlement                         |
+     +-------------+------------------------------------------------+
+     | Verifier    | An independent engine that confirms whether    |
+     |             | work was delivered (may be automated or human) |
+     +-------------+------------------------------------------------+
+     | Escrow      | A financial hold on the requester's funds,     |
+     |             | released only upon verified delivery           |
+     +-------------+------------------------------------------------+
+     | Proof       | A cryptographically signed artifact attesting  |
+     | Bundle      | to the verification result                     |
+     +-------------+------------------------------------------------+
+     | Service     | The contract between requester and provider,   |
+     | Agreement   | specifying deliverables and payment            |
+     +-------------+------------------------------------------------+
+
+                                 Table 3
+
+
+
+
+Stone                     Expires 8 March 2027                  [Page 5]
+
+Internet-Draft                    VCAP                    September 2026
+
+
+2.  2.  Protocol Overview
+
+2.1.  2.1 Flow Summary
+
+      Requester                  Marketplace                Provider              Verifier
+         │                          │                          │                     │
+         │──── 1. NEGOTIATE ───────>│                          │                     │
+         │                          │──── 2. FORWARD ─────────>│                     │
+         │                          │<─── 3. RESPOND ──────────│                     │
+         │<─── 4. TERMS ───────────│                          │                     │
+         │──── 5. ACCEPT ─────────>│                          │                     │
+         │                          │── 6. ESCROW_HOLD ───────>│ (funds reserved)    │
+         │                          │── 7. AGREEMENT_CREATED ─>│                     │
+         │                          │                          │                     │
+         │                          │     [Provider works...]  │                     │
+         │                          │                          │                     │
+         │                          │<─── 8. DELIVER ──────────│                     │
+         │                          │──────────── 9. VERIFY ──────────────────────>│
+         │                          │                          │                     │
+         │                          │      [Verifier runs...]  │                     │
+         │                          │                          │                     │
+         │                          │<──────── 10. CALLBACK ──────────────────────│
+         │                          │                          │                     │
+         │                          │── 11a. ESCROW_RELEASE ──>│ (if VERIFIED)       │
+         │                          │── 11b. ESCROW_REFUND ───>│ (if FAILED)         │
+         │<── 12. SETTLEMENT_RECEIPT│                          │                     │
+
+2.2.  2.2 Protocol Phases
+
+    +=========+==============+========================================+
+    | Phase   | Name         | Description                            |
+    +=========+==============+========================================+
+    | Phase 1 | Negotiation  | Requester and provider agree on scope, |
+    |         |              | price, and verification criteria       |
+    +---------+--------------+----------------------------------------+
+    | Phase 2 | Escrow       | Marketplace holds requester's funds in |
+    |         |              | escrow                                 |
+    +---------+--------------+----------------------------------------+
+    | Phase 3 | Execution    | Provider performs the work             |
+    +---------+--------------+----------------------------------------+
+    | Phase 4 | Delivery     | Provider submits deliverables with     |
+    |         |              | verification hints                     |
+    +---------+--------------+----------------------------------------+
+    | Phase 5 | Verification | Independent verifier confirms delivery |
+    |         |              | against the agreement                  |
+    +---------+--------------+----------------------------------------+
+    | Phase 6 | Settlement   | Escrow releases (on verification) or   |
+    |         |              | refunds (on failure)                   |
+
+
+
+Stone                     Expires 8 March 2027                  [Page 6]
+
+Internet-Draft                    VCAP                    September 2026
+
+
+    +---------+--------------+----------------------------------------+
+    | Phase 7 | Escalation   | Timeout or ambiguity routes to human   |
+    |         |              | review                                 |
+    +---------+--------------+----------------------------------------+
+
+                                  Table 4
+
+3.  3.  Message Formats
+
+   All messages are JSON objects.  Fields marked REQUIRED must be
+   present; fields marked OPTIONAL may be omitted.  Implementations MUST
+   ignore unknown fields for forward compatibility.
+
+3.1.  3.1 Negotiation Request
+
+   Sent by the requester to initiate a service request.
+
+   {
+     "vcap_version": "1.0",
+     "message_type": "negotiation_request",
+     "negotiation_id": "string (UUID, generated by marketplace)",
+     "requester": {
+       "agent_id": "string (URI or UUID)",
+       "platform": "string (e.g., 'swarmsync', 'custom')"
+     },
+     "provider": {
+       "agent_id": "string (URI or UUID)",
+       "platform": "string"
+     },
+     "request": {
+       "service_type": "string (free-form or from a taxonomy)",
+       "description": "string (human-readable description of work)",
+       "budget_amount": "number (decimal, in currency units)",
+       "budget_currency": "string (ISO 4217, e.g., 'USD')",
+       "requirements": "object (OPTIONAL, implementation-specific)",
+       "deadline_utc": "string (OPTIONAL, ISO 8601 datetime)"
+     },
+     "verification_hints": {
+       "type": "string (OPTIONAL, e.g., 'url', 'artifact', 'llm_eval', 'human')",
+       "url": "string (OPTIONAL, URL of deliverable to verify)",
+       "selector": "string (OPTIONAL, CSS selector or JSONPath for content extraction)",
+       "expected_content": "string (OPTIONAL, substring or pattern to match)",
+       "fingerprint_delta": "boolean (OPTIONAL, check if content changed)",
+       "custom": "object (OPTIONAL, verifier-specific parameters)"
+     },
+     "metadata": "object (OPTIONAL, implementation-specific)"
+   }
+
+
+
+
+Stone                     Expires 8 March 2027                  [Page 7]
+
+Internet-Draft                    VCAP                    September 2026
+
+
+3.2.  3.2 Negotiation Response
+
+   Sent by the provider to accept, reject, or counter the request.
+
+   {
+     "vcap_version": "1.0",
+     "message_type": "negotiation_response",
+     "negotiation_id": "string (matches request)",
+     "response_status": "ACCEPTED | REJECTED | COUNTERED",
+     "counter_terms": {
+       "amount": "number (OPTIONAL, counter-offer price)",
+       "currency": "string (OPTIONAL)",
+       "description": "string (OPTIONAL, modified scope)",
+       "deadline_utc": "string (OPTIONAL)",
+       "rejection_reason": "string (OPTIONAL, when REJECTED)"
+     },
+     "provider_verification_hints": {
+       "type": "string (OPTIONAL, provider may suggest verification method)",
+       "url": "string (OPTIONAL)",
+       "custom": "object (OPTIONAL)"
+     }
+   }
+
+3.3.  3.3 Escrow Hold
+
+   Created by the marketplace when negotiation reaches ACCEPTED.
+
+   {
+     "vcap_version": "1.0",
+     "message_type": "escrow_hold",
+     "escrow_id": "string (UUID)",
+     "negotiation_id": "string",
+     "source_wallet": "string (requester's wallet/account identifier)",
+     "destination_wallet": "string (provider's wallet/account identifier)",
+     "amount": "number (decimal)",
+     "currency": "string (ISO 4217)",
+     "status": "HELD",
+     "release_condition": "string (memo linking escrow to negotiation)",
+     "held_at": "string (ISO 8601)",
+     "metadata": "object (OPTIONAL)"
+   }
+
+3.4.  3.4 Service Delivery
+
+   Sent by the provider to claim work completion.
+
+
+
+
+
+
+Stone                     Expires 8 March 2027                  [Page 8]
+
+Internet-Draft                    VCAP                    September 2026
+
+
+   {
+     "vcap_version": "1.0",
+     "message_type": "service_delivery",
+     "negotiation_id": "string",
+     "escrow_id": "string",
+     "provider": {
+       "agent_id": "string",
+       "platform": "string"
+     },
+     "delivery": {
+       "status": "string ('success' | 'partial' | 'failed')",
+       "description": "string (what was delivered)",
+       "artifacts": [
+         {
+           "type": "string (e.g., 'url', 'file', 'text', 'api_response')",
+           "uri": "string (OPTIONAL)",
+           "content": "string (OPTIONAL, inline content)",
+           "hash": "string (OPTIONAL, SHA-256 of artifact)"
+         }
+       ]
+     },
+     "verification_hints": {
+       "url": "string (OPTIONAL, URL to verify)",
+       "selector": "string (OPTIONAL, CSS selector for content extraction)",
+       "expected_content": "string (OPTIONAL, substring to find)",
+       "fingerprint_delta": "boolean (OPTIONAL, default false)",
+       "auto_approve": "boolean (OPTIONAL, skip automated verification)"
+     },
+     "delivered_at": "string (ISO 8601)"
+   }
+
+3.5.  3.5 Verification Request
+
+   Sent by the marketplace to the verifier engine.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Stone                     Expires 8 March 2027                  [Page 9]
+
+Internet-Draft                    VCAP                    September 2026
+
+
+   {
+     "vcap_version": "1.0",
+     "message_type": "verification_request",
+     "verification_id": "string (UUID)",
+     "negotiation_id": "string",
+     "spec": {
+       "url": "string (URL to verify)",
+       "selector": "string | null (CSS selector for extraction)",
+       "expected_content": "string | null (substring match, case-insensitive)",
+       "fingerprint_delta": "boolean (check content change)",
+       "timeout_seconds": "number (max verification duration, default 1800)"
+     },
+     "context": {
+       "marketplace": "string (marketplace identifier)",
+       "purpose": "escrow_verification",
+       "escrow_ref": "string (escrow ID)",
+       "negotiation_id": "string",
+       "verification_id": "string"
+     },
+     "requested_at": "string (ISO 8601)"
+   }
+
+3.6.  3.6 Verification Callback (Core Message)
+
+   Sent by the verifier back to the marketplace. *This is the most
+   critical message in the protocol* -- it triggers escrow settlement.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Stone                     Expires 8 March 2027                 [Page 10]
+
+Internet-Draft                    VCAP                    September 2026
+
+
+   {
+     "vcap_version": "1.0",
+     "message_type": "verification_callback",
+     "verification_id": "string (matches request)",
+     "passed": "boolean (true = verified, false = failed)",
+     "proof_hash": "string (SHA-256 hex digest of the canonical proof bundle)",
+     "proof_signature": "string (Ed25519 signature, Base64-encoded)",
+     "verifier_key_id": "string (stable key identifier or verification-method URI)",
+     "extracted_content": "string (OPTIONAL, truncated content from target)",
+     "failure_reason": "string (OPTIONAL, human-readable when passed=false)",
+     "action_log": [
+       {
+         "index": "number (0-based sequential order)",
+         "action": "string (e.g., 'NAVIGATE', 'EXTRACT', 'SCREENSHOT', 'FINGERPRINT')",
+         "url": "string (OPTIONAL)",
+         "selector": "string (OPTIONAL)",
+         "success": "boolean",
+         "cost_cents": "number (cost of this action)",
+         "duration_ms": "number (OPTIONAL)",
+         "timestamp": "string (ISO 8601)",
+         "data_snippet": "string (OPTIONAL, first N chars of extracted data)"
+       }
+     ],
+     "completed_at": "string (ISO 8601)"
+   }
+
+3.7.  3.7 Escrow Settlement
+
+   The final state of the escrow after verification.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Stone                     Expires 8 March 2027                 [Page 11]
+
+Internet-Draft                    VCAP                    September 2026
+
+
+   {
+     "vcap_version": "1.0",
+     "message_type": "escrow_settlement",
+     "escrow_id": "string",
+     "negotiation_id": "string",
+     "status": "RELEASED | REFUNDED",
+     "verification_id": "string (links to the verification that triggered settlement)",
+     "proof_hash": "string (copied from verification callback for audit trail)",
+     "proof_signature": "string (copied from verification callback)",
+     "evidence": {
+       "conduit_verification_id": "string (OPTIONAL)",
+       "proof_hash": "string",
+       "proof_signature": "string",
+       "extracted_content": "string (OPTIONAL)",
+       "action_log": "array (OPTIONAL, full action log)"
+     },
+     "platform_fee": {
+       "amount": "number (OPTIONAL)",
+       "currency": "string (OPTIONAL)",
+       "rate": "number (OPTIONAL, decimal, e.g. 0.05 for 5%)"
+     },
+     "settled_at": "string (ISO 8601)"
+   }
+
+4.  4.  State Machines
+
+4.1.  4.1 Negotiation State Machine
+
+                       ┌──────────────┐
+                       │   PENDING    │
+                       └──────┬───────┘
+                              │
+                 ┌────────────┼────────────┐
+                 │            │            │
+                 ▼            ▼            ▼
+           ┌──────────┐ ┌──────────┐ ┌──────────┐
+           │ ACCEPTED │ │COUNTERED │ │ DECLINED │
+           └────┬─────┘ └────┬─────┘ └──────────┘
+                │            │                     (terminal)
+                │            │
+                │       ┌────┴────┐
+                │       │ PENDING │  (counter-offer restarts negotiation)
+                │       └─────────┘
+                │
+                ▼
+      [Escrow Hold Created]
+      [Service Agreement Created]
+
+
+
+
+Stone                     Expires 8 March 2027                 [Page 12]
+
+Internet-Draft                    VCAP                    September 2026
+
+
+   *Transitions:*
+
+          +===========+===========+============================+
+          | From      | To        | Trigger                    |
+          +===========+===========+============================+
+          | PENDING   | ACCEPTED  | Provider accepts terms     |
+          +-----------+-----------+----------------------------+
+          | PENDING   | COUNTERED | Provider counter-offers    |
+          +-----------+-----------+----------------------------+
+          | PENDING   | DECLINED  | Provider rejects           |
+          +-----------+-----------+----------------------------+
+          | COUNTERED | ACCEPTED  | Requester accepts counter  |
+          +-----------+-----------+----------------------------+
+          | COUNTERED | DECLINED  | Requester rejects counter  |
+          +-----------+-----------+----------------------------+
+          | COUNTERED | COUNTERED | Requester counter-counters |
+          +-----------+-----------+----------------------------+
+
+                                 Table 5
+
+4.2.  4.2 Escrow State Machine
+
+                 ┌──────────┐
+                 │   HELD   │
+                 └────┬─────┘
+                      │
+            ┌─────────┼─────────┐
+            │                    │
+            ▼                    ▼
+      ┌──────────┐         ┌──────────┐
+      │ RELEASED │         │ REFUNDED │
+      └──────────┘         └──────────┘
+      (terminal)           (terminal)
+
+   *Transitions:*
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Stone                     Expires 8 March 2027                 [Page 13]
+
+Internet-Draft                    VCAP                    September 2026
+
+
+       +======+==========+=======================+=================+
+       | From | To       | Trigger               | Guard           |
+       +======+==========+=======================+=================+
+       | HELD | RELEASED | Verification VERIFIED | Atomic CAS:     |
+       |      |          |                       | status = 'HELD' |
+       +------+----------+-----------------------+-----------------+
+       | HELD | REFUNDED | Verification FAILED   | Atomic CAS:     |
+       |      |          | or REJECTED           | status = 'HELD' |
+       +------+----------+-----------------------+-----------------+
+       | HELD | REFUNDED | Timeout + manual      | Atomic CAS:     |
+       |      |          | rejection             | status = 'HELD' |
+       +------+----------+-----------------------+-----------------+
+
+                                  Table 6
+
+   *Concurrency Guard:* The HELD -> RELEASED/REFUNDED transition MUST
+   use an atomic compare-and-swap (CAS) operation to prevent double-
+   release.  Implementations SHOULD use database-level atomic updates:
+
+   UPDATE Escrow SET status = 'RELEASED', released_at = NOW()
+   WHERE id = :escrow_id AND status = 'HELD'
+   -- Returns 0 rows affected if already transitioned
+
+4.3.  4.3 Verification State Machine
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Stone                     Expires 8 March 2027                 [Page 14]
+
+Internet-Draft                    VCAP                    September 2026
+
+
+      ┌─────────┐
+      │ PENDING │
+      └────┬────┘
+           │
+           ▼
+      ┌─────────┐
+      │ RUNNING │
+      └────┬────┘
+           │
+      ┌────┼────────┬──────────┐
+      │    │        │          │
+      ▼    ▼        ▼          ▼
+   ┌────┐┌────┐ ┌───────┐ ┌───────┐
+   │VERI││FAIL│ │TIMEOUT│ │ ERROR │
+   │FIED││ ED │ └───┬───┘ └───────┘
+   └──┬─┘└──┬─┘     │
+      │     │       ▼
+      │     │  [Manual Review]
+      │     │       │
+      │     │  ┌────┴────┐
+      │     │  │ PENDING │ (OutcomeVerification)
+      │     │  └─────────┘
+      ▼     ▼
+   [ESCROW  [ESCROW
+   RELEASE] REFUND]
+
+   *Transitions:*
+
+     +=========+==========+==========================================+
+     | From    | To       | Trigger                                  |
+     +=========+==========+==========================================+
+     | PENDING | RUNNING  | Verifier acknowledges job                |
+     +---------+----------+------------------------------------------+
+     | RUNNING | VERIFIED | Verification callback passed=true        |
+     +---------+----------+------------------------------------------+
+     | RUNNING | FAILED   | Verification callback passed=false       |
+     +---------+----------+------------------------------------------+
+     | RUNNING | TIMEOUT  | No callback within timeout_seconds       |
+     +---------+----------+------------------------------------------+
+     | RUNNING | ERROR    | Verifier reports internal error          |
+     +---------+----------+------------------------------------------+
+     | PENDING | TIMEOUT  | No acknowledgment within timeout_seconds |
+     +---------+----------+------------------------------------------+
+     | TIMEOUT | (manual) | Escalated to human review queue          |
+     +---------+----------+------------------------------------------+
+
+                                  Table 7
+
+
+
+
+Stone                     Expires 8 March 2027                 [Page 15]
+
+Internet-Draft                    VCAP                    September 2026
+
+
+4.4.  4.4 Service Agreement State Machine
+
+      ┌────────┐
+      │ ACTIVE │
+      └───┬────┘
+          │
+     ┌────┼────────┐
+     │    │        │
+     ▼    ▼        ▼
+   ┌────┐┌────┐ ┌────┐
+   │COMP││DISP│ │CANC│
+   │LETE││UTED│ │ELED│
+   │  D ││    │ │    │
+   └────┘└────┘ └────┘
+
+       +========+===========+======================================+
+       | From   | To        | Trigger                              |
+       +========+===========+======================================+
+       | ACTIVE | COMPLETED | Verification VERIFIED                |
+       +--------+-----------+--------------------------------------+
+       | ACTIVE | DISPUTED  | Verification REJECTED                |
+       +--------+-----------+--------------------------------------+
+       | ACTIVE | CANCELLED | Either party cancels before delivery |
+       +--------+-----------+--------------------------------------+
+
+                                  Table 8
+
+5.  5.  Cryptographic Binding
+
+5.1.  5.1 Proof Hash
+
+   The proof_hash field in the Verification Callback MUST be computed
+   as:
+
+   proof_hash = SHA-256(canonical_json(proof_bundle))
+
+   Where canonical_json serializes the proof bundle with:
+
+   *  Object keys sorted alphabetically (recursive)
+
+   *  No whitespace between tokens
+
+   *  UTF-8 encoding
+
+   *  No trailing newline
+
+
+
+
+
+
+Stone                     Expires 8 March 2027                 [Page 16]
+
+Internet-Draft                    VCAP                    September 2026
+
+
+5.2.  5.2 Proof Signature
+
+   The proof_signature field MUST be computed using Ed25519:
+
+   proof_body = canonical_json({
+       "verification_id": verification_id,
+       "negotiation_id":  negotiation_id,
+       "escrow_ref":      escrow_ref,
+       "passed":          passed,
+       "proof_hash":      proof_hash,
+       "verifier_key_id": verifier_key_id,
+       "completed_at":    completed_at
+   })
+
+   proof_signature = Ed25519_Sign(verifier_private_key, proof_body.encode("utf-8"))
+   proof_signature_b64 = Base64_Encode(proof_signature)
+
+   The verifier's Ed25519 public key MUST be registered with the
+   marketplace out-of-band before the first verification request is
+   processed.
+
+   *Rationale for Ed25519 over HMAC-SHA256:* HMAC requires a shared
+   secret that must be transmitted out-of-band and rotated periodically,
+   creating operational overhead.  Ed25519 enables stateless
+   verification: any party with the verifier's public key can
+   independently verify the signature without coordinating with the
+   marketplace.  This is critical for cross-platform VCAP deployments.
+
+   *Migration note (v1.0 → v1.1):* The original VCAP v1.0 used HMAC-
+   SHA256 for proof_signature.  This was identified as an inconsistency
+   by the W3C AI Knowledge Representation Community Group (AIKR CG
+   Technical Note AI-KR-CG-TR-2026-001).  VCAP v1.1 aligns all signature
+   operations on Ed25519.  Implementations MUST check the vcap_version
+   field to determine which signature algorithm to use during
+   verification.
+
+5.3.  5.3 Action Log Hash Chain (OPTIONAL, RECOMMENDED)
+
+   For verifiers that record sequential actions (e.g., browser
+   automation), the action log SHOULD be hash-chained:
+
+   hash_0 = SHA-256(canonical_json(action_0))
+   hash_1 = SHA-256(canonical_json(action_1) || hash_0)
+   hash_2 = SHA-256(canonical_json(action_2) || hash_1)
+   ...
+   hash_n = SHA-256(canonical_json(action_n) || hash_(n-1))
+
+
+
+
+
+Stone                     Expires 8 March 2027                 [Page 17]
+
+Internet-Draft                    VCAP                    September 2026
+
+
+   The final hash_n SHOULD be included in the proof bundle.  Modifying
+   any past action immediately invalidates all subsequent hashes,
+   providing tamper evidence.
+
+5.4.  5.4 Agent Identity Binding (OPTIONAL)
+
+   When agent identity is cryptographically established (e.g., via
+   Ed25519 key pairs), the proof bundle MAY include:
+
+   {
+     "agent_identity": {
+       "agent_id": "string",
+       "public_key": "string (PEM, Ed25519 SPKI format)",
+       "signature": "string (Ed25519 signature of canonical_json({agent_id, timestamp}), Base64-encoded)",
+       "timestamp": "string (ISO 8601)"
+     }
+   }
+
+   Agent identity headers for HTTP transport:
+
+   X-Agent-Id: <agent UUID>
+   X-Agent-Signature: <ISO-timestamp>.<Ed25519-signature-Base64>
+   X-Agent-Platform: <platform identifier>
+
+6.  6.  Verification Engines
+
+   VCAP does not mandate a specific verification technology.  Any system
+   that can produce a compliant verification_callback message is a valid
+   VCAP verifier.
+
+6.1.  6.1 Verifier Requirements
+
+   A compliant VCAP verifier MUST:
+
+   1.  Accept a verification_request message
+
+   2.  Return a verification_callback message within the specified
+       timeout_seconds
+
+   3.  Include a proof_hash computed per Section 5.1
+
+   4.  Include a proof_signature computed per Section 5.2
+
+   5.  Set passed to true only if the verification criteria are met
+
+   6.  Include an action_log documenting all steps taken
+
+   A compliant VCAP verifier SHOULD:
+
+
+
+Stone                     Expires 8 March 2027                 [Page 18]
+
+Internet-Draft                    VCAP                    September 2026
+
+
+   1.  Use hash-chained action logs per Section 5.3
+
+   2.  Include extracted_content when applicable
+
+   3.  Provide human-readable failure_reason when passed=false
+
+6.2.  6.2 Example Verifier Types
+
+    +============+============================+=======================+
+    | Type       | Description                | Use Case              |
+    +============+============================+=======================+
+    | Browser    | Navigates to URL, extracts | Web deliverables,     |
+    | Automation | content, fingerprints page | deployed applications |
+    +------------+----------------------------+-----------------------+
+    | LLM        | Sends deliverable to an    | Content generation,   |
+    | Evaluation | LLM for quality assessment | code review           |
+    +------------+----------------------------+-----------------------+
+    | API Health | Calls API endpoints and    | API development tasks |
+    | Check      | validates responses        |                       |
+    +------------+----------------------------+-----------------------+
+    | Human      | Routes to a human reviewer | Subjective quality,   |
+    | Review     | with a structured rubric   | complex deliverables  |
+    +------------+----------------------------+-----------------------+
+    | Composite  | Chains multiple verifiers  | Multi-criteria        |
+    |            | (e.g., browser + LLM)      | verification          |
+    +------------+----------------------------+-----------------------+
+
+                                  Table 9
+
+6.3.  6.3 Verifier Accountability
+
+   VCAP defines what a verifier must do (return a pass/fail result with
+   evidence) but implementations MUST also address how verifier
+   competence and bias are assessed, since the marketplace effectively
+   controls settlement outcomes when it selects verifiers.
+
+   *Verifier registration requirements:* Before accepting verification
+   results from any verifier, a VCAP marketplace MUST:
+
+   1.  Verify the verifier's Ed25519 public key or verification method
+       is registered and trusted
+
+   2.  Record the verifier's stated capabilities (verification types
+       supported, action types logged)
+
+   3.  Define a dispute escalation path if the verifier's results are
+       contested
+
+
+
+
+Stone                     Expires 8 March 2027                 [Page 19]
+
+Internet-Draft                    VCAP                    September 2026
+
+
+   *Bias prevention:* When the marketplace operator also controls the
+   verifier, this creates a conflict of interest where the marketplace
+   can influence settlement outcomes.  Implementations SHOULD support
+   third-party verifiers selected by mutual agreement between requester
+   and provider.
+
+   *Verifier transparency:* Marketplaces SHOULD publish their verifier
+   selection policy, including:
+
+   *  What verifier types are used for which service categories
+
+   *  How verifier conflicts of interest are managed
+
+   *  How contested verification results are escalated
+
+   *Audit trail:* All verifier registrations, key rotations, and
+   deregistrations MUST be logged with timestamps and stored alongside
+   escrow settlement records.
+
+6.4.  6.4 Verification Hints
+
+   The verification_hints object in the delivery message tells the
+   verifier what to check.  Standard hint fields:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Stone                     Expires 8 March 2027                 [Page 20]
+
+Internet-Draft                    VCAP                    September 2026
+
+
+       +===================+=========+=============================+
+       | Field             | Type    | Description                 |
+       +===================+=========+=============================+
+       | url               | string  | URL of the deliverable to   |
+       |                   |         | verify                      |
+       +-------------------+---------+-----------------------------+
+       | selector          | string  | CSS selector or JSONPath to |
+       |                   |         | extract specific content    |
+       +-------------------+---------+-----------------------------+
+       | expected_content  | string  | Substring that must appear  |
+       |                   |         | (case-insensitive)          |
+       +-------------------+---------+-----------------------------+
+       | fingerprint_delta | boolean | If true, verify the page    |
+       |                   |         | content has changed from a  |
+       |                   |         | prior known state           |
+       +-------------------+---------+-----------------------------+
+       | auto_approve      | boolean | If true, skip automated     |
+       |                   |         | verification (provider      |
+       |                   |         | self-attests)               |
+       +-------------------+---------+-----------------------------+
+       | custom            | object  | Verifier-specific           |
+       |                   |         | parameters (e.g., LLM       |
+       |                   |         | rubric, API schema)         |
+       +-------------------+---------+-----------------------------+
+
+                                  Table 10
+
+7.  7.  Timeout and Escalation
+
+7.1.  7.1 Timeout Semantics
+
+   If a verification does not complete within timeout_seconds (default:
+   1800 seconds / 30 minutes):
+
+   1.  The marketplace MUST transition the verification to TIMEOUT
+       status
+
+   2.  The escrow MUST remain in HELD status (funds are NOT auto-
+       released or auto-refunded)
+
+   3.  The marketplace SHOULD create a manual review queue entry with
+       status PENDING
+
+   4.  A human reviewer MUST make the final settlement decision
+
+
+
+
+
+
+
+Stone                     Expires 8 March 2027                 [Page 21]
+
+Internet-Draft                    VCAP                    September 2026
+
+
+7.2.  7.2 Timeout Detection
+
+   Implementations SHOULD run a periodic check (recommended: every 5
+   minutes) that:
+
+   FOR EACH verification WHERE
+     status IN ('PENDING', 'RUNNING') AND
+     created_at < (NOW() - timeout_seconds)
+   DO
+     SET status = 'TIMEOUT'
+     SET failure_reason = 'Verification timed out — escalated to manual review'
+     CREATE manual_review_entry(status = 'PENDING')
+
+7.3.  7.3 Manual Review
+
+   When a verification is escalated to manual review, the reviewer has
+   access to:
+
+   *  The original service agreement and negotiation terms
+
+   *  The provider's delivery artifacts
+
+   *  Any partial verification results (action logs, extracted content)
+
+   *  The escrow hold details
+
+   The reviewer MUST produce a standard verification_callback message
+   with:
+
+   *  passed = true or passed = false
+
+   *  action_log containing a single entry documenting the manual
+      decision
+
+   *  proof_hash and proof_signature computed normally
+
+8.  8.  Idempotency
+
+8.1.  8.1 Delivery Idempotency
+
+   If the same provider submits delivery for the same escrow multiple
+   times, the marketplace MUST return the existing verification result
+   rather than creating a new one.  This prevents:
+
+   *  Double-release of escrow funds
+
+   *  Duplicate verification jobs
+
+
+
+
+Stone                     Expires 8 March 2027                 [Page 22]
+
+Internet-Draft                    VCAP                    September 2026
+
+
+   *  Replay attacks
+
+8.2.  8.2 Escrow Idempotency
+
+   The HELD -> RELEASED/REFUNDED transition MUST be atomic and
+   idempotent.  If two concurrent processes attempt to settle the same
+   escrow, exactly one MUST succeed and the other MUST observe the
+   already-settled state.
+
+8.3.  8.3 Verification Callback Idempotency
+
+   If a verifier sends the same callback multiple times (e.g., due to
+   network retry), the marketplace MUST process only the first callback
+   and acknowledge subsequent duplicates without re-settling the escrow.
+
+9.  9.  Security Considerations
+
+9.1.  9.1 Verifier Key Management
+
+   Each VCAP verifier MUST maintain an Ed25519 keypair:
+
+   *  The private key is used to sign proof_signature values
+      (Section 5.2)
+
+   *  The public key MUST be registered with each marketplace the
+      verifier serves
+
+   *  Key rotation SHOULD be performed at minimum annually
+
+   *  On rotation, the new public key MUST be registered with all
+      marketplaces before the old key is retired
+
+   *  Private keys MUST be stored with at least 0600 file permissions
+      and SHOULD use hardware security modules in production deployments
+
+9.2.  9.2 Transport Security
+
+   All VCAP messages MUST be transmitted over TLS 1.2 or later.
+
+9.3.  9.3 Callback Authentication
+
+   The marketplace MUST authenticate verification callbacks to prevent
+   spoofing.  Recommended mechanisms:
+
+   *  Ed25519 signature verification (see Section 5.2)
+
+   *  Mutual TLS
+
+
+
+
+Stone                     Expires 8 March 2027                 [Page 23]
+
+Internet-Draft                    VCAP                    September 2026
+
+
+   *  Webhook signature verification
+
+9.4.  9.4 Timing-Safe Comparison
+
+   All signature comparisons (Ed25519 verification results, proof hash
+   comparisons) MUST use constant-time comparison to prevent timing
+   oracle attacks.
+
+9.5.  9.5 Proof Integrity
+
+   The proof_hash + proof_signature pair creates a *dual-layer integrity
+   check*:
+
+   *  proof_hash verifies the proof content was not tampered with
+
+   *  proof_signature verifies the proof was generated by the authorized
+      verifier
+
+   Both MUST be stored alongside the escrow settlement record for post-
+   hoc auditability.
+
+10.  10.  Platform Fees
+
+   VCAP does not mandate a specific fee structure, but defines how fees
+   SHOULD be represented:
+
+10.1.  10.1 Fee Declaration
+
+   {
+     "platform_fee": {
+       "rate": 0.05,
+       "rate_type": "percentage",
+       "amount": 15,
+       "currency": "USD",
+       "split": {
+         "buyer_share": 0.5,
+         "seller_share": 0.5
+       }
+     }
+   }
+
+10.2.  10.2 Fee Timing
+
+   Fees SHOULD be calculated at settlement time (not at escrow
+   creation), because:
+
+   *  The provider's subscription tier may change between escrow
+      creation and settlement
+
+
+
+Stone                     Expires 8 March 2027                 [Page 24]
+
+Internet-Draft                    VCAP                    September 2026
+
+
+   *  Partial completions may adjust the fee basis
+
+   *  Fee disputes should reference the fee at settlement time
+
+11.  11.  Extensibility
+
+11.1.  11.1 Custom Fields
+
+   Implementations MAY add custom fields to any VCAP message using the
+   metadata or custom objects.  Standard VCAP processors MUST ignore
+   unknown fields.
+
+11.2.  11.2 Verification Engine Extensions
+
+   New verification engine types can be registered by publishing their:
+
+   *  Supported verification_hints fields
+
+   *  Action types they may include in action_log
+
+   *  Any custom proof_bundle fields
+
+11.3.  11.3 Payment Rail Extensions
+
+   VCAP is agnostic to the underlying payment rail.  The escrow_hold and
+   escrow_settlement messages use wallet identifiers that can map to:
+
+   *  Internal platform wallets (balance-based)
+
+   *  Stripe Connect accounts
+
+   *  Cryptocurrency wallets using x402 protocol version 2 or a
+      compatible successor profile
+
+   *  Bank accounts via ACH/SEPA
+
+   *  Any future payment method
+
+11.4.  11.4 Upstream Protocol Drift
+
+   VCAP bindings to external protocols MUST identify the external
+   protocol version or profile they were tested against.  In particular,
+   implementers MUST NOT infer AP2 fields or state transitions that are
+   not present in the referenced AP2 specification.  Unknown or newer
+   upstream fields MUST be ignored unless a VCAP binding revision
+   defines their semantics.
+
+
+
+
+
+Stone                     Expires 8 March 2027                 [Page 25]
+
+Internet-Draft                    VCAP                    September 2026
+
+
+12.  12.  Conformance
+
+12.1.  12.1 Conformance Levels
+
+      +===========+================================================+
+      | Level     | Requirements                                   |
+      +===========+================================================+
+      | VCAP Core | Implement all message formats, state machines, |
+      |           | and escrow transitions from Sections 3-4       |
+      +-----------+------------------------------------------------+
+      | VCAP      | Core + cryptographic binding from Section 5    |
+      | Verified  | (proof_hash, proof_signature)                  |
+      +-----------+------------------------------------------------+
+      | VCAP Full | Verified + hash-chained action logs + agent    |
+      |           | identity binding + timeout escalation          |
+      +-----------+------------------------------------------------+
+
+                                 Table 11
+
+12.2.  12.2 Implementation Checklist
+
+   A conformant implementation MUST:
+
+   *  [ ] Generate and process all seven message types (Sections
+      3.1-3.7)
+
+   *  [ ] Implement the negotiation state machine (Section 4.1)
+
+   *  [ ] Implement the escrow state machine with atomic CAS transitions
+      (Section 4.2)
+
+   *  [ ] Implement the verification state machine (Section 4.3)
+
+   *  [ ] Compute proof_hash per Section 5.1
+
+   *  [ ] Compute proof_signature per Section 5.2 (Ed25519)
+
+   *  [ ] Support delivery idempotency (Section 8.1)
+
+   *  [ ] Support escrow idempotency (Section 8.2)
+
+   *  [ ] Use constant-time comparison for signature verification
+      (Section 9.4)
+
+   *  [ ] Store proof_hash and proof_signature in settlement records
+      (Section 9.5)
+
+
+
+
+
+Stone                     Expires 8 March 2027                 [Page 26]
+
+Internet-Draft                    VCAP                    September 2026
+
+
+13.  13.  Reference Implementation
+
+   The reference implementation is available at:
+
+   *Repository:* https://github.com/bkauto3/SwarmSync
+
+   +============+=================================+=======================+
+   |Component   |File                             |Description            |
+   +============+=================================+=======================+
+   |Negotiation |apps/api/src/modules/ap2/        |AP2 negotiation state  |
+   |            |ap2.service.ts                   |machine                |
+   +------------+---------------------------------+-----------------------+
+   |Escrow      |apps/api/src/modules/payments/   |Atomic escrow          |
+   |            |ap2.service.ts                   |hold/release/refund    |
+   +------------+---------------------------------+-----------------------+
+   |Wallet      |apps/api/src/modules/payments/   |Double-entry wallet    |
+   |Ledger      |wallets.service.ts               |with atomic guards     |
+   +------------+---------------------------------+-----------------------+
+   |Verification|apps/api/src/modules/conduit/    |Verification initiation|
+   |Dispatch    |conduit-verification.service.ts  |and callback           |
+   +------------+---------------------------------+-----------------------+
+   |Verification|apps/api/src/modules/conduit/dto/|VerificationHintsDto   |
+   |Hints       |verification-hints.dto.ts        |                       |
+   +------------+---------------------------------+-----------------------+
+   |Verification|apps/api/src/modules/conduit/dto/|VerificationCallbackDto|
+   |Callback    |verification-callback.dto.ts     |                       |
+   +------------+---------------------------------+-----------------------+
+   |AP2-Conduit |apps/api/src/modules/conduit/    |Session billing,       |
+   |Bridge      |conduit-ap2-bridge.service.ts    |invoice signing        |
+   +------------+---------------------------------+-----------------------+
+   |Agent       |apps/api/src/modules/conduit/    |Ed25519 keys, signing  |
+   |Identity    |conduit-identity.service.ts      |                       |
+   +------------+---------------------------------+-----------------------+
+   |Outcomes    |apps/api/src/modules/quality/    |Verification -> escrow |
+   |            |outcomes.service.ts              |settlement             |
+   +------------+---------------------------------+-----------------------+
+   |Trust &     |apps/api/src/modules/conduit/    |Execution track record |
+   |Passport    |conduit-passport.service.ts      |(see ATEP spec)        |
+   +------------+---------------------------------+-----------------------+
+
+                                  Table 12
+
+14.  Appendix A: Complete Action Type Registry
+
+   These are the standard action types for browser-automation verifiers.
+   Other verifier types may define their own action vocabularies.
+
+
+
+
+
+Stone                     Expires 8 March 2027                 [Page 27]
+
+Internet-Draft                    VCAP                    September 2026
+
+
+   +========================+==========================+===============+
+   | Action                 | Description              | Cost Category |
+   +========================+==========================+===============+
+   | NAVIGATE               | Load a URL               | Billable      |
+   +------------------------+--------------------------+---------------+
+   | CLICK                  | Click an element         | Billable      |
+   +------------------------+--------------------------+---------------+
+   | TYPE                   | Type into an input       | Billable      |
+   +------------------------+--------------------------+---------------+
+   | FILL                   | Fill a form field        | Billable      |
+   +------------------------+--------------------------+---------------+
+   | EXTRACT                | Extract text content     | Billable      |
+   +------------------------+--------------------------+---------------+
+   | SCREENSHOT             | Capture a screenshot     | Billable      |
+   +------------------------+--------------------------+---------------+
+   | SCROLL                 | Scroll the page          | Free          |
+   +------------------------+--------------------------+---------------+
+   | WAIT                   | Wait for a duration      | Free          |
+   +------------------------+--------------------------+---------------+
+   | WAIT_FOR               | Wait for a selector      | Free          |
+   +------------------------+--------------------------+---------------+
+   | KEY_PRESS              | Press a keyboard key     | Free          |
+   +------------------------+--------------------------+---------------+
+   | HOVER                  | Hover over an element    | Free          |
+   +------------------------+--------------------------+---------------+
+   | SELECT_OPTION          | Select a dropdown        | Billable      |
+   |                        | option                   |               |
+   +------------------------+--------------------------+---------------+
+   | HANDLE_DIALOG          | Dismiss/accept a         | Free          |
+   |                        | dialog                   |               |
+   +------------------------+--------------------------+---------------+
+   | NAVIGATE_BACK          | Go back in history       | Billable      |
+   +------------------------+--------------------------+---------------+
+   | CONSOLE_MESSAGES       | Read console output      | Free          |
+   +------------------------+--------------------------+---------------+
+   | EVAL                   | Execute JavaScript       | Billable      |
+   +------------------------+--------------------------+---------------+
+   | EXTRACT_MAIN           | Extract main content     | Billable      |
+   +------------------------+--------------------------+---------------+
+   | OUTPUT_TO_FILE         | Save data to file        | Free          |
+   +------------------------+--------------------------+---------------+
+   | ACCESSIBILITY_SNAPSHOT | Capture a11y tree        | Billable      |
+   +------------------------+--------------------------+---------------+
+   | NETWORK_REQUESTS       | Read network log         | Free          |
+   +------------------------+--------------------------+---------------+
+   | MAP                    | Map site structure       | Billable      |
+   +------------------------+--------------------------+---------------+
+   | CRAWL                  | Crawl multiple pages     | Billable      |
+
+
+
+Stone                     Expires 8 March 2027                 [Page 28]
+
+Internet-Draft                    VCAP                    September 2026
+
+
+   +------------------------+--------------------------+---------------+
+   | FINGERPRINT            | SHA-256 page             | Billable      |
+   |                        | fingerprint              |               |
+   +------------------------+--------------------------+---------------+
+   | CHECK_CHANGED          | Compare fingerprints     | Billable      |
+   +------------------------+--------------------------+---------------+
+   | EXPORT_PROOF           | Export proof bundle      | Free          |
+   +------------------------+--------------------------+---------------+
+
+                                  Table 13
+
+15.  Appendix B: JSON Schema
+
+   Machine-readable JSON Schema definitions for all VCAP message types
+   are available at:
+
+   https://github.com/swarmsync-ai/vcap-spec/tree/main/schemas/
+
+16.  Appendix C: Relationship to AIVS
+
+   The *AI Visibility Verification Standard (AIVS)* defines a proof
+   bundle format (Ed25519 + SHA-256 hash chain) for AI browser scan
+   verification.  AIVS proof bundles are a valid VCAP proof format.
+   When a VCAP verifier uses AIVS-compliant proof bundles:
+
+   *  The proof_hash in the VCAP callback corresponds to the AIVS
+      manifest hash
+
+   *  The proof_signature corresponds to the AIVS session_sig.txt
+
+   *  The action_log corresponds to the AIVS audit_log.jsonl
+
+   *  The AIVS verify.py can independently validate the proof without
+      VCAP infrastructure
+
+   This layering means AIVS proofs are portable: they can be verified
+   both within a VCAP settlement flow and independently by any party
+   with the proof bundle file.
+
+17.  Appendix D: Changelog
+
+   +===========+============+==========================================+
+   | Version   | Date       | Changes                                  |
+   +===========+============+==========================================+
+   | 1.2-draft | 2026-09-04 | Aligned AP2 relationship to the          |
+   |           |            | current mandate/UCP architecture;        |
+   |           |            | added verifier key identifiers and       |
+   |           |            | upstream-version pinning; updated        |
+
+
+
+Stone                     Expires 8 March 2027                 [Page 29]
+
+Internet-Draft                    VCAP                    September 2026
+
+
+   |           |            | x402 references to protocol v2.          |
+   +-----------+------------+------------------------------------------+
+   | 1.1-draft | 2026-04-16 | Replaced HMAC-SHA256 with Ed25519 for    |
+   |           |            | proof_signature (Section 5.2, per        |
+   |           |            | AIKR CG Technical Note AI-KR-CG-TR-      |
+   |           |            | 2026-001).  Added verifier               |
+   |           |            | accountability section (Section 6.3).    |
+   |           |            | Aligned agent identity binding to        |
+   |           |            | Ed25519 (Section 5.4).                   |
+   +-----------+------------+------------------------------------------+
+   | 1.0-draft | 2026-03-14 | Initial draft specification              |
+   +-----------+------------+------------------------------------------+
+
+                                  Table 14
+
+   *Copyright (c) 2026 SwarmSync.AI.  Licensed under MIT / Apache 2.0
+   (dual-licensed).*
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Stone                     Expires 8 March 2027                 [Page 30]

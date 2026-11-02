@@ -1,0 +1,2 @@
+base/commerce-payments tag v1.1.0 6b0a5ef3f0df973857f558e2d6b5dd645b5e97f9 (MIT), read 2026-10-26
+src/collectors/Permit2PaymentCollector.sol added 2026-10-26 from the same commit (raw.githubusercontent.com), SPDX MIT

@@ -1,0 +1,26 @@
+{
+ "read": "2026-10-26",
+ "what": "the Ed25519 verification rules of the chains apc reads (SPEC 0.17 section 27.1); excerpts copied unmodified",
+ "files": {
+  "solana-sdk_6437e43_signature_src_lib.rs": "https://raw.githubusercontent.com/anza-xyz/solana-sdk/6437e43e15e405acaecadb4b806a6593dfce729c/signature/src/lib.rs (Apache-2.0)",
+  "solana-sdk_6437e43_Cargo.lock_excerpt.txt": "grep of Cargo.lock at the same commit: solana-ed25519 0.2.4 and its crates.io checksum",
+  "agave_918b264_perf_src_sigverify.rs": "https://raw.githubusercontent.com/anza-xyz/agave/918b264b5134b0e9560a5607aec8031d73186000/perf/src/sigverify.rs (Apache-2.0; master on 2026-10-26, not a release tag)",
+  "solana-ed25519-0.2.4_src_ed_sigs_verification_key.rs": "https://static.crates.io/crates/solana-ed25519/solana-ed25519-0.2.4.crate, sha256 ff4c7caf3fe3d70815869a5838ee45b4d2b009eaacea1790ef3cd9b3c89edbbd = the Cargo.lock checksum",
+  "ed25519-dalek-2.1.1_src_verifying.rs": "https://static.crates.io/crates/ed25519-dalek/ed25519-dalek-2.1.1.crate, sha256 4a3daa8e81a3963a60642bcc1f90a670680bd4a77535faa384e9d1c79d620871 = the rs-soroban-env Cargo.lock checksum (BSD-3-Clause)",
+  "ed25519-dalek-2.1.1_src_signature.rs": "same crate",
+  "curve25519-dalek-4.1.3_src_edwards.rs": "https://static.crates.io/crates/curve25519-dalek/curve25519-dalek-4.1.3.crate, sha256 97fb8b7c4503de7d6ae7b42ab72a5a59857b4c937ec27a3d4539dba95b5ab2be = the rs-soroban-env Cargo.lock checksum (BSD-3-Clause)",
+  "curve25519-dalek-4.1.3_src_backend_serial_u64_field.rs": "same crate",
+  "rs-soroban-env_0c99950_soroban-env-host_src_crypto_mod.rs": "https://raw.githubusercontent.com/stellar/rs-soroban-env/0c99950e96128beba3319aa96b116646ce974e69/soroban-env-host/src/crypto/mod.rs (Apache-2.0)",
+  "rs-soroban-env_0c99950_soroban-env-host_src_builtin_contracts_account_contract.rs": "same commit, soroban-env-host/src/builtin_contracts/account_contract.rs",
+  "rs-soroban-env_0c99950_Cargo.toml": "same commit, Cargo.toml (ed25519-dalek features: rand_core only, line 27)",
+  "rs-soroban-env_0c99950_Cargo.lock_excerpt.txt": "grep of Cargo.lock at the same commit: ed25519-dalek 2.1.1, curve25519-dalek 4.1.3",
+  "rippled_1f46f75_src_libxrpl_protocol_PublicKey.cpp": "https://raw.githubusercontent.com/XRPLF/rippled/1f46f7531850bc1a0870910028abe8b9f9527d4c/src/libxrpl/protocol/PublicKey.cpp (ISC)",
+  "rippled_1f46f75_include_xrpl_protocol_PublicKey.h": "same commit, include/xrpl/protocol/PublicKey.h",
+  "rippled_1f46f75_conanfile.py": "same commit, conanfile.py (requires ed25519/2015.03)",
+  "XRPLF_conan-center-index_master_recipes_ed25519_all_conandata.yml": "https://raw.githubusercontent.com/XRPLF/conan-center-index/master/recipes/ed25519/all/conandata.yml: ed25519/2015.03 = floodyberry/ed25519-donna 8757bd4cd209cb032853ece0ce413f122eef212c (plus a patch on macros only)",
+  "ed25519-donna_8757bd4_ed25519.c": "https://raw.githubusercontent.com/floodyberry/ed25519-donna/8757bd4cd209cb032853ece0ce413f122eef212c/ed25519.c (public domain)",
+  "ed25519-donna_8757bd4_ed25519-donna-impl-base.h": "same commit",
+  "ed25519-donna_8757bd4_curve25519-donna-64bit.h": "same commit"
+ },
+ "licenses": "the crate LICENSE files are copied beside them"
+}

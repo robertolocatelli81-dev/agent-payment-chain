@@ -1,0 +1,1 @@
+ethereum/ERCs master @ 4891ba3b86d2058d0f472dbf1500af6bb056caf2, fetched 2026-10-26: ERCS/erc-7710.md (last change be46db7fef10e4413216b2f5c2b98773dffa717f, status Draft), ERCS/erc-7579.md (last change 3f5f41b4ca4eb630eaf558960716e1604bff3de1, status Draft). CC0.

@@ -1,0 +1,1 @@
+Uniswap/permit2 main @ cc56ad0f3439c502c246fc5cfcc3db92bb8b7219 (2023-09-29), fetched 2026-10-26 (HEAD unchanged): src/EIP712.sol, src/SignatureTransfer.sol, src/interfaces/ISignatureTransfer.sol, src/libraries/PermitHash.sol, src/libraries/SignatureVerification.sol, LICENSE.

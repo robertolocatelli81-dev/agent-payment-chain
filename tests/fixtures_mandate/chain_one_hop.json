@@ -1,0 +1,254 @@
+{
+ "bundle_version": "apc-0.1",
+ "mandate": {
+  "chain": "eyJhbGciOiAiRVMyNTYiLCAidHlwIjogImV4YW1wbGUrc2Qtand0In0.eyJkZWxlZ2F0ZV9wYXlsb2FkIjogW3siLi4uIjogIll2TVpKS3g3V2lyT3AxWndDTnlkUVIwYXVpVDhhMkZDRFRGYTdoQVVRNUUifV0sICJfc2RfYWxnIjogInNoYS0yNTYifQ.GjunCfiNKahFYyFlToTTK5KeoXkdEOLc7BRtgzqfSKQeSvPwKRDhfCGQWPcLLMV0XSg5R0F2pk_V-DOKb2VfQw~WyJBVUppZjE1VUlPVUR4UXEtdjRtNDlBIiwgeyJpZCI6ICJtZXJjaGFudC0xIiwgIm5hbWUiOiAiRGVtbyBNZXJjaGFudCIsICJ3ZWJzaXRlIjogImh0dHBzOi8vbWVyY2hhbnQuZXhhbXBsZSJ9XQ~WyJVelZ5blVuVXJOM3BZUWM3YlFyd1JRIiwgeyJpZCI6ICJ4NDAyLWJhc2UtdXNkYyIsICJ0eXBlIjogIng0MDIiLCAiZGVzY3JpcHRpb24iOiAiVVNEQyBvbiBCYXNlIn1d~WyJSbVBFSVUyYm9Mbi13WWo1aVUybXZRIiwgeyJ2Y3QiOiAibWFuZGF0ZS5wYXltZW50Lm9wZW4uMSIsICJjb25zdHJhaW50cyI6IFt7InR5cGUiOiAicGF5bWVudC5hbW91bnRfcmFuZ2UiLCAiY3VycmVuY3kiOiAiVVNEIiwgIm1heCI6IDUwMDAsICJtaW4iOiAwfSwgeyJ0eXBlIjogInBheW1lbnQuYWxsb3dlZF9wYXllZXMiLCAiYWxsb3dlZCI6IFt7Ii4uLiI6ICIxVEFBa0lWdWplbVVIc2NNdlBtQXYwdUVXUU9vRUNkVVVLTnNPTXl5cmpZIn1dfSwgeyJ0eXBlIjogInBheW1lbnQucmVmZXJlbmNlIiwgImNvbmRpdGlvbmFsX3RyYW5zYWN0aW9uX2lkIjogIkJid1E3YXRETGlLMGxKVVFtTExYbVpQV3RiT0NkOU95YnZnajd4S0l6Um8ifSwgeyJ0eXBlIjogInBheW1lbnQuYWxsb3dlZF9wYXltZW50X2luc3RydW1lbnRzIiwgImFsbG93ZWQiOiBbeyIuLi4iOiAiRUoxa0JGOWh6UVhNTGRRdnNxalpoSjlaZThuMHM3UnhvYUlpX3lfSnVmQSJ9XX1dLCAiY25mIjogeyJqd2siOiB7ImNydiI6ICJQLTI1NiIsICJrdHkiOiAiRUMiLCAieCI6ICI3MUlUZnY4UXBrSGc4S0Nrc1VEU3pJSERHdzhtajFQdUlrU3VHbzlFNlBFIiwgInkiOiAiNU4tWjIwV0ZaRERUZUw0T3Z2TldVVTJRMHpLNC1GLXE4UDBILWRlU0lQayJ9fSwgImlhdCI6IDE3OTM0MzMwMjksICJleHAiOiAxNzkzNDM2NjI5fV0",
+  "pack": {
+   "artifacts": [
+    {
+     "header": {
+      "alg": "ES256",
+      "typ": "example+sd-jwt"
+     },
+     "kb_jwt": {
+      "present": false
+     },
+     "key": {
+      "jwk": {
+       "crv": "P-256",
+       "kty": "EC",
+       "x": "kYvVbrJuhrTNyZ5RXBZkwMY7AWdvBjzMIv0faLTGdD8",
+       "y": "FhvnXzrW0ykefmsJVlLci21aESs51UQcPXyC82fMAIc"
+      },
+      "note": "key material supplied by the caller (caller vouches); overrides any self-asserted header key by design",
+      "provenance_class": "supplied"
+     },
+     "name": "open_payment",
+     "resolved_claims": {
+      "delegate_payload": [
+       {
+        "cnf": {
+         "jwk": {
+          "crv": "P-256",
+          "kty": "EC",
+          "x": "71ITfv8QpkHg8KCksUDSzIHDGw8mj1PuIkSuGo9E6PE",
+          "y": "5N-Z20WFZDDTeL4OvvNWUU2Q0zK4-F-q8P0H-deSIPk"
+         }
+        },
+        "constraints": [
+         {
+          "currency": "USD",
+          "max": 5000,
+          "min": 0,
+          "type": "payment.amount_range"
+         },
+         {
+          "allowed": [
+           {
+            "id": "merchant-1",
+            "name": "Demo Merchant",
+            "website": "https://merchant.example"
+           }
+          ],
+          "type": "payment.allowed_payees"
+         },
+         {
+          "conditional_transaction_id": "BbwQ7atDLiK0lJUQmLLXmZPWtbOCd9Oybvgj7xKIzRo",
+          "type": "payment.reference"
+         },
+         {
+          "allowed": [
+           {
+            "description": "USDC on Base",
+            "id": "x402-base-usdc",
+            "type": "x402"
+           }
+          ],
+          "type": "payment.allowed_payment_instruments"
+         }
+        ],
+        "exp": 1793436629,
+        "iat": 1793433029,
+        "vct": "mandate.payment.open.1"
+       }
+      ]
+     },
+     "sd_jwt_compact": "eyJhbGciOiAiRVMyNTYiLCAidHlwIjogImV4YW1wbGUrc2Qtand0In0.eyJkZWxlZ2F0ZV9wYXlsb2FkIjogW3siLi4uIjogIll2TVpKS3g3V2lyT3AxWndDTnlkUVIwYXVpVDhhMkZDRFRGYTdoQVVRNUUifV0sICJfc2RfYWxnIjogInNoYS0yNTYifQ.GjunCfiNKahFYyFlToTTK5KeoXkdEOLc7BRtgzqfSKQeSvPwKRDhfCGQWPcLLMV0XSg5R0F2pk_V-DOKb2VfQw~WyJBVUppZjE1VUlPVUR4UXEtdjRtNDlBIiwgeyJpZCI6ICJtZXJjaGFudC0xIiwgIm5hbWUiOiAiRGVtbyBNZXJjaGFudCIsICJ3ZWJzaXRlIjogImh0dHBzOi8vbWVyY2hhbnQuZXhhbXBsZSJ9XQ~WyJVelZ5blVuVXJOM3BZUWM3YlFyd1JRIiwgeyJpZCI6ICJ4NDAyLWJhc2UtdXNkYyIsICJ0eXBlIjogIng0MDIiLCAiZGVzY3JpcHRpb24iOiAiVVNEQyBvbiBCYXNlIn1d~WyJSbVBFSVUyYm9Mbi13WWo1aVUybXZRIiwgeyJ2Y3QiOiAibWFuZGF0ZS5wYXltZW50Lm9wZW4uMSIsICJjb25zdHJhaW50cyI6IFt7InR5cGUiOiAicGF5bWVudC5hbW91bnRfcmFuZ2UiLCAiY3VycmVuY3kiOiAiVVNEIiwgIm1heCI6IDUwMDAsICJtaW4iOiAwfSwgeyJ0eXBlIjogInBheW1lbnQuYWxsb3dlZF9wYXllZXMiLCAiYWxsb3dlZCI6IFt7Ii4uLiI6ICIxVEFBa0lWdWplbVVIc2NNdlBtQXYwdUVXUU9vRUNkVVVLTnNPTXl5cmpZIn1dfSwgeyJ0eXBlIjogInBheW1lbnQucmVmZXJlbmNlIiwgImNvbmRpdGlvbmFsX3RyYW5zYWN0aW9uX2lkIjogIkJid1E3YXRETGlLMGxKVVFtTExYbVpQV3RiT0NkOU95YnZnajd4S0l6Um8ifSwgeyJ0eXBlIjogInBheW1lbnQuYWxsb3dlZF9wYXltZW50X2luc3RydW1lbnRzIiwgImFsbG93ZWQiOiBbeyIuLi4iOiAiRUoxa0JGOWh6UVhNTGRRdnNxalpoSjlaZThuMHM3UnhvYUlpX3lfSnVmQSJ9XX1dLCAiY25mIjogeyJqd2siOiB7ImNydiI6ICJQLTI1NiIsICJrdHkiOiAiRUMiLCAieCI6ICI3MUlUZnY4UXBrSGc4S0Nrc1VEU3pJSERHdzhtajFQdUlrU3VHbzlFNlBFIiwgInkiOiAiNU4tWjIwV0ZaRERUZUw0T3Z2TldVVTJRMHpLNC1GLXE4UDBILWRlU0lQayJ9fSwgImlhdCI6IDE3OTM0MzMwMjksICJleHAiOiAxNzkzNDM2NjI5fV0~",
+     "verified_at_build": {
+      "disclosures_ok": true,
+      "signature_ok": true
+     }
+    },
+    {
+     "header": {
+      "alg": "ES256",
+      "typ": "kb+sd-jwt"
+     },
+     "kb_jwt": {
+      "present": false
+     },
+     "key": {
+      "jwk": {
+       "crv": "P-256",
+       "kty": "EC",
+       "x": "71ITfv8QpkHg8KCksUDSzIHDGw8mj1PuIkSuGo9E6PE",
+       "y": "5N-Z20WFZDDTeL4OvvNWUU2Q0zK4-F-q8P0H-deSIPk"
+      },
+      "note": "key material supplied by the caller (caller vouches); overrides any self-asserted header key by design",
+      "provenance_class": "supplied"
+     },
+     "name": "closed_payment",
+     "resolved_claims": {
+      "aud": "credential-provider",
+      "delegate_payload": [
+       {
+        "payee": {
+         "id": "merchant-1",
+         "name": "Demo Merchant",
+         "website": "https://merchant.example"
+        },
+        "payment_amount": {
+         "amount": 1250,
+         "currency": "USD"
+        },
+        "payment_instrument": {
+         "description": "USDC on Base",
+         "id": "x402-base-usdc",
+         "type": "x402"
+        },
+        "transaction_id": "checkout-jwt-hash",
+        "vct": "mandate.payment.1"
+       }
+      ],
+      "iat": 1793433030,
+      "nonce": "n-chain_one_hop",
+      "sd_hash": "7sgN1arP2S1zRatYOLfqpciQtVImNebnO_IWqg_pTBk"
+     },
+     "sd_jwt_compact": "eyJhbGciOiAiRVMyNTYiLCAidHlwIjogImtiK3NkLWp3dCJ9.eyJkZWxlZ2F0ZV9wYXlsb2FkIjogW3siLi4uIjogIlVMVjFXOUtBV3p5X3lhTWlRSUVVampqTkVOakVnVGNLREUyU3NuS3pGc3MifV0sICJpYXQiOiAxNzkzNDMzMDMwLCAiYXVkIjogImNyZWRlbnRpYWwtcHJvdmlkZXIiLCAibm9uY2UiOiAibi1jaGFpbl9vbmVfaG9wIiwgInNkX2hhc2giOiAiN3NnTjFhclAyUzF6UmF0WU9MZnFwY2lRdFZJbU5lYm5PX0lXcWdfcFRCayIsICJfc2RfYWxnIjogInNoYS0yNTYifQ.oYcaar37J9kqhkEwU-_73QFrSl6Ty7zPuUIxTJSUX00lNshId88TtPoDSvXWmssGQqN4EU_GndK7WnaIvSX-Mw~WyJxYXdacmhTV0RoVkprMVE5T25HRjdRIiwgeyJ2Y3QiOiAibWFuZGF0ZS5wYXltZW50LjEiLCAidHJhbnNhY3Rpb25faWQiOiAiY2hlY2tvdXQtand0LWhhc2giLCAicGF5ZWUiOiB7ImlkIjogIm1lcmNoYW50LTEiLCAibmFtZSI6ICJEZW1vIE1lcmNoYW50IiwgIndlYnNpdGUiOiAiaHR0cHM6Ly9tZXJjaGFudC5leGFtcGxlIn0sICJwYXltZW50X2Ftb3VudCI6IHsiYW1vdW50IjogMTI1MCwgImN1cnJlbmN5IjogIlVTRCJ9LCAicGF5bWVudF9pbnN0cnVtZW50IjogeyJpZCI6ICJ4NDAyLWJhc2UtdXNkYyIsICJ0eXBlIjogIng0MDIiLCAiZGVzY3JpcHRpb24iOiAiVVNEQyBvbiBCYXNlIn19XQ~",
+     "verified_at_build": {
+      "disclosures_ok": true,
+      "signature_ok": true
+     }
+    },
+    {
+     "header": {
+      "alg": "ES256",
+      "typ": "example+sd-jwt"
+     },
+     "kb_jwt": {
+      "present": false
+     },
+     "key": {
+      "jwk": {
+       "crv": "P-256",
+       "kty": "EC",
+       "x": "kYvVbrJuhrTNyZ5RXBZkwMY7AWdvBjzMIv0faLTGdD8",
+       "y": "FhvnXzrW0ykefmsJVlLci21aESs51UQcPXyC82fMAIc"
+      },
+      "note": "key material supplied by the caller (caller vouches); overrides any self-asserted header key by design",
+      "provenance_class": "supplied"
+     },
+     "name": "open_checkout",
+     "resolved_claims": {
+      "delegate_payload": [
+       {
+        "cnf": {
+         "jwk": {
+          "crv": "P-256",
+          "kty": "EC",
+          "x": "71ITfv8QpkHg8KCksUDSzIHDGw8mj1PuIkSuGo9E6PE",
+          "y": "5N-Z20WFZDDTeL4OvvNWUU2Q0zK4-F-q8P0H-deSIPk"
+         }
+        },
+        "constraints": [
+         {
+          "items": [
+           {
+            "acceptable_items": [
+             {
+              "id": "sku-1",
+              "title": "Widget"
+             }
+            ],
+            "id": "item-1",
+            "quantity": 1
+           }
+          ],
+          "type": "checkout.line_items"
+         },
+         {
+          "allowed": [
+           {
+            "id": "merchant-1",
+            "name": "Demo Merchant",
+            "website": "https://merchant.example"
+           }
+          ],
+          "type": "checkout.allowed_merchants"
+         }
+        ],
+        "exp": 1793436629,
+        "iat": 1793433029,
+        "vct": "mandate.checkout.open.1"
+       }
+      ]
+     },
+     "sd_jwt_compact": "eyJhbGciOiAiRVMyNTYiLCAidHlwIjogImV4YW1wbGUrc2Qtand0In0.eyJkZWxlZ2F0ZV9wYXlsb2FkIjogW3siLi4uIjogIndzVlNpazV5NFNJN25rWlpsYTFkZ1JBMl9MdnFQaXA5aTk3NmVMYzdQZ2MifV0sICJfc2RfYWxnIjogInNoYS0yNTYifQ.a4wT0TEprsaJS3sGlLF6hfGj_3YAd6fWkmIS6jPhtjTAhufbAt4xv_e-ecdti1-LjO8wDzwCp5BNKQAbsLXczg~WyJla044Y0NneW9LOFUxcEwxci12R3RBIiwgeyJpZCI6ICJza3UtMSIsICJ0aXRsZSI6ICJXaWRnZXQifV0~WyJxOTdBa25FbnI1ZnF1M1B6d1lNQkJRIiwgeyJpZCI6ICJtZXJjaGFudC0xIiwgIm5hbWUiOiAiRGVtbyBNZXJjaGFudCIsICJ3ZWJzaXRlIjogImh0dHBzOi8vbWVyY2hhbnQuZXhhbXBsZSJ9XQ~WyJMNFN0OHU3amZuaEdZQUd4NFVHY3BBIiwgeyJ2Y3QiOiAibWFuZGF0ZS5jaGVja291dC5vcGVuLjEiLCAiY29uc3RyYWludHMiOiBbeyJ0eXBlIjogImNoZWNrb3V0LmxpbmVfaXRlbXMiLCAiaXRlbXMiOiBbeyJpZCI6ICJpdGVtLTEiLCAiYWNjZXB0YWJsZV9pdGVtcyI6IFt7Ii4uLiI6ICIzNlpxNGZRN29wenVkbjF0MEQwMkNpLU9rblFzLXprS1ZaOUVtUk9hbm8wIn1dLCAicXVhbnRpdHkiOiAxfV19LCB7InR5cGUiOiAiY2hlY2tvdXQuYWxsb3dlZF9tZXJjaGFudHMiLCAiYWxsb3dlZCI6IFt7Ii4uLiI6ICJ1SGUtT185T01ZVnk1Yk53ZmhsZWlBVjRvVV82R0NIblctRllRYzg0Z1djIn1dfV0sICJjbmYiOiB7Imp3ayI6IHsiY3J2IjogIlAtMjU2IiwgImt0eSI6ICJFQyIsICJ4IjogIjcxSVRmdjhRcGtIZzhLQ2tzVURTeklIREd3OG1qMVB1SWtTdUdvOUU2UEUiLCAieSI6ICI1Ti1aMjBXRlpERFRlTDRPdnZOV1VVMlEweks0LUYtcThQMEgtZGVTSVBrIn19LCAiaWF0IjogMTc5MzQzMzAyOSwgImV4cCI6IDE3OTM0MzY2Mjl9XQ~",
+     "verified_at_build": {
+      "disclosures_ok": true,
+      "signature_ok": true
+     }
+    }
+   ],
+   "bindings": [
+    {
+     "claim": "delegate_payload[0].constraints[2].conditional_transaction_id",
+     "commits_to": "open_checkout",
+     "encoding": "b64url",
+     "in": "open_payment"
+    },
+    {
+     "claim": "sd_hash",
+     "commits_to": "open_payment",
+     "encoding": "b64url",
+     "in": "closed_payment"
+    }
+   ],
+   "created_utc": "2026-10-31T07:50:30Z",
+   "evidence_digest_sha256": "82fc0c6b1e9fc4ad8169c1280c2a9e8436cf4192f0fcd96c177ce64752500c8b",
+   "evidence_format": "ap2-evidence-pack/1.0",
+   "honest_scope": "Proves: these exact SD-JWT artifacts, with the snapshotted key material (see each key's provenance_class), verified at build time; the RFC 3161 token (if present) binds this digest to a TimeStampResp, and attests the TSA's clock only once the relying party has verified the TSA's signature (--tsa-cert): a self-issued token satisfies the binding alone. Does NOT prove the issuer authorised the key beyond what the provenance class states, does NOT confer eIDAS qualified-archive legal presumption, and does NOT by itself validate x5c chains to a trust anchor \u2014 that is an act of the relying party at verification time, with `--trust-anchor`, reported in `chain_verified` and in each artifact's `x5c_leaf` (SPEC \u00a76.7): the x5c bytes are sealed inside the signed header, the validation RESULT never is \u2014 and never proves the truth of the recorded transaction itself. When a producer signature is present, it protects the SEALED CONTENT (the file minus the digest, the anchor block and the signatures themselves - so a removed or downgraded time anchor is caught only under a require-anchor policy), and authenticity ONLY for a relying party that has PINNED the producer public key out of band (an embedded key alone proves consistency, not authenticity), across the retention window (hybrid: a classical signature + FIPS-204 ML-DSA-65, surviving the quantum transition per NIST IR 8547); it does NOT retro-protect the underlying ES256 mandate signature - for the existed-before-a-quantum-adversary claim you still need a trusted time anchor (RFC 3161 / RFC 4998 renewal). 'valid' means each artifact verifies and the SEALED CONTENT is intact \u2014 NOT that the file as a whole is unaltered (the anchor block lies outside the digest), NOT that the mandates form a bound chain (read `bindings`) nor that self-asserted keys prove issuer identity (read `provenance_classes`/`self_asserted_only`). KB-JWT holder binding is verified when the issuer payload carries cnf.jwk; without cnf.jwk it is recorded as present-but-unverifiable, never painted green. KB-JWT aud/nonce/iat are RECORDED for the auditor, not validated \u2014 their expected values are transaction context this tool cannot know offline.",
+   "rfc3161_timestamp": {
+    "anchored": false,
+    "note": "no TSA provided"
+   },
+   "subject": "agentic-payment mandate evidence"
+  },
+  "profile": "ap2-evidence-pack/1.7.1"
+ },
+ "payment_payload": {
+  "accepted": {
+   "amount": "12500000",
+   "asset": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+   "extra": {
+    "name": "USD Coin",
+    "version": "2"
+   },
+   "maxTimeoutSeconds": 60,
+   "network": "eip155:8453",
+   "payTo": "0x70997970c51812dc3a010c7d01b50e0d17dc79c8",
+   "scheme": "exact"
+  },
+  "payload": {
+   "authorization": {
+    "from": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+    "nonce": "0x2cdb97468b3fc4804966503c2493dcd35152a4c105988f044db800e272c4f302",
+    "to": "0x70997970c51812dc3a010c7d01b50e0d17dc79c8",
+    "validAfter": "0",
+    "validBefore": "1793436629",
+    "value": "12500000"
+   },
+   "signature": "0xa60959bc2c88337b90ebd7bd36001096999b12f6f7d013c2a5278ab9e626bb640a4abe7ba52f63dc063678b3c728e0fccee124a35e78b67f166cc6755266909a1c"
+  },
+  "x402Version": 2
+ }
+}

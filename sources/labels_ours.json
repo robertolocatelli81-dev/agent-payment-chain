@@ -1,0 +1,15 @@
+{
+ "note": "Facilitator labels NOT in the pinned x402scan list (sources/x402scan_5732bb8), each with the text it rests on.",
+ "labels": {
+  "0xe807a76385ec3d76d17ab955091c12329d0a1403": {
+   "name": "centralcity",
+   "role": "fee router (third), target contract",
+   "source": "centralcity protocol-fees.md lines 91-99 (read 2026-10-22; URL and sha256 in sources/centralcity_20261022/PROVENANCE and SHA256SUMS; not redistributed)"
+  },
+  "0xc8d6bac2ff7182d22c4f316bfff9f713261a6cec": {
+   "name": "centralcity",
+   "role": "facilitator sender",
+   "source": "centralcity protocol-fees.md lines 96-98 (read 2026-10-22; URL and sha256 in sources/centralcity_20261022/PROVENANCE and SHA256SUMS; not redistributed)"
+  }
+ }
+}

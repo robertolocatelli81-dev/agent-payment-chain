@@ -1,0 +1,15 @@
+Circle buidl-wallet-contracts (github.com/circlefin/buidl-wallet-contracts), commit 3c8cd8fbf242c48d9774352bc1087fdebc09988d
+(head of main on 2026-09-14), GitHub raw, fetched 2026-11-01 (paths with / replaced by _): src/msca/6900/v0.7/account/semi/
+SingleOwnerMSCA.sol, src/erc712/BaseERC712CompliantAccount.sol, src/common/Constants.sol, src/msca/6900/v0.7/libs/
+WalletStorageV1Lib.sol, src/msca/6900/shared/common/Structs.sol, src/msca/6900/v0.7/account/WalletStorageInitializable.sol,
+docs/Smart_Contract_Signatures_Encoding.md. The first five files have the same sha256 as the sources Sourcify holds for the
+implementation 0x9c6e09bc32d1e012dcaa2623e66d2cc9860c1aed on chain 42161 (Arbitrum One; match exact_match, creation and
+runtime, verified 2026-08-26T15:03:12Z; solc 0.8.24+commit.e11b9ed9, optimizer 200 runs, viaIR, evmVersion paris;
+src/msca/6900/v0.7/account/semi/SingleOwnerMSCA.sol:SingleOwnerMSCA). oz_5.0.0_*.sol: the OpenZeppelin 5.0.0 ECDSA.sol
+and SignatureChecker.sol of those Sourcify sources (node_modules/@openzeppelin/contracts/utils/cryptography/).
+On Base (chain 8453) the same address is NOT verified on Sourcify (match null) nor on Basescan; its runtime bytecode read
+on Base (eth_getCode, base-rpc.publicnode.com, 2026-11-01) equals the one read on Arbitrum (arb1.arbitrum.io/rpc) byte
+for byte: 17844 bytes, keccak256 60ecaaadc845f14626e77541b390bd36a7f5c35efdee5c30471f0eb08626019e. The payer's proxy code
+(133 bytes, keccak256 d09e34b2e51f09092e73e3ba1d520a42972496bf2a3bfdb22bb50b9729a9fd66) is an OpenZeppelin ERC1967Proxy
+(solc 0.8.24 by its CBOR metadata; Basescan "Similar Match: ERC1967Proxy", declared). Raw replies and downloads:
+passo2_20261101 (the author's local records, not distributed) (dl_circle, dl_impl, rpc_log_*.jsonl), SHA256SUMS in the author's notes PASSO2_STUDIO_ERC1271_20261101.md (not distributed).

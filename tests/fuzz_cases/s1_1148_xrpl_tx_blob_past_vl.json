@@ -1,0 +1,24 @@
+{
+ "base": "bundles/xrp_real_20261026/13db81da30d3.json",
+ "expect_verdict": "refused",
+ "found": {
+  "before": "apc_verify 0.16.1 (0bf2063): ValueError 'bytes must be in range(0, 256)' at apc_xrpl.py:428 (tx_leaf), traceback, exit 1",
+  "cause": "apc_xrpl.tx_leaf wrote a VL prefix for any length; above 918744 bytes the prefix byte overflows",
+  "defect": "crash",
+  "family": "F05",
+  "index": 1148,
+  "op": "long:6291456",
+  "seed": "s1"
+ },
+ "options": [],
+ "path": [
+  "inclusion",
+  "transactions",
+  "4",
+  "tx_blob"
+ ],
+ "value": {
+  "repeat": "AB",
+  "times": 918745
+ }
+}

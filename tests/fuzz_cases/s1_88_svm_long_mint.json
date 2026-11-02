@@ -1,0 +1,25 @@
+{
+ "base": "bundles/real_svm/s047_relai.json",
+ "expect_verdict": "refused",
+ "found": {
+  "before": "apc_verify 0.16.1 (0bf2063): stopped by RLIMIT_CPU at 21.0 s of CPU (the mint repeated to 1 MiB)",
+  "cause": "apc_solana.b58decode converted any length of base58 to an integer, quadratic in the length",
+  "defect": "time",
+  "family": "F05",
+  "index": 88,
+  "op": "long:1048576",
+  "seed": "s1"
+ },
+ "options": [],
+ "path": [
+  "chain_tx",
+  "meta",
+  "preTokenBalances",
+  "0",
+  "mint"
+ ],
+ "value": {
+  "repeat": "A",
+  "times": 1048576
+ }
+}
