@@ -7,7 +7,7 @@ import re
 
 import apc_xrpl as xr
 from apc_verify import (Refusal, Unsupported, _int_json, _json_eq, _obj, _str, builder_code_checks, exchange_checks,
-                        offer_receipt_checks, provenance)
+                        offer_receipt_checks, provenance, resource_info)
 
 NETWORK = re.compile(r"xrpl:(0|[1-9][0-9]{0,9})\Z")
 HEX64 = re.compile(r"[0-9A-Fa-f]{64}\Z")
@@ -166,7 +166,7 @@ def verify(doc, l1_checkpoint=None, http_keys=None, signer_trust=None):
         raise Refusal("%s.extensions: not an object" % p)
     resource_url = None
     if "resource" in pp:
-        resource_url = _str(_obj(pp["resource"], p + ".resource", ("url",), ("description", "mimeType"))["url"],
+        resource_url = _str(resource_info(pp["resource"], p + ".resource")["url"],
                             p + ".resource.url")
     acc = parse_requirements(pp["accepted"], p + ".accepted")
     blob = _blob(_obj(pp["payload"], p + ".payload", ("signedTxBlob",))["signedTxBlob"], p + ".payload.signedTxBlob")
@@ -178,7 +178,7 @@ def verify(doc, l1_checkpoint=None, http_keys=None, signer_trust=None):
             raise Unsupported("payment_required.x402Version %r (2 only)" % (pr["x402Version"],))
         if not isinstance(pr["accepts"], list) or not pr["accepts"] or not all(isinstance(a, dict) for a in pr["accepts"]):
             raise Refusal("payment_required.accepts: not a non-empty array of objects")
-        purl = _str(_obj(pr["resource"], "payment_required.resource", ("url",), ("description", "mimeType"))["url"],
+        purl = _str(resource_info(pr["resource"], "payment_required.resource")["url"],
                     "payment_required.resource.url")
         if "extensions" in pr and not isinstance(pr["extensions"], dict) or "error" in pr and not isinstance(pr["error"], str):
             raise Refusal("payment_required.error / extensions: not a string / an object")

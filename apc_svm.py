@@ -6,7 +6,7 @@ import json
 import re
 
 import apc_solana as sol
-from apc_verify import Refusal, Unsupported, _int_json, _json_eq, _obj, _str, exchange_checks, provenance
+from apc_verify import Refusal, Unsupported, _int_json, _json_eq, _obj, _str, exchange_checks, provenance, resource_info
 
 NETWORK = re.compile(r"solana:[1-9A-HJ-NP-Za-km-z]{32}\Z")
 UINT = re.compile(r"(0|[1-9][0-9]*)\Z")
@@ -167,7 +167,7 @@ def verify(doc, http_keys=None, signer_trust=None):
         raise Refusal("%s.extensions: not an object" % p)
     resource_url = None
     if "resource" in pp:
-        resource_url = _str(_obj(pp["resource"], p + ".resource", ("url",), ("description", "mimeType"))["url"],
+        resource_url = _str(resource_info(pp["resource"], p + ".resource")["url"],
                             p + ".resource.url")
     acc = parse_requirements(pp["accepted"], p + ".accepted")
     raw = _b64(_obj(pp["payload"], p + ".payload", ("transaction",))["transaction"], p + ".payload.transaction")
@@ -315,7 +315,7 @@ def verify(doc, http_keys=None, signer_trust=None):
                 raise Refusal("payment_required.accepts[%d]: not an object" % i)
             if a.get("scheme") == "exact" and str(a.get("network", "")).startswith("solana:"):
                 parse_requirements(a, "payment_required.accepts[%d]" % i)
-        _obj(pr["resource"], "payment_required.resource", ("url",), ("description", "mimeType"))
+        resource_info(pr["resource"], "payment_required.resource")
         if "extensions" in pr and not isinstance(pr["extensions"], dict):
             raise Refusal("payment_required.extensions: not an object")
         res["K4"] = ("verified" if any(_json_eq(pp["accepted"], a) for a in pr["accepts"])

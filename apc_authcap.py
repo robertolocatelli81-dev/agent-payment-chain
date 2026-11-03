@@ -12,7 +12,7 @@ import re
 import apc_assets
 from apc_verify import (ADDR, HASH32, HEXDATA, HIGH_S_REFUSED, REQ_MEMBERS, SECP_N, ERC6492_MAGIC, Refusal,
                         Unsupported, _addr, _int_json, _json_eq, _obj, _str, _uint, builder_code_checks, exchange_checks,
-                        _q, keccak256, offer_receipt_checks, provenance, public_key_to_address, recover_public_key,
+                        _q, keccak256, offer_receipt_checks, provenance, public_key_to_address, recover_public_key, resource_info,
                         tx_hash_eip1559)
 
 ZERO = "0x" + "00" * 20
@@ -207,7 +207,7 @@ def parse(pp_doc):
         c["authorizerSignature"] = _hex(c["authorizerSignature"], q + ".authorizerSignature")
     resource_url = None
     if "resource" in pp:
-        resource_url = _str(_obj(pp["resource"], p + ".resource", ("url",), ("description", "mimeType", "method"))["url"],
+        resource_url = _str(resource_info(pp["resource"], p + ".resource", ("method",))["url"],
                             p + ".resource.url")
     return pp, r, w, resource_url
 
@@ -435,7 +435,7 @@ def verify(doc, http_keys=None, signer_trust=None):
             raise Unsupported("payment_required.x402Version %r (2 only)" % (pr["x402Version"],))
         if not isinstance(pr["accepts"], list) or not pr["accepts"] or not all(isinstance(a, dict) for a in pr["accepts"]):
             raise Refusal("payment_required.accepts: not a non-empty array of objects")
-        _str(_obj(pr["resource"], "payment_required.resource", ("url",), ("description", "mimeType"))["url"],
+        _str(resource_info(pr["resource"], "payment_required.resource")["url"],
              "payment_required.resource.url")
         if "extensions" in pr and not isinstance(pr["extensions"], dict):
             raise Refusal("payment_required.extensions: not an object")

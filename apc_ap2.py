@@ -497,6 +497,28 @@ def _requirements(v, path):
 
 
 PRINTABLE = r"[\x20-\x7e]+"
+RI_ASCII32 = r"[\x20-\x7e]{1,32}"                         # SPEC 32.13, as apc_verify.RI_ASCII32
+RI_ICON_URL = r"[Hh][Tt][Tt][Pp][Ss]?://(?:[\x21\x22\x24-\x2e\x30-\x3e\x41-\x7e]*@)?(?!:)[\x21\x22\x24-\x2e\x30-\x3e\x41-\x7e]+(?:[/?#][\x21-\x7e]*)?"  # SPEC 32.13, as apc_verify.RI_ICON_URL
+
+
+def _resource(v, path):
+    """SPEC 32.13 (0.21.4): an x402 ResourceInfo by the rule of apc_verify.resource_info (a present member of its type,
+    `null` refused; the empty string where the specification sets no lower bound; iconUrl an absolute http(s) URL)."""
+    r = _strict(v, path, ("url",), ("description", "mimeType", "serviceName", "tags", "iconUrl"))
+    _s(r["url"], path + ".url")
+    for k in ("description", "mimeType"):
+        if k in r:
+            _s(r[k], path + "." + k, min1=False)
+    if "serviceName" in r:
+        _s(r["serviceName"], path + ".serviceName", RI_ASCII32, min1=False)
+    if "tags" in r:
+        _need(isinstance(r["tags"], list) and len(r["tags"]) <= 5, path + ".tags")
+        for t in r["tags"]:
+            _s(t, path + ".tags", RI_ASCII32, min1=False)
+    if "iconUrl" in r:
+        _s(r["iconUrl"], path + ".iconUrl", RI_ICON_URL)
+        _need(len(r["iconUrl"]) <= 2048, path + ".iconUrl")
+    return r
 
 
 def _x402(v, path):
@@ -504,23 +526,7 @@ def _x402(v, path):
     _requirements(v["requirements"], path + ".requirements")
     p = _strict(v["payload"], path + ".payload", ("x402Version", "resource", "accepted", "payload"), ("extensions",))
     _need(p["x402Version"] == 2 and _is_int(p["x402Version"]), path + ".payload.x402Version")
-    r = _strict(p["resource"], path + ".payload.resource", ("url",),
-                ("description", "mimeType", "serviceName", "tags", "iconUrl"))
-    _s(r["url"], path + ".payload.resource.url")
-    for k in ("description", "mimeType"):
-        if r.get(k) is not None:
-            _s(r[k], path, min1=False)
-    if r.get("serviceName") is not None:
-        _s(r["serviceName"], path, PRINTABLE)
-        _need(len(r["serviceName"]) <= 32, path + ".serviceName")
-    if r.get("tags") is not None:
-        _need(isinstance(r["tags"], list) and len(r["tags"]) <= 5, path + ".tags")
-        for t in r["tags"]:
-            _s(t, path, PRINTABLE)
-            _need(len(t) <= 32, path + ".tags")
-    if r.get("iconUrl") is not None:
-        _s(r["iconUrl"], path, min1=False)
-        _need(len(r["iconUrl"]) <= 2048, path + ".iconUrl")
+    _resource(p["resource"], path + ".payload.resource")
     _requirements(p["accepted"], path + ".payload.accepted")
     a = _strict(p["payload"], path + ".payload.payload", ("signature", "authorization"))
     _s(a["signature"], path + ".payload.payload.signature", SIG)

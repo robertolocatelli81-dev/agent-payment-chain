@@ -12,7 +12,7 @@ import apc_assets
 from apc_verify import (CAIP2_EIP155, ERC6492_MAGIC, HASH32, SECP_N, TRANSFER_TOPIC, Refusal, Unsupported, _addr, _d,
                         _from_is_signer, _header_obj, _int_json, _json_eq, _obj, _q, _removed, _reply, _str, _uint,
                         bound_report, builder_code_checks, check_acceptance, check_canonical, check_inclusion,
-                        check_mandate, eip55_ok, eq,
+                        check_mandate, eip55_ok, eq, resource_info,
                         erc8021_schema0, erc8021_schema2, exchange_checks, keccak256, offer_receipt_checks, provenance,
                         public_key_to_address,
                         recover_public_key, tx_hash_eip1559, tx_sender_eip1559)
@@ -98,7 +98,7 @@ def parse_payload(v):
     acc = parse_requirements(v["accepted"], p + ".accepted")
     resource_url = None
     if "resource" in v:
-        res = _obj(v["resource"], p + ".resource", ("url",), ("description", "mimeType"))
+        res = resource_info(v["resource"], p + ".resource")
         resource_url = _str(res["url"], p + ".resource.url")
     out = {"accepted": acc, "raw_accepted": v["accepted"], "resource_url": resource_url, "method": acc["method"]}
     q = p + ".payload"
@@ -668,7 +668,7 @@ def _k4(doc, pp, res):
         if not isinstance(a, dict):
             raise Refusal("payment_required.accepts[%d]: not an object" % i)
         apc_verify.parse_offer(a, "payment_required.accepts[%d]" % i)
-    _obj(pr["resource"], "payment_required.resource", ("url",), ("description", "mimeType"))
+    resource_info(pr["resource"], "payment_required.resource")
     if "extensions" in pr and not isinstance(pr["extensions"], dict):
         raise Refusal("payment_required.extensions: not an object")
     res["K4"] = "verified" if any(_json_eq(pp["raw_accepted"], a) for a in pr["accepts"]) else "failed:accepted_not_offered"

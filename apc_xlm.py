@@ -8,7 +8,7 @@ import re
 
 import apc_solana as sol
 import apc_stellar as xs
-from apc_verify import Refusal, Unsupported, _int_json, _json_eq, _obj, _str, exchange_checks, provenance
+from apc_verify import Refusal, Unsupported, _int_json, _json_eq, _obj, _str, exchange_checks, provenance, resource_info
 
 UINT = re.compile(r"(0|[1-9][0-9]*)\Z")
 HEX64 = re.compile(r"[0-9a-f]{64}\Z")
@@ -198,7 +198,7 @@ def verify(doc, http_keys=None, signer_trust=None):
         raise Refusal("%s.extensions: not an object" % p)
     resource_url = None
     if "resource" in pp:
-        resource_url = _str(_obj(pp["resource"], p + ".resource", ("url",), ("description", "mimeType"))["url"],
+        resource_url = _str(resource_info(pp["resource"], p + ".resource")["url"],
                             p + ".resource.url")
     acc = parse_requirements(pp["accepted"], p + ".accepted")
     net = acc["network"]
@@ -219,7 +219,7 @@ def verify(doc, http_keys=None, signer_trust=None):
             raise Unsupported("payment_required.x402Version %r (2 only)" % (pr["x402Version"],))
         if not isinstance(pr["accepts"], list) or not pr["accepts"] or not all(isinstance(a, dict) for a in pr["accepts"]):
             raise Refusal("payment_required.accepts: not a non-empty array of objects")
-        _obj(pr["resource"], "payment_required.resource", ("url",), ("description", "mimeType"))
+        resource_info(pr["resource"], "payment_required.resource")
         if "extensions" in pr and not isinstance(pr["extensions"], dict):
             raise Refusal("payment_required.extensions: not an object")
         if "error" in pr and not isinstance(pr["error"], str):

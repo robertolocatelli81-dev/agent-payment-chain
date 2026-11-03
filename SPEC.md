@@ -74,7 +74,8 @@ payer's address, the ERC-1967 slot, the ownerAtIndex call data, one common block
 ```
 Every JSON string is text: one holding an unpaired UTF-16 surrogate (a `\ud800` escape) is refused (0.3.1), and so is
 a number outside the double range (1e400).
-Closed levels: bundle, payment_payload (and its `resource`, an x402 ResourceInfo `{url[, description, mimeType]}`),
+Closed levels: bundle, payment_payload (and its `resource`, an x402 ResourceInfo `{url[, description, mimeType]}`;
+from 0.21.4 also `serviceName`, `tags`, `iconUrl`, by the rule of 32.13),
 accepted, payload, authorization, settlement, chain_tx, payer_wallet and each of its three replies, payment_required (its
 `resource` as above; every `accepts` entry an object; `x402Version` 2, else unsupported, and `error` a
 string, from 0.7.1) and acceptance.receipt.payment. Read for the members named below only,
@@ -2454,7 +2455,7 @@ transaction as executed; MP4a not evaluated (a throwaway mint, not USDC); MP6 no
   99; 5000 pairs each): 0 disagreements on 13 549 pairs, 698 declared divergences on a pre-set `pisp` or `risk_data`, 9 on
   a pre-set payee, 0 SDK errors. apc-0.10 keeps M1 of section 9; apc-0.12, apc-0.15 and apc-0.16 refuse the member.
 
-## 32. SPEC 0.21 (draft, 2026-11-01, local; apc_verify 0.21.0, 0.21.1 by Amendment 32.10, 0.21.2 by Amendment 32.11, and 0.21.3 by Amendment 32.12, apc_msca.py, apc_siglib.py; bundle versions apc-0.2 and apc-0.3, apc-0.13 read as v2; 32.2 in every bundle version this file reads) — a 65-byte signature of a payer with code: USDC's (v,r,s) path, and the ERC-1271 of Circle_SingleOwnerMSCA 1.0.0 proven from state
+## 32. SPEC 0.21 (draft, 2026-11-01, local; apc_verify 0.21.0, 0.21.1 by Amendment 32.10, 0.21.2 by Amendment 32.11, 0.21.3 by Amendment 32.12, and 0.21.4 by Amendment 32.13, apc_msca.py, apc_siglib.py; bundle versions apc-0.2 and apc-0.3, apc-0.13 read as v2; 32.2 in every bundle version this file reads) — a 65-byte signature of a payer with code: USDC's (v,r,s) path, and the ERC-1271 of Circle_SingleOwnerMSCA 1.0.0 proven from state
 
 **Sources, read 2026-11-01.** Circle stablecoin-evm fc85788 (sources/circle_stablecoin-evm_fc85788): `EIP3009.sol` 84-104
 (`transferWithAuthorization(…, uint8 v, bytes32 r, bytes32 s)` forwards `abi.encodePacked(r, s, v)` to the `bytes` form),
@@ -3029,6 +3030,71 @@ swallowed): 12 of 12 killed by an AssertionError. On the final tree of this amen
 unjustified, 165 s (the verifier string is unchanged, nothing refrozen; without the pack the 14 MP checks of the two
 mandate bundles differ, `not_1.7.1`: the environment, not the code).
 
+### 32.13 Amendment 0.21.4 (2026-11-03; apc_verify 0.21.4; every bundle version) — the x402 ResourceInfo as the specification writes it
+Source: x402-foundation/x402 @ 0aee759 (the pin of section 0), `specs/x402-specification-v2.md`, the ResourceInfo table:
+`url` string, required; `description` string; `mimeType` string; `serviceName` string, "Printable ASCII, max 32
+characters"; `tags` array of strings, "Max 5 entries; each printable ASCII, max 32 characters"; `iconUrl` string,
+"Absolute `https`/`http` URL to an icon representing the service. Max 2048 characters." The same commit writes rules
+for the last three members a second time, in `specs/extensions/bazaar.md` ("Service Metadata on `resource`",
+Validation Rules, which "SDKs and facilitators MUST apply ... during extraction"): `serviceName` and each tag non-empty,
+tags deduplicated case-insensitively, `iconUrl` with no userinfo, no IP literal and no `localhost`; a field that fails
+its rule is dropped ("Hard rejection only happens at the JSON envelope level"). Its TypeScript schema
+(`typescript/packages/core/src/schemas/index.ts`) takes `null` for any optional member as absent and requires
+`serviceName` and each tag non-empty.
+
+Until 0.21.3 every reader of a ResourceInfo here (`payment_payload.resource` and `payment_required.resource` of
+apc_verify, apc_svm, apc_xlm, apc_xrp, apc_authcap and apc_permit2: twelve places) knew `{url[, description,
+mimeType]}` only (apc_authcap's `payment_payload.resource` also `method`) and refused the last three as unknown
+members, so a 402 response that a real server sends (agent-payment-chain issue #1, 2026-11-03: `serviceName`, `tags`,
+`iconUrl`) was refused, exit 3; and none of them checked the type of `description` or `mimeType` (`"description": 5`
+and `"description": null` passed). apc_ap2 knew the three members but took `null` for any optional one, did not check
+that `iconUrl` is an absolute http(s) URL, and refused an empty `serviceName` or tag.
+
+From 0.21.4 one rule, in every place (apc_verify.resource_info; apc_ap2 the same rule in its own schema errors):
+- closed: a member outside the six is refused with its path, as before; `url` a non-empty string;
+- `description` and `mimeType`: strings (`null` or another type refused);
+- `serviceName`: a string of 1 to 32 characters, each in U+0020..U+007E;
+- `tags`: an array of at most 5 strings, each of 1 to 32 characters in U+0020..U+007E;
+- `iconUrl`: a string of 1 to 2048 characters, each in U+0021..U+007E: `http://` or `https://` (the scheme's ASCII
+  letters in either case, RFC 3986 3.1), then an optional userinfo ending in `@`, then a host that is not empty and does
+  not start with `:` (RFC 9110 4.2.1 and 4.2.2: an http(s) URI with an empty host is invalid), the authority ending at
+  the first `/`, `?` or `#`.
+
+Our reading where the texts differ (declared): the upper bounds are those of the ResourceInfo table, and a value out of
+them is refused with its path, not dropped (the Bazaar rule is for a catalog's extraction; a verifier that dropped a
+member would verify a ResourceInfo the server did not send); `null` is refused, not taken as absent; the empty string is
+refused for `serviceName` and a tag: the table sets no lower bound, but the Bazaar rule and the TypeScript schema of the
+same commit require one character, and we follow them (the author's decision, 2026-11-03); the Bazaar rules on the
+`iconUrl` host (IP literal, `localhost`) and on duplicate tags are not applied.
+
+What a reader of the report does with these three members is not changed: they are read for their form only and decide
+no check (K4 compares `url` alone, as before). apc_authcap keeps the member `method` it read in
+`payment_payload.resource`.
+
+Measured (2026-11-03): tests.test_amend0213, 12 tests, OK on Python 3.9, 3.11 and 3.13 (in the public tree two skip:
+they need bundles/authcap_real_20261026 and the six sets named below) — the table (80 resources, 20 accepted and 60
+refused; each outcome read off the table, and where the table is silent, `null`, the empty string, an empty host, off
+the reading above) through apc_verify.resource_info, apc_ap2._resource and apc_ap2's x402 payload; 20000 generated
+resources (members of the grammar and unknown ones, values of every JSON type and at the borders) on which the two
+readers agree, both outcomes over 500 times; a syntax check that no reader of a resource keeps its own list and that
+each `X["resource"]` passed to a call goes to resource_info, two places in each of the six readers; on the real corpus
+(real, real_svm, xlm_real_20261026, xrp_real_20261026, real_permit2, authcap_real_20261026) each reader refusing six
+`tags` in `payment_payload.resource` and in `payment_required.resource` with the path; a synthetic 402 of the shape of
+agent-payment-chain issue #1 read with K4 verified, and a refusal naming the path of each member out of rule;
+apc_authcap's `method` kept. On the code of 0.21.3 the 12 fail (5 failures, 7 errors). Mutants of the changed lines,
+each file restored and checked by sha256: the author's 24 targeted mutants, 24 killed; an independent review's 68 on the
+first version of this amendment left 11 alive (seven places of apc_svm, apc_xlm, apc_xrp and apc_permit2 that could skip
+the rule, the second tag unchecked, DEL or `!` in iconUrl, one equivalent) and found `httpſ://` accepted (U+017F folds
+to `s` under re.IGNORECASE); on the version with that review's fixes, 33 mutants (those 11 places and cases again, the
+new iconUrl pattern in both modules), 32 killed and one equivalent (`(?![:@])` for `(?!:)` before a class without `@`: 0
+differences on 471 453 strings, 9 467 for a non-equivalent control). On this final version (serviceName and tags
+non-empty), the review's 101 mutants re-applied where their line still exists (85) and two on the lower bound (1 back to
+0 in each module): one of the 87 had become the unmutated line and is not counted; of the 86, 84 killed and 2 equivalent
+(the one above, and `min1=False` on apc_ap2's iconUrl, whose pattern already requires a character). `tools/regress.py
+check`, 1123 bundles, 0 differences (no bundle of the corpus carries one of the three members), then refrozen under
+0.21.4; the list rewritten: verifier and date only. On the final version: `tools/regress.py check` 1123 bundles, 0
+differences; tools/run_ordered.py 1002 tests, OK (skipped=12), 2010 s; in the public tree, `unittest discover` on Python
+3.9, 3.11 and 3.13, 290 tests, OK (skipped=132).
 ## 33. The real corpus as a LIST (2026-11-01, local; corpus/MANIFEST.json, format `apc-corpus-0.2`, `apc-corpus-0.3` by 33.10; tools/rebuild_corpus.py, tools/make_corpus_manifest.py) — what is distributed, what is rebuilt, what is accepted
 
 The public tree does not carry bundles/ (the fascicles of real payments) nor oracle/ (the raw RPC replies they were

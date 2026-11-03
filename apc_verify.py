@@ -1,4 +1,4 @@
-"""agent-payment-chain verifier, SPEC 0.3 to 0.16.1, 0.17 (SPEC.md section 28), 0.18.1 (section 29) 0.18.2 (section 25, C1 block), 0.18.3 (section 29: drafts' own Keccak budget, RLP bound per list, exit 74), 0.18.4 (sections 17 and 29: the budget in apc_drafts too, exit 74 with standard error unwritable), 0.19.0 (section 30: evidence_level, --require-level) and 0.19.1 (section 30: neutral levels, facilitator_reply, finality_proven with l1_state proven, closed list of qualified outcomes) and 0.20.0 (section 31: the AP2 mandate as an ap2-evidence-pack 1.7.1 pack, MP1-MP7) and 0.21.0 (section 32: a 65-byte signature of a payer with code, `payer_state`, the ERC-1271 of Circle_SingleOwnerMSCA 1.0.0; apc_msca.py) and 0.21.1 (32.10: a `verified (ERC-1271 …)` read from the payer's state needs the block anchored, canonical final with l1_state proven) and 0.21.2 (32.11: the verifier's environment — the pack beside the verifier when APC_AP2EV is unset, the cause named when MP1-MP7 are not evaluated, exit 64 with one line on standard error when the signature library is absent) and 0.21.3 (32.12: the code run is the code hashed — the pack's two files and the signature library's two files of tag v1.4.0 are run from the bytes hashed, never imported by name; exit 64 also for a library of other bytes); reads apc-0.1, apc-0.2, apc-0.3, apc-0.5, apc-0.10, apc-0.12, apc-0.13, apc-0.15, apc-0.16 bundles). Offline; Python 3 standard library plus the stdlib EIP-712 and
+"""agent-payment-chain verifier, SPEC 0.3 to 0.16.1, 0.17 (SPEC.md section 28), 0.18.1 (section 29) 0.18.2 (section 25, C1 block), 0.18.3 (section 29: drafts' own Keccak budget, RLP bound per list, exit 74), 0.18.4 (sections 17 and 29: the budget in apc_drafts too, exit 74 with standard error unwritable), 0.19.0 (section 30: evidence_level, --require-level) and 0.19.1 (section 30: neutral levels, facilitator_reply, finality_proven with l1_state proven, closed list of qualified outcomes) and 0.20.0 (section 31: the AP2 mandate as an ap2-evidence-pack 1.7.1 pack, MP1-MP7) and 0.21.0 (section 32: a 65-byte signature of a payer with code, `payer_state`, the ERC-1271 of Circle_SingleOwnerMSCA 1.0.0; apc_msca.py) and 0.21.1 (32.10: a `verified (ERC-1271 …)` read from the payer's state needs the block anchored, canonical final with l1_state proven) and 0.21.2 (32.11: the verifier's environment — the pack beside the verifier when APC_AP2EV is unset, the cause named when MP1-MP7 are not evaluated, exit 64 with one line on standard error when the signature library is absent) and 0.21.3 (32.12: the code run is the code hashed — the pack's two files and the signature library's two files of tag v1.4.0 are run from the bytes hashed, never imported by name; exit 64 also for a library of other bytes) and 0.21.4 (32.13: the x402 ResourceInfo as the specification writes it, serviceName, tags and iconUrl read by one rule in every reader); reads apc-0.1, apc-0.2, apc-0.3, apc-0.5, apc-0.10, apc-0.12, apc-0.13, apc-0.15, apc-0.16 bundles). Offline; Python 3 standard library plus the stdlib EIP-712 and
 secp256k1 of x402-signature-vectors tag v1.4.0 (path in APC_SIGLIB, default: a sibling checkout ../x402-signature-vectors (tag v1.4.0); the two files at their
 hashes, apc_siglib, SPEC 32.12).
 
@@ -56,7 +56,7 @@ import apc_mandate  # noqa: E402
 from lib.eip712 import signing_digest  # noqa: E402
 from lib.secp256k1 import public_key_to_address, recover_public_key  # noqa: E402
 
-VERSION = "apc_verify 0.21.3"
+VERSION = "apc_verify 0.21.4"
 import apc_l1proof  # noqa: E402
 import apc_webauthn  # noqa: E402
 SECP_N = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
@@ -161,6 +161,34 @@ def _str(v, path):
     if not isinstance(v, str) or not v:
         raise Refusal("%s: not a non-empty string" % path)
     return v
+
+
+RI_ASCII32 = re.compile(r"[\x20-\x7e]{1,32}\Z")
+# the scheme by ASCII letters, not (?i): under re.IGNORECASE U+017F matches "s" (independent review 03/11, "httpſ://" was accepted);
+# userinfo, if any, then a host that is not empty (RFC 9110 4.2.1-4.2.2: an http(s) URI with an empty host is invalid)
+RI_ICON_URL = re.compile(r"[Hh][Tt][Tt][Pp][Ss]?://(?:[\x21\x22\x24-\x2e\x30-\x3e\x41-\x7e]*@)?(?!:)[\x21\x22\x24-\x2e\x30-\x3e\x41-\x7e]+(?:[/?#][\x21-\x7e]*)?\Z")
+
+
+def resource_info(v, path, extra=()):
+    """An x402 v2 ResourceInfo as x402-specification-v2 at 0aee759 writes it (SPEC 32.13): closed; `url` a non-empty
+    string; `description`, `mimeType` strings; `serviceName` printable ASCII, at most 32; `tags` at most 5 such strings;
+    `iconUrl` an absolute http(s) URL of at most 2048 characters. `extra`: members a profile adds (apc_authcap `method`)."""
+    r = _obj(v, path, ("url",), ("description", "mimeType", "serviceName", "tags", "iconUrl") + tuple(extra))
+    _str(r["url"], path + ".url")
+    for k in ("description", "mimeType"):
+        if k in r and not isinstance(r[k], str):
+            raise Refusal("%s.%s: not a string" % (path, k))
+    if "serviceName" in r and not (isinstance(r["serviceName"], str) and RI_ASCII32.match(r["serviceName"])):
+        raise Refusal("%s.serviceName: not a string of 1 to 32 printable ASCII characters" % path)
+    if "tags" in r:
+        if not isinstance(r["tags"], list) or len(r["tags"]) > 5:
+            raise Refusal("%s.tags: not an array of at most 5 strings" % path)
+        for i, t in enumerate(r["tags"]):
+            if not (isinstance(t, str) and RI_ASCII32.match(t)):
+                raise Refusal("%s.tags[%d]: not a string of 1 to 32 printable ASCII characters" % (path, i))
+    if "iconUrl" in r and not (isinstance(r["iconUrl"], str) and len(r["iconUrl"]) <= 2048 and RI_ICON_URL.match(r["iconUrl"])):
+        raise Refusal("%s.iconUrl: not an absolute http(s) URL of at most 2048 characters" % path)
+    return r
 
 
 def _int_json(v, path):
@@ -274,7 +302,7 @@ def parse_payload(v):
         raise Refusal("%s.payload.authorization.nonce: not 32 bytes hex" % p)
     resource_url = None
     if "resource" in v:
-        res = _obj(v["resource"], p + ".resource", ("url",), ("description", "mimeType"))   # x402 v2 5.2.2 ResourceInfo
+        res = resource_info(v["resource"], p + ".resource")   # x402 v2 5.2.2 ResourceInfo
         resource_url = _str(res["url"], p + ".resource.url")
     return {"accepted": acc, "raw_accepted": v["accepted"], "resource_url": resource_url,
             "signature": bytes.fromhex(sig[2:]),
@@ -708,7 +736,7 @@ def _verify_bundle(doc, l1_checkpoint=None, http_keys=None, signer_trust=None):
                 raise Refusal("payment_required.accepts[%d]: not an object" % i)
             if a.get("scheme") == "exact" and str(a.get("network", "")).startswith("eip155:"):
                 parse_offer(a, "payment_required.accepts[%d]" % i)
-        _obj(pr["resource"], "payment_required.resource", ("url",), ("description", "mimeType"))
+        resource_info(pr["resource"], "payment_required.resource")
         if "extensions" in pr and not isinstance(pr["extensions"], dict):
             raise Refusal("payment_required.extensions: not an object")
         res["K4"] = ("verified" if any(_json_eq(pp["raw_accepted"], a) for a in pr["accepts"])
