@@ -51,7 +51,11 @@ MODS = ["test_apc03", "test_removed", "test_l1proof", "test_high_s", "test_faile
         # 32.12 (0.21.3), the code run is the code hashed (pack and signature library), APC_REQUIRE_DEPS
         "test_amend0212",
         # 03/11: SPEC 32.13 (0.21.4), the x402 ResourceInfo by one rule in every reader (serviceName, tags, iconUrl)
-        "test_amend0213"]
+        "test_amend0213",
+        # 03/11: SPEC 33.14, the report of tools/diff_mandate_sdk.py counts every pair once (`compared`; needs APC_AP2EV)
+        "test_diff_mandate_sdk",
+        # 03/11: SPEC 32.14 (0.21.5), a member of the PaymentRequired that x402 does not define: ignored and reported
+        "test_amend0214"]
 NEAR = {"apc_svm.py": ["test_amend0213", "test_mandate", "test_hostile", "test_svm", "test_wycheproof", "test_review070", "test_review071",
                        "test_integration"],
         "apc_solana.py": ["test_hostile", "test_wycheproof", "test_svm", "test_review070", "test_review071"],

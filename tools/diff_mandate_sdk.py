@@ -9,7 +9,11 @@ the AP2 text, every claim of the open Mandate Content unchanged): a changed pisp
 
 Compares "verified" (apc) with "no violation" (SDK) and "failed:" (apc) with "a violation" (SDK). Outcomes apc leaves
 not_evaluated (budget, recurrence, reference without the open checkout, unknown types) are counted apart: the SDK
-is given an empty MandateContext and the open checkout hash, so it decides them, and apc by design does not."""
+is given an empty MandateContext and the open checkout hash, so it decides them, and apc by design does not.
+
+The report counts every pair once: `compared` = agree + disagree + declared_divergence_preset_payee +
+declared_divergence_preset_pisp_risk_data (the pairs both sides decided); `apc_not_evaluated` and `sdk_error` are outside
+it; the six sum to `n`. `agree` alone is not the number compared (SPEC 33.14)."""
 import json
 import os
 import random
@@ -125,7 +129,8 @@ def main(n, seed, presets=False):
             disagree += 1
             if len(examples) < 8:
                 examples.append({"open": o, "closed": c, "apc": mine, "sdk": v})
-    print(json.dumps({"n": n, "seed": seed, "agree": agree, "disagree": disagree, "declared_divergence_preset_payee": declared, "declared_divergence_preset_pisp_risk_data": declared_text, "apc_not_evaluated": apc_open,
+    print(json.dumps({"n": n, "seed": seed, "compared": agree + disagree + declared + declared_text, "agree": agree, "disagree": disagree,
+                      "declared_divergence_preset_payee": declared, "declared_divergence_preset_pisp_risk_data": declared_text, "apc_not_evaluated": apc_open,
                       "sdk_error": sdk_error, "sdk_errors": sorted(errs.items(), key=lambda x: -x[1])[:6], "examples": examples}, indent=1))
     return 1 if disagree else 0
 

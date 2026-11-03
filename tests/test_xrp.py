@@ -389,6 +389,12 @@ class Generative(unittest.TestCase):
             for k in path:
                 o = o[k]
             o["unknownMember"] = 1
+            if path == ("payment_required",):
+                # SPEC 32.14 (0.21.5): a member of the PaymentRequired x402 does not define is ignored and named in notes
+                r = run(d)
+                self.assertNotIn("refused", r, path)
+                self.assertTrue(any("(SPEC 32.14): ['unknownMember']" in n for n in r["notes"]))
+                continue
             self.assertIn("refused", run(d), path)
         leaves = []
         for path, o in walk(b):

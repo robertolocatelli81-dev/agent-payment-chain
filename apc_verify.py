@@ -1,4 +1,4 @@
-"""agent-payment-chain verifier, SPEC 0.3 to 0.16.1, 0.17 (SPEC.md section 28), 0.18.1 (section 29) 0.18.2 (section 25, C1 block), 0.18.3 (section 29: drafts' own Keccak budget, RLP bound per list, exit 74), 0.18.4 (sections 17 and 29: the budget in apc_drafts too, exit 74 with standard error unwritable), 0.19.0 (section 30: evidence_level, --require-level) and 0.19.1 (section 30: neutral levels, facilitator_reply, finality_proven with l1_state proven, closed list of qualified outcomes) and 0.20.0 (section 31: the AP2 mandate as an ap2-evidence-pack 1.7.1 pack, MP1-MP7) and 0.21.0 (section 32: a 65-byte signature of a payer with code, `payer_state`, the ERC-1271 of Circle_SingleOwnerMSCA 1.0.0; apc_msca.py) and 0.21.1 (32.10: a `verified (ERC-1271 …)` read from the payer's state needs the block anchored, canonical final with l1_state proven) and 0.21.2 (32.11: the verifier's environment — the pack beside the verifier when APC_AP2EV is unset, the cause named when MP1-MP7 are not evaluated, exit 64 with one line on standard error when the signature library is absent) and 0.21.3 (32.12: the code run is the code hashed — the pack's two files and the signature library's two files of tag v1.4.0 are run from the bytes hashed, never imported by name; exit 64 also for a library of other bytes) and 0.21.4 (32.13: the x402 ResourceInfo as the specification writes it, serviceName, tags and iconUrl read by one rule in every reader); reads apc-0.1, apc-0.2, apc-0.3, apc-0.5, apc-0.10, apc-0.12, apc-0.13, apc-0.15, apc-0.16 bundles). Offline; Python 3 standard library plus the stdlib EIP-712 and
+"""agent-payment-chain verifier, SPEC 0.3 to 0.16.1, 0.17 (SPEC.md section 28), 0.18.1 (section 29) 0.18.2 (section 25, C1 block), 0.18.3 (section 29: drafts' own Keccak budget, RLP bound per list, exit 74), 0.18.4 (sections 17 and 29: the budget in apc_drafts too, exit 74 with standard error unwritable), 0.19.0 (section 30: evidence_level, --require-level) and 0.19.1 (section 30: neutral levels, facilitator_reply, finality_proven with l1_state proven, closed list of qualified outcomes) and 0.20.0 (section 31: the AP2 mandate as an ap2-evidence-pack 1.7.1 pack, MP1-MP7) and 0.21.0 (section 32: a 65-byte signature of a payer with code, `payer_state`, the ERC-1271 of Circle_SingleOwnerMSCA 1.0.0; apc_msca.py) and 0.21.1 (32.10: a `verified (ERC-1271 …)` read from the payer's state needs the block anchored, canonical final with l1_state proven) and 0.21.2 (32.11: the verifier's environment — the pack beside the verifier when APC_AP2EV is unset, the cause named when MP1-MP7 are not evaluated, exit 64 with one line on standard error when the signature library is absent) and 0.21.3 (32.12: the code run is the code hashed — the pack's two files and the signature library's two files of tag v1.4.0 are run from the bytes hashed, never imported by name; exit 64 also for a library of other bytes) and 0.21.4 (32.13: the x402 ResourceInfo as the specification writes it, serviceName, tags and iconUrl read by one rule in every reader) and 0.21.5 (32.14: a member of the PaymentRequired that x402 does not define is ignored and reported in notes, not refused); reads apc-0.1, apc-0.2, apc-0.3, apc-0.5, apc-0.10, apc-0.12, apc-0.13, apc-0.15, apc-0.16 bundles). Offline; Python 3 standard library plus the stdlib EIP-712 and
 secp256k1 of x402-signature-vectors tag v1.4.0 (path in APC_SIGLIB, default: a sibling checkout ../x402-signature-vectors (tag v1.4.0); the two files at their
 hashes, apc_siglib, SPEC 32.12).
 
@@ -56,7 +56,7 @@ import apc_mandate  # noqa: E402
 from lib.eip712 import signing_digest  # noqa: E402
 from lib.secp256k1 import public_key_to_address, recover_public_key  # noqa: E402
 
-VERSION = "apc_verify 0.21.4"
+VERSION = "apc_verify 0.21.5"
 import apc_l1proof  # noqa: E402
 import apc_webauthn  # noqa: E402
 SECP_N = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
@@ -155,6 +155,25 @@ def _obj(v, path, required, optional=()):
     if missing:
         raise Refusal("%s: missing member(s) %s" % (path, missing))
     return v
+
+
+def payment_required_obj(v, path, required, optional=()):
+    """SPEC 32.14 (0.21.5): the PaymentRequired of x402 (v2 and v1) with a member the specification does not define. The
+    specification says nothing of one; its reference TypeScript schema (z.object) accepts it and drops it. Here it is
+    IGNORED and REPORTED: it is not read, it decides no check, and the returned note names it; every member the
+    specification defines keeps its rules, and the objects inside are read as in 0.21.4 (ResourceInfo closed; the accepts
+    entries as each reader reads them, SPEC 32.14).
+    Returns (the object without the ignored members, [note] or [])."""
+    if not isinstance(v, dict):
+        raise Refusal("%s: not an object" % path)
+    ignored = sorted(set(v) - set(required) - set(optional))
+    pr = _obj({k: x for k, x in v.items() if k not in ignored}, path, required, optional)
+    if not ignored:
+        return pr, []
+    shown = [k if len(k) <= 64 else k[:64] + "..." for k in ignored[:16]]   # names are attacker-sized: bounded in the report
+    more = "" if len(ignored) <= 16 else " and %d more" % (len(ignored) - 16)
+    return pr, ["%s: member(s) the x402 specification does not define, ignored and not read (SPEC 32.14): %s%s"
+                % (path, shown, more)]
 
 
 def _str(v, path):
@@ -723,8 +742,9 @@ def _verify_bundle(doc, l1_checkpoint=None, http_keys=None, signer_trust=None):
     # SPEC 0.3 K6, every bundle version since Amendment 0.3.2: a zero-value payment pays nothing; our rule
     res["K6"] = "verified" if au["value"] > 0 else "failed:zero_amount"
     if "payment_required" in doc:
-        pr = _obj(doc["payment_required"], "payment_required", ("x402Version", "resource", "accepts"),
-                  ("error", "extensions"))
+        pr, prn = payment_required_obj(doc["payment_required"], "payment_required", ("x402Version", "resource", "accepts"),
+                                       ("error", "extensions"))
+        notes += prn
         if _int_json(pr["x402Version"], "payment_required.x402Version") != 2:     # as payment_payload (independent review 25/10)
             raise Unsupported("payment_required.x402Version %r (2 only)" % (pr["x402Version"],))
         if "error" in pr and not isinstance(pr["error"], str):

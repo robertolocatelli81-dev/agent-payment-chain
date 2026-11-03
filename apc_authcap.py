@@ -12,7 +12,7 @@ import re
 import apc_assets
 from apc_verify import (ADDR, HASH32, HEXDATA, HIGH_S_REFUSED, REQ_MEMBERS, SECP_N, ERC6492_MAGIC, Refusal,
                         Unsupported, _addr, _int_json, _json_eq, _obj, _str, _uint, builder_code_checks, exchange_checks,
-                        _q, keccak256, offer_receipt_checks, provenance, public_key_to_address, recover_public_key, resource_info,
+                        _q, keccak256, offer_receipt_checks, payment_required_obj, provenance, public_key_to_address, recover_public_key, resource_info,
                         tx_hash_eip1559)
 
 ZERO = "0x" + "00" * 20
@@ -430,7 +430,9 @@ def verify(doc, http_keys=None, signer_trust=None):
     flow = r["paymentFlow"]
     amount = w["completion"].get("amount", r["amount"]) if flow == "authorization" else r["amount"]
     if "payment_required" in doc:
-        pr = _obj(doc["payment_required"], "payment_required", ("x402Version", "resource", "accepts"), ("error", "extensions"))
+        pr, prn = payment_required_obj(doc["payment_required"], "payment_required", ("x402Version", "resource", "accepts"),
+                                          ("error", "extensions"))
+        notes += prn   # SPEC 32.14
         if _int_json(pr["x402Version"], "payment_required.x402Version") != 2:
             raise Unsupported("payment_required.x402Version %r (2 only)" % (pr["x402Version"],))
         if not isinstance(pr["accepts"], list) or not pr["accepts"] or not all(isinstance(a, dict) for a in pr["accepts"]):

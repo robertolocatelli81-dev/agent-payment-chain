@@ -225,6 +225,11 @@ class Generative(unittest.TestCase):
             o["unknownMember"] = 1
             r = run(d)
             closed = not (path[-1:] == ("extra",) and "accepted" in path) and "chain_tx" not in path[:1]
+            if path == ("payment_required",):
+                # SPEC 32.14 (0.21.5): a member of the PaymentRequired x402 does not define is ignored and named in notes
+                self.assertEqual(r.get("verdict"), "chain_verified", r.get("reason"))
+                self.assertTrue(any("(SPEC 32.14): ['unknownMember']" in n for n in r["notes"]))
+                continue
             if closed and "accepts" not in path and path not in ((),) and "refused" not in r:
                 # the members this verifier reads from are closed sets, except extra (ignored by the scheme's rule)
                 # and the RPC objects inside chain_tx (as other bundle versions)

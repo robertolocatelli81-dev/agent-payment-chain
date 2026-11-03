@@ -51,7 +51,7 @@ work-acceptance and AP2 are cited by commit without a copy here):
 - AP2 @ e1ea56d (docs and schemas): amounts in ISO-4217 minor units with a 3-letter currency code; no merchant
   address; no x402 field ("The AP2 compatible x402 extension is coming soon").
 
-## 1. Bundle (closed at every level of this grammar: any other member is refused with its path)
+## 1. Bundle (closed at every level of this grammar: any other member is refused with its path; from 0.21.5 one exception, the top level of payment_required, 32.14)
 
 ```
 {
@@ -78,7 +78,8 @@ Closed levels: bundle, payment_payload (and its `resource`, an x402 ResourceInfo
 from 0.21.4 also `serviceName`, `tags`, `iconUrl`, by the rule of 32.13),
 accepted, payload, authorization, settlement, chain_tx, payer_wallet and each of its three replies, payment_required (its
 `resource` as above; every `accepts` entry an object; `x402Version` 2, else unsupported, and `error` a
-string, from 0.7.1) and acceptance.receipt.payment. Read for the members named below only,
+string, from 0.7.1; from 0.21.5 a member of payment_required itself that x402 does not define is not refused but
+ignored and named in `notes`, 32.14) and acceptance.receipt.payment. Read for the members named below only,
 the rest carried and not interpreted: the RPC objects `tx` and the three logs (their members vary by client), the
 `extensions` objects (x402 "protocol extensions data"; must be objects), the acceptance record outside `payment`
 (war-verify's) and the mandate (ap2-evidence-pack's; must be an object).
@@ -1056,7 +1057,8 @@ Source (merged x402 extension): x402-foundation/x402 @ 4241d56 `specs/extensions
 `typescript/packages/extensions/src/offer-receipt/` (signing.ts, did.ts), copies and sha256 in
 sources/x402_offer_receipt_20261026; cited as OR §n. Code: apc_offer.py, standard library only. Read in every bundle
 version that can carry the extension: apc-0.1 to apc-0.3, apc-0.5, apc-0.12 and, since 0.16.1 (section 27), apc-0.10,
-apc-0.15, apc-0.16 (an apc-0.13 bundle cannot carry it: the x402 v1 objects of section 21 have no `extensions`); until
+apc-0.15, apc-0.16 (an apc-0.13 bundle cannot carry it: the x402 v1 objects of section 21 have no `extensions`; from
+0.21.5 an `extensions` member of its payment_required is ignored, named in notes and not read, SPEC 32.14); until
 0.8 these objects were carried in `extensions` and not interpreted, so a forged offer or receipt left the verdict
 unchanged.
 
@@ -1696,8 +1698,9 @@ of apc-0.1 to apc-0.3 (apc_offer.check, apc_verify.builder_code_checks, apc_payi
 | §19 `asset` member | read | n/a [f] | read (0.16.1) | n/a [f] | read (mapped) | read (0.16.1) | n/a [f] |
 | §19 high-s rule | read | n/a [f] | n/a [g] | n/a [f] | read (mapped) | read (EIP-3009); n/a on Permit2 [g] | n/a [f] |
 
-[a] the x402 v1 objects of section 21 have no `extensions` member (closed grammar: such a member is refused), so an
-apc-0.13 bundle cannot carry these extensions. [b] the XRPL transaction id is compared without case, as T1 of section
+[a] the x402 v1 objects of section 21 have no `extensions` member (closed grammar: such a member is refused; from
+0.21.5, in payment_required, it is ignored, named in notes and not read, SPEC 32.14), so an apc-0.13 bundle cannot
+carry these extensions. [b] the XRPL transaction id is compared without case, as T1 of section
 26; amounts and assets as strings. [c] ERC-8021 is EVM calldata: on Solana, Stellar and XRPL there is no suffix to
 read, `not_applicable:no_erc8021_calldata_off_evm`. [d] the call path to the escrow is not decoded (section 25 C1-C4),
 as an indirect call of section 4: `not_evaluated:absent:no_builder_code_calldata`. [e] section 21: `exchange` is not
@@ -2423,10 +2426,12 @@ transaction as executed; MP4a not evaluated (a throwaway mint, not USDC); MP6 no
 - tests/fixtures_mandate: 9 bundles made with the AP2 SDK at e1ea56d from keys made for them (tools/gen_mandate_fixtures.py);
   9/9 as expected; positive control: all 9 differ on f5ad071 (the tree before this section).
 - MP3 against the SDK's check_payment_constraints (tools/diff_mandate_sdk.py, generated open/closed pairs with the
-  amount bounds and their neighbours): 0 disagreements on 13 712 pairs (seeds 20261031, 7, 99), 24 declared divergences
-  (a pre-set payee equal by `id` and different otherwise: "unchanged" is RFC 8785 equality here), 0 SDK errors; positive
-  control: three boundary mutants (`>=` for `>` on max, `<=` for `<` on min, `>=` for `>` on not_after) give 12, 3 and 3
-  disagreements on 3000 pairs (0 unmutated).
+  amount bounds and their neighbours; seeds 20261031, 7, 99, 5000 pairs each, 15 000 generated): 13 736 compared, of
+  which 13 712 agree, 24 declared divergences (a pre-set payee equal by `id` and different otherwise: "unchanged" is RFC
+  8785 equality here) and 0 disagree; 1 264 apc not_evaluated and 0 SDK errors outside the comparison (33.14: until
+  2026-11-03 this line read "0 disagreements on 13 712 pairs", the agreements counted as the pairs compared); positive
+  control: three boundary mutants (`>=` for `>` on max, `<=` for `<` on min, `>=` for `>` on not_after) give 12, 3 and 16
+  disagreements on 3000 pairs of seed 20261031 (0 unmutated; re-measured 2026-11-03; until then this line said 12, 3 and 3: 33.14).
 - Mutants MD01-MD83 (tools/mutants03.py, apc_mandate.py, apc_svm.py, apc_verify.py; MD61 not listed, equivalent since
   31.3a, reason in the file), final tree, control on the unmutated copy first: 82 killed, 0 survived (journal
   mandate_20261031/mut_final6.journal (the author's local records, not distributed), 2026-10-31 night). Before, on earlier trees, MD13 (sd_hash),
@@ -2435,10 +2440,14 @@ transaction as executed; MP4a not evaluated (a throwaway mint, not USDC); MP6 no
   lived and were killed by the tests added for them.
 - Whole suite one file at a time on the final tree: 53 files OK; frozen corpus (tools/regress.py check): 1038 bundles,
   0 differences after the 2 bundles of bundles/real_svm_mandate were added (the other 1036 unchanged).
-- More generated inputs (2026-10-31, before 31.3a and the independent review patch): MP3 against the SDK on 4 more seeds of 20 000
-  pairs: 0 disagreements on 73 137; tests/test_mandate.py and tests/test_svm.py on Python 3.9.25 and 3.13.15 (cryptography
-  50.0.1): 72 tests OK on each. On the final tree: seed 31, 10 000 pairs, 0 disagreements (standard and `presets`); the
-  damaged-pair probe of 31.3a: 0 `verified` on the 7 102 pairs of 10 000 that the SDK refuses.
+- More generated inputs (2026-10-31, before 31.3a and the independent review patch): MP3 against the SDK on 4 more seeds (1-4) of
+  20 000 pairs: 73 249 compared, of which 73 137 agree, 112 declared divergences on a pre-set payee and 0 disagree; 6 751
+  apc not_evaluated, 0 SDK errors (re-measured 2026-11-03 on the tree of 33.14: the same counts; until then this line
+  read "0 disagreements on 73 137"); tests/test_mandate.py and tests/test_svm.py on Python 3.9.25 and 3.13.15 (cryptography
+  50.0.1): 72 tests OK on each. On the final tree: seed 31, 10 000 pairs, standard 9 145 compared (9 137 agree, 8
+  declared on a pre-set payee, 0 disagree; 855 not_evaluated), `presets` 9 545 compared (9 090 agree, 12 declared on a
+  pre-set payee, 443 on a pre-set `pisp` or `risk_data`, 0 disagree; 455 not_evaluated; both re-measured 2026-11-03, the
+  same); the damaged-pair probe of 31.3a: 0 `verified` on the 7 102 pairs of 10 000 that the SDK refuses.
 - Review: a second reviewer (a separate review, on a clone, with these dependencies) found five defects in the first version —
   R1 the restriction type skipped in the OPEN hop (MP3 verified, AP2 treats an unknown type as failing), R2 MP7 verified
   when MP5 was only not_evaluated, R3 two absent PISP names matching as None == None, R4 a member outside a constraint's
@@ -2452,10 +2461,11 @@ transaction as executed; MP4a not evaluated (a throwaway mint, not USDC); MP6 no
   pack written unescaped at ap2-evidence-pack's size limit, the loader's realpath guard, an existed_by of another shape, the exit-74 path, recurrence with one of its two companions,
   the `--ap2-tsa-cert` value); test_reference_with_the_open_checkout_in_the_pack no
   longer fails when the hash ends in `A` (one run in 16). tools/diff_mandate_sdk.py with `presets` (seeds 20261031, 7,
-  99; 5000 pairs each): 0 disagreements on 13 549 pairs, 698 declared divergences on a pre-set `pisp` or `risk_data`, 9 on
-  a pre-set payee, 0 SDK errors. apc-0.10 keeps M1 of section 9; apc-0.12, apc-0.15 and apc-0.16 refuse the member.
+  99; 5000 pairs each): 14 256 compared, of which 13 549 agree, 698 declared divergences on a pre-set `pisp` or
+  `risk_data`, 9 on a pre-set payee and 0 disagree; 744 apc not_evaluated and 0 SDK errors outside the comparison (33.14:
+  until 2026-11-03 "0 disagreements on 13 549 pairs"). apc-0.10 keeps M1 of section 9; apc-0.12, apc-0.15 and apc-0.16 refuse the member.
 
-## 32. SPEC 0.21 (draft, 2026-11-01, local; apc_verify 0.21.0, 0.21.1 by Amendment 32.10, 0.21.2 by Amendment 32.11, 0.21.3 by Amendment 32.12, and 0.21.4 by Amendment 32.13, apc_msca.py, apc_siglib.py; bundle versions apc-0.2 and apc-0.3, apc-0.13 read as v2; 32.2 in every bundle version this file reads) — a 65-byte signature of a payer with code: USDC's (v,r,s) path, and the ERC-1271 of Circle_SingleOwnerMSCA 1.0.0 proven from state
+## 32. SPEC 0.21 (draft, 2026-11-01, local; apc_verify 0.21.0, 0.21.1 by Amendment 32.10, 0.21.2 by Amendment 32.11, 0.21.3 by Amendment 32.12, 0.21.4 by Amendment 32.13, and 0.21.5 by Amendment 32.14, apc_msca.py, apc_siglib.py; bundle versions apc-0.2 and apc-0.3, apc-0.13 read as v2; 32.2 in every bundle version this file reads) — a 65-byte signature of a payer with code: USDC's (v,r,s) path, and the ERC-1271 of Circle_SingleOwnerMSCA 1.0.0 proven from state
 
 **Sources, read 2026-11-01.** Circle stablecoin-evm fc85788 (sources/circle_stablecoin-evm_fc85788): `EIP3009.sol` 84-104
 (`transferWithAuthorization(…, uint8 v, bytes32 r, bytes32 s)` forwards `abi.encodePacked(r, s, v)` to the `bytes` form),
@@ -3095,6 +3105,44 @@ check`, 1123 bundles, 0 differences (no bundle of the corpus carries one of the 
 0.21.4; the list rewritten: verifier and date only. On the final version: `tools/regress.py check` 1123 bundles, 0
 differences; tools/run_ordered.py 1002 tests, OK (skipped=12), 2010 s; in the public tree, `unittest discover` on Python
 3.9, 3.11 and 3.13, 290 tests, OK (skipped=132).
+### 32.14 Amendment 0.21.5 (2026-11-03; apc_verify 0.21.5; every bundle version) — a member of the PaymentRequired that x402 does not define is ignored and reported, not refused
+Source: x402-foundation/x402 @ 0aee759 (the pin of section 0), `specs/x402-specification-v2.md`, PaymentRequired:
+`x402Version`, `error`, `resource`, `accepts`, `extensions`; v1 (the `PaymentRequirementsResponse` of section 21, SPEC 0.13):
+`x402Version`, `error`, `accepts`. Neither version says what a reader does with another member (no rule on unknown or
+additional members in the specification at 0aee759 nor on `main` at 2026-11-03). The reference implementation of the same
+repository (`typescript/packages/core/src/schemas/index.ts`, `PaymentRequiredV2Schema` and `PaymentRequiredV1Schema`,
+plain `z.object`) accepts such a member and drops it.
+
+Until 0.21.4 every reader here (apc_verify, apc_svm, apc_xlm, apc_xrp, apc_authcap, apc_permit2 for v2; apc_v1 for v1)
+refused such a member, so the 402 response a real server sends was refused whole, exit 3: agent-payment-chain issue #1,
+comment of 2026-11-03 (the POPCORN witness service's 402 as received, with a member `payment_diagnostics`).
+
+From 0.21.5, one rule in the seven places (apc_verify.payment_required_obj):
+- a member of the PaymentRequired outside the members the specification defines for that version is not read and decides
+  no check; the report names it in `notes` ("payment_required: member(s) the x402 specification does not define, ignored
+  and not read (SPEC 32.14): [...]"), a name longer than 64 characters shown as its first 64 and `...`, at most 16
+  names and the count of the others;
+- every member the specification defines keeps its rules, and nothing inside them changes: ResourceInfo stays closed
+  (32.13), each `accepts` entry is read as in 0.21.4, `extensions` keeps its rules of sections 13 to 15;
+- the bounds of section 29 still apply to the whole document, the ignored members included;
+- every grammar of a bundle version that carries payment_required and is called closed (sections 1, 7, 12, 20, 21, 25,
+  26) reads, from 0.21.5, with this one exception: the top level of payment_required;
+- not changed, and open: a member of `payment_required.extensions` whose name is not one of the extensions of sections
+  13 to 15 (`offer-receipt`, `builder-code`, `payment-identifier`) is carried and not read, as before, and the report
+  does not name it (the 402 of issue #1 carries `bazaar` and `popcorn-witness`); under `--drafts` one draft profile of
+  section 23 (`x402-pr3741`, RM4) reads `extensions.bazaar.info.input.method`, and only when the resource carries the
+  draft member `method`: on the 402 of issue #1 nothing of `bazaar` is read. Naming the extensions not read is a later
+  amendment.
+
+Our reading, declared: the specification is silent and the reference implementation drops the member; a verifier that
+refused it could not read the 402 that servers send, and one that dropped it in silence would not say what it did not
+read. Reporting is the third way (the author's decision, 2026-11-03). Inside the PaymentRequired nothing changes:
+ResourceInfo stays closed, and K4 compares `accepted` with each `accepts` entry member by member, so a member that
+`accepted` does not carry makes the entry not match. An unknown member of an `accepts` entry is refused only where a
+reader reads the entry by its grammar: the `exact` entries on an EVM network (apc_verify, apc_permit2), on Solana
+(apc_svm) and on a v1 EVM network (apc_v1); apc_xlm, apc_xrp and apc_authcap, and every other entry, read it only through
+K4 (as in 0.21.4).
+
 ## 33. The real corpus as a LIST (2026-11-01, local; corpus/MANIFEST.json, format `apc-corpus-0.2`, `apc-corpus-0.3` by 33.10; tools/rebuild_corpus.py, tools/make_corpus_manifest.py) — what is distributed, what is rebuilt, what is accepted
 
 The public tree does not carry bundles/ (the fascicles of real payments) nor oracle/ (the raw RPC replies they were
@@ -3473,6 +3521,35 @@ recipe `evm_eip3009` with the `anchor` member of 33.10, level `bytes`. Nothing o
   first check: no test runs `entry_svm`).
 - Measured: tools/regress.py check 1123 bundles, no unjustified difference, then write; tests.test_corpus_manifest 103
   tests OK; `tools/rebuild_corpus.py --check-manifest`: apc-corpus-0.3, 21 sets, 1123 bundles.
+
+### 33.14 The counts of the differential against the AP2 SDK restated: compared, not agreed (2026-11-03, local)
+tools/diff_mandate_sdk.py sorts every generated pair into one of six classes — `agree`, `disagree`,
+`declared_divergence_preset_payee`, `declared_divergence_preset_pisp_risk_data` (the pairs both sides decided) and
+`apc_not_evaluated`, `sdk_error` (the pairs one side did not decide) — and until this commit printed no total of the
+first four. 31.8 wrote "0 disagreements on 13 712 pairs" and, with `presets`, "0 disagreements on 13 549 pairs": 13 712
+and 13 549 are the `agree` counts; the pairs compared were 13 736 and 14 256 (the agreements plus the declared
+divergences, with 0 disagreements), and "0 disagreements on 73 137" read the same way (73 249 compared). The same
+reading was in the author's comment of x402#2452 ("13 712 compared"), found by the independent review of 2026-11-02 that ran
+the tool as its docstring says on 314ac9a. Done: the tool prints `compared` = agree + disagree + the two declared
+classes, and its docstring says that the six classes sum to `n` and that `agree` alone is not the number compared;
+every count of the differential in 31.8 re-measured 2026-11-03 on this tree, `env -u PYTHONPATH`, Python 3.11.2 with
+the SDK at e1ea56d and the pack of v1.7.1 (seeds 20261031, 7, 99 × 5000, standard and `presets`; seed 31 × 10 000,
+both; seeds 1-4 × 20 000), each count equal to the saved output of 2026-10-31, each sentence rewritten with the classes
+apart. One count of 31.8 was wrong from the start: the boundary mutant `>=` for `>` on `not_after` gives 16
+disagreements on 3000 pairs, not 3 — measured 2026-11-03 on this tree, on 3095ea5 and on 3df1e7d (the commit that wrote
+"12, 3 and 3"), the mutation applied to the one line that compares `not_after`; the other two give 12 and 3, the
+unmutated copy 0. A review note of 2026-11-02 reported the three as re-measured and equal; that was not reproduced.
+The sentence now says 12, 3 and 16; tests/test_diff_mandate_sdk.py
+(2 tests, run here against a stand-in SDK the test writes, with the pack: every class non-zero, `compared` the sum of
+the four, the six summing to `n`; both fail with `compared` written as `agree`, and with the tool of 3095ea5 with a
+KeyError). The messages of earlier commits on the working branch that carry the old wording are history and stay; the
+published main up to c3fd67f carries no count of the differential in its commit messages, README.md none. Fixed on
+the way: tests/test_amend0212 (ToolsWithoutTheLibrary) failed when the caller's environment had `AP2_SDK_PATH` set
+(gen_mandate_fixtures then stopped at the next variable, `APC_AP2EV`, not at the one the test names), on this tree and on
+6192960 alike; its control run now drops `AP2_SDK_PATH`. Measured 2026-11-03: tools/regress.py check 1123 bundles, 0
+differences; tools/run_ordered.py, which stops at the first failure, ran 988 tests up to that one, which passes after
+the fix with and without the variable; on this commit with the fix, tools/run_ordered.py 1004 tests OK (skipped=27,
+`env -u PYTHONPATH -u AP2_SDK_PATH`); tests/test_diff_mandate_sdk.py OK.
 
 ## Open after 0.3
 - (33.10) bundles/real_v04_l1state (8 bundles, `canonical` with `l1_state` at L1 block 26259631, one header) has the

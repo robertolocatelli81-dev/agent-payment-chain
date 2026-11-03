@@ -653,11 +653,13 @@ def _settlement(doc, acc, payer, res):
 
 
 def _k4(doc, pp, res):
+    """K4; returns the notes of SPEC 32.14 (a member of payment_required the specification does not define)."""
     import apc_verify
     if "payment_required" not in doc:
         res["K4"] = "not_evaluated:absent:no_payment_required"
-        return
-    pr = _obj(doc["payment_required"], "payment_required", ("x402Version", "resource", "accepts"), ("error", "extensions"))
+        return []
+    pr, prn = apc_verify.payment_required_obj(doc["payment_required"], "payment_required", ("x402Version", "resource", "accepts"),
+                                              ("error", "extensions"))
     if _int_json(pr["x402Version"], "payment_required.x402Version") != 2:
         raise Unsupported("payment_required.x402Version %r (2 only)" % (pr["x402Version"],))
     if "error" in pr and not isinstance(pr["error"], str):
@@ -674,6 +676,7 @@ def _k4(doc, pp, res):
     res["K4"] = "verified" if any(_json_eq(pp["raw_accepted"], a) for a in pr["accepts"]) else "failed:accepted_not_offered"
     if pp["resource_url"] is not None and pp["resource_url"] != _str(pr["resource"]["url"], "payment_required.resource.url"):
         res["K4"] = "failed:resource_url_mismatch"
+    return prn
 
 
 def _k3(au, acc, sig):
@@ -748,7 +751,7 @@ def verify(doc, http_keys=None, l1_checkpoint=None, signer_trust=None):
         notes.append("erc7710: the permissionContext is opaque (x402 scheme_exact_evm.md: its structure is the "
                      "Delegation Manager's, verification is by simulation); nothing in the payload is a signature this "
                      "verifier can check offline, so the bundle is at best chain_incomplete")
-    _k4(doc, pp, res)
+    notes += _k4(doc, pp, res)   # SPEC 32.14
     tx_hash = _settlement(doc, acc, pp["payer"], res)
     settled_by = None
     if "chain_tx" in doc:

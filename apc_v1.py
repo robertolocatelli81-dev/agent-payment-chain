@@ -6,7 +6,7 @@ is a member of the requirement. The bundle is read as the apc-0.3 bundle these o
 replace the v2 ones where they differ. Standard library only."""
 import copy
 
-from apc_verify import Refusal, Unsupported, _int_json, _obj, _str
+from apc_verify import Refusal, Unsupported, _int_json, _obj, _str, payment_required_obj
 
 # x402 4241d56 typescript/packages/legacy/x402/src/types/shared/network.ts EvmNetworkToChainId (the v1 SDK's table)
 V1_EVM = {"abstract": 2741, "abstract-testnet": 11124, "base-sepolia": 84532, "base": 8453, "avalanche-fuji": 43113,
@@ -51,7 +51,7 @@ def to_v2(doc):
     if _str(pp["scheme"], "payment_payload.scheme") != "exact":
         raise Unsupported("payment_payload.scheme %r (exact only)" % pp["scheme"])
     net = _net(pp["network"], "payment_payload.network")
-    pr = _obj(doc["payment_required"], "payment_required", ("x402Version", "error", "accepts"))
+    pr, prn = payment_required_obj(doc["payment_required"], "payment_required", ("x402Version", "error", "accepts"))   # SPEC 32.14
     if _int_json(pr["x402Version"], "payment_required.x402Version") != 1:
         raise Unsupported("payment_required.x402Version %r (apc-0.13: 1)" % (pr["x402Version"],))
     if not isinstance(pr["error"], str):
@@ -59,7 +59,7 @@ def to_v2(doc):
     if not isinstance(pr["accepts"], list) or not pr["accepts"]:
         raise Refusal("payment_required.accepts: not a non-empty array")
     conv, chosen = [], []
-    for i, a in enumerate(pr["accepts"]):
+    for i, a in enumerate(pr["accepts"]):   # (prn joins the notes below)
         if not isinstance(a, dict):
             raise Refusal("payment_required.accepts[%d]: not an object" % i)
         if a.get("scheme") == "exact" and a.get("network") in V1_EVM:
@@ -67,7 +67,7 @@ def to_v2(doc):
             conv.append((v2, res))
             if a["network"] == pp["network"]:
                 chosen.append(len(conv) - 1)
-    notes = []
+    notes = list(prn)
     if not chosen:
         raise Refusal("payment_required.accepts: no exact requirement on the payload's network %r: the payment "
                       "answers no requirement the bundle carries" % pp["network"])

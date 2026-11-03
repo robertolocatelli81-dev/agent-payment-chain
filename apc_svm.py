@@ -6,7 +6,8 @@ import json
 import re
 
 import apc_solana as sol
-from apc_verify import Refusal, Unsupported, _int_json, _json_eq, _obj, _str, exchange_checks, provenance, resource_info
+from apc_verify import (Refusal, Unsupported, _int_json, _json_eq, _obj, _str, exchange_checks, payment_required_obj,
+                        provenance, resource_info)
 
 NETWORK = re.compile(r"solana:[1-9A-HJ-NP-Za-km-z]{32}\Z")
 UINT = re.compile(r"(0|[1-9][0-9]*)\Z")
@@ -302,8 +303,9 @@ def verify(doc, http_keys=None, signer_trust=None):
 
     # K4 payment_required
     if "payment_required" in doc:
-        pr = _obj(doc["payment_required"], "payment_required", ("x402Version", "resource", "accepts"),
-                  ("error", "extensions"))
+        pr, prn = payment_required_obj(doc["payment_required"], "payment_required", ("x402Version", "resource", "accepts"),
+                                       ("error", "extensions"))
+        notes += prn   # SPEC 32.14
         if _int_json(pr["x402Version"], "payment_required.x402Version") != 2:     # SPEC 0.5 grammar: 2
             raise Unsupported("payment_required.x402Version %r (2 only)" % (pr["x402Version"],))
         if "error" in pr and not isinstance(pr["error"], str):

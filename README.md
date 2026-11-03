@@ -5,10 +5,10 @@ produced the bundle nor any service. It checks the authorization (an AP2 mandate
 (x402 schemes: EIP-3009, Permit2, ERC-7710, auth-capture, Solana, XRPL, Stellar), the acceptance record, and the links
 between them (amount, asset, payee, time windows, hashes), against the chain data carried in the bundle (headers,
 transactions, receipts, inclusion proofs, state proofs). The specification is `SPEC.md` (0.21); the verifier is
-`apc_verify.py` (0.21.4) with its modules `apc_*.py`; the tools that built and measured it are in `tools/`; the tests in
+`apc_verify.py` (0.21.5) with its modules `apc_*.py`; the tools that built and measured it are in `tools/`; the tests in
 `tests/`. Code identifiers and docstrings are in English.
 
-This tree is built from commit 6192960 of the author's working tree by a publication tool; the earlier history is
+This tree is built from commit 27bf776 of the author's working tree by a publication tool; the earlier history is
 not carried over. `SPEC.md` is the author's working document: a measure stated "on this tree" means the author's
 working tree at the date given, with the real corpus, not this public tree; sections marked "local" were written before
 publication.

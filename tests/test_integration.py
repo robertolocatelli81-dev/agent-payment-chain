@@ -258,7 +258,14 @@ class EveryVersion(unittest.TestCase):
         self.assertEqual(run(d).get("verdict"), "chain_verified")
         for where in ("payment_payload", "payment_required", "settlement"):
             e = copy.deepcopy(d)
-            e[where]["extensions"] = {"payment-identifier": {"info": {"required": False}}}
+            e[where]["extensions"] = {"payment-identifier": {"info": {"required": True}}}
+            if where == "payment_required":
+                # SPEC 32.14 (0.21.5): v1 defines no `extensions` in the PaymentRequired: ignored, named, not read
+                r = run(e)
+                self.assertEqual(r.get("verdict"), "chain_verified", r)
+                self.assertTrue(any("(SPEC 32.14): ['extensions']" in n for n in r["notes"]))
+                self.assertEqual(r["checks"].get("PI1"), run(d)["checks"].get("PI1"))
+                continue
             self.assertIn("unknown member", run(e)["refused"], where)
 
     def test_generative_inside_each_extension(self):

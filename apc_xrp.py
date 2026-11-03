@@ -7,7 +7,7 @@ import re
 
 import apc_xrpl as xr
 from apc_verify import (Refusal, Unsupported, _int_json, _json_eq, _obj, _str, builder_code_checks, exchange_checks,
-                        offer_receipt_checks, provenance, resource_info)
+                        offer_receipt_checks, payment_required_obj, provenance, resource_info)
 
 NETWORK = re.compile(r"xrpl:(0|[1-9][0-9]{0,9})\Z")
 HEX64 = re.compile(r"[0-9A-Fa-f]{64}\Z")
@@ -173,7 +173,9 @@ def verify(doc, l1_checkpoint=None, http_keys=None, signer_trust=None):
     res, notes, payer, vals = rules(acc, blob)
     tid = xr.tx_id(blob)
     if "payment_required" in doc:
-        pr = _obj(doc["payment_required"], "payment_required", ("x402Version", "resource", "accepts"), ("error", "extensions"))
+        pr, prn = payment_required_obj(doc["payment_required"], "payment_required", ("x402Version", "resource", "accepts"),
+                                          ("error", "extensions"))
+        notes += prn   # SPEC 32.14
         if _int_json(pr["x402Version"], "payment_required.x402Version") != 2:
             raise Unsupported("payment_required.x402Version %r (2 only)" % (pr["x402Version"],))
         if not isinstance(pr["accepts"], list) or not pr["accepts"] or not all(isinstance(a, dict) for a in pr["accepts"]):

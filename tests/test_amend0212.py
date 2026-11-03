@@ -609,7 +609,10 @@ class ToolsWithoutTheLibrary(unittest.TestCase):
                     self.assertEqual(r.returncode, 1, err[-300:])
                     self.assertIn("apc_siglib.SiglibError: tools/%s: the signature library of x402-signature-vectors" % t, err)
                     self.assertIn("APC_SIGLIB", err)
-                    r = self.run_tool(t, env(), program=False)           # control: with the library the guard is silent
+                    ctl = env(); ctl.pop("AP2_SDK_PATH", None)          # 03/11: the expected IMPORT_NEEDS assume no SDK path; with
+                    r = self.run_tool(t, ctl, program=False)              # one in the caller's environment gen_mandate_fixtures went on to
+                    # the next variable (KeyError: 'APC_AP2EV') and the test failed by environment, not by code
+                    # control: with the library the guard is silent
                     err = r.stderr.decode("utf-8")
                     self.assertEqual(r.stdout, b"")
                     self.assertNotIn("signature library", err)
