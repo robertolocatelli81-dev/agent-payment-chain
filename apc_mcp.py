@@ -66,6 +66,43 @@ def call(name, args):
         return {"verifier": av.VERSION, "verdict": "refused", "reason": str(e)}, True
 
 
+class DuplicateMember(ValueError):
+    """A member name repeated in one object of a message: which value is meant is not decided (RFC 8259 4)."""
+
+
+def _not_json(name):
+    raise ValueError("%s is not JSON (RFC 8259 6)" % name)
+
+
+def parse_line(text):
+    """One message line -> the decoded value. NaN, Infinity and -Infinity, which Python's json module accepts, are not
+    JSON (RFC 8259 6): ValueError, so a parse error (-32700) as SPEC section 8 says for a line that is not JSON; until
+    2026-11-20 an id NaN was echoed and the reply was not JSON either. A member repeated in one object raises
+    DuplicateMember (invalid request, -32600), but only once the whole line has been read as JSON: a line that is not
+    JSON is a parse error wherever the repeated member stands. The repeats are found in one pass per object (time
+    linear in the line)."""
+    repeated = []
+
+    def members(pairs):
+        obj = {}
+        for k, v in pairs:
+            if k in obj:
+                repeated.append(k)
+            obj[k] = v
+        return obj
+    value = json.loads(text, parse_constant=_not_json, object_pairs_hook=members)
+    if repeated:
+        raise DuplicateMember("member repeated: %s" % min(repeated)[:80])
+    return value
+
+
+def valid_id(v):
+    """MCP (basic, revisions 2025-06-18 and later): "Requests MUST include a string or integer ID. Unlike base JSON-RPC,
+    the ID MUST NOT be null." The same rule SPEC section 16 applies to recorded MCP requests. A boolean is not an
+    integer."""
+    return isinstance(v, str) or (isinstance(v, int) and not isinstance(v, bool))
+
+
 def handle(msg):
     """One JSON-RPC message in, zero or one out (a notification gets no reply)."""
     if not isinstance(msg, dict) or msg.get("jsonrpc") != "2.0":
@@ -73,6 +110,9 @@ def handle(msg):
     method, id_ = msg.get("method"), msg.get("id")
     if "id" not in msg:                                  # notifications (notifications/initialized, ...)
         return None
+    if not valid_id(id_):                                # JSON-RPC 2.0 section 5: an id not detected is answered null
+        return {"jsonrpc": "2.0", "id": None,
+                "error": {"code": -32600, "message": "invalid request: the id is not a string or an integer (MCP)"}}
 
     def ok(r):
         return {"jsonrpc": "2.0", "id": id_, "result": r}
@@ -121,7 +161,9 @@ def main():
         if not raw.strip():
             continue
         try:
-            msg = json.loads(raw.decode("utf-8"))
+            msg = parse_line(raw.decode("utf-8"))
+        except DuplicateMember as e:
+            reply = {"jsonrpc": "2.0", "id": None, "error": {"code": -32600, "message": "invalid request: %s" % e}}
         except (ValueError, RecursionError):                 # UnicodeDecodeError is a ValueError
             reply = {"jsonrpc": "2.0", "id": None, "error": {"code": -32700, "message": "parse error"}}
         else:

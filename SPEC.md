@@ -566,7 +566,15 @@ These read apc_verify's report (or a bundle) and change no verdict.
   bundle_json}` the report with P1-P5. The bundle is JSON text read by the strict parser; arguments of the wrong shape
   are protocol errors (-32602), a refused bundle is a report with isError true, and an unexpected error is -32603 (the
 server keeps reading). Lines are read as bytes: a line that is not UTF-8 or not JSON is a parse error (-32700),
-whatever the locale.
+whatever the locale. NaN, Infinity and -Infinity are not JSON (RFC 8259 section 6): a parse error too (until
+2026-11-20 Python's json module read them, and an id NaN was echoed in a reply that was not JSON). A member name
+repeated in one object of a message, or an id that is not a string or an integer (MCP basic, revision 2025-06-18:
+"Requests MUST include a string or integer ID. Unlike base JSON-RPC, the ID MUST NOT be null"; a boolean is not an
+integer), is an invalid request (-32600) answered with id null (JSON-RPC 2.0 section 5); until 2026-11-20 such an id
+(true, an object, an array, null, 1.5) was echoed. A number written with a fraction or an exponent (1.0, 1e2) is not
+read as an integer. A line that is both not JSON and carries a repeated member is a parse error, wherever the repeated
+member stands; the repeats are found in time linear in the line. Tests: tests/test_fix_20261120.py (no real corpus
+needed).
 Tests: tests/test_report.py, tests/test_provenance.py, tests/test_mcp.py (the server on its real stdio transport),
 on the real bundles of bundles/real_v03, real_v04_l1state and the Solana payment of this work.
 
