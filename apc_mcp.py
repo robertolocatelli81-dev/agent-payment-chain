@@ -57,7 +57,8 @@ def _text(args, k):
 
 def call(name, args):
     """-> (result object, is_error)"""
-    # the arguments' shape is a protocol matter (error -32602); what the texts say is the verifier's (a report)
+    # the arguments' shape raises Refusal: -32602 at MCP 2025-06-18 and earlier, a tool execution error (isError)
+    # at 2025-11-25 and 2026-07-28 (SPEC 8, _tools_call); what the texts say is the verifier's (a report)
     if not isinstance(args, dict) or set(args) - set(TOOLS[name]["inputSchema"]["properties"]):
         raise av.Refusal("arguments: unknown member(s)")
     texts = {k: _text(args, k) for k in TOOLS[name]["inputSchema"]["required"]}

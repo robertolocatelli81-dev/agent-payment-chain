@@ -2028,9 +2028,9 @@ def require_http_signature(rep):
     rep["http_signature_required"] = {"profile": HTTP_COVERAGE, "met": met, "X7": x7, "missing": missing}
     if rep["verdict"] == "chain_verified" and not met:
         rep["verdict"] = "chain_incomplete"
-        rep["notes"] = rep["notes"] + ["X7 is %s and %d label(s) short of %s; a verified HTTP signature with that "
-                                       "coverage is required (--require-http-signature, SPEC 10.1 d): verdict "
-                                       "chain_incomplete" % (x7, len(missing), HTTP_COVERAGE)]
+        rep["notes"] = rep["notes"] + ["X7 is %s and `missing` has %d entry(ies) under %s; a verified HTTP signature "
+                                       "with that coverage is required (--require-http-signature, SPEC 10.1 d): "
+                                       "verdict chain_incomplete" % (x7, len(missing), HTTP_COVERAGE)]
     return rep
 
 

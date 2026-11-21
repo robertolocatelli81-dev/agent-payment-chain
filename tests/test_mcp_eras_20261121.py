@@ -89,9 +89,12 @@ class ModernClient(unittest.TestCase):
     def test_no_initialize_needed_and_removed_methods(self):
         out = session([modern(1, "tools/list"), modern(2, "initialize", {"protocolVersion": MODERN}),
                        modern(3, "ping"), modern(4, "logging/setLevel", {"level": "info"}),
-                       modern(5, "resources/list")])
+                       modern(5, "resources/list"), legacy(6, "tools/list")])
         self.assertEqual(out[0]["result"]["resultType"], "complete")
-        self.assertEqual([m["error"]["code"] for m in out[1:]], [-32601] * 4)
+        self.assertEqual([m["error"]["code"] for m in out[1:5]], [-32601] * 4)
+        # a modern request opens no legacy session (2026-07-28 basic/index, Statelessness; review of 2026-11-21,
+        # second round: a mutant in which it did was alive): the legacy request after it is still before initialize
+        self.assertEqual(out[5]["error"]["code"], -32600)
 
     def test_version_and_meta_errors(self):
         out = session([modern(1, "tools/list", version="2099-01-01"), modern(2, "tools/list", version="2025-11-25"),
@@ -120,7 +123,14 @@ class LegacyClients(unittest.TestCase):
         good = {"name": "verify_bundle", "arguments": {"bundle_json": md_bundle_text()}}
         out = session([init(1, "2025-11-25"), legacy(2, "tools/call", bad), legacy(3, "tools/call", good)])
         self.assertEqual(out[0]["result"]["protocolVersion"], "2025-11-25")
-        self.assertEqual(out[1]["result"], {"content": [{"type": "text", "text": "invalid arguments: arguments: "
+        # 2025-11-25 basic/lifecycle: the server "MUST respond with its own capabilities and information" (review of
+        # 2026-11-21, second round: a mutant that left serverInfo out of the initialize result was alive)
+        self.assertEqual(sorted(out[0]["result"]), ["capabilities", "protocolVersion", "serverInfo"])
+        self.assertEqual(out[0]["result"]["capabilities"], {"tools": {}})
+        info = out[0]["result"]["serverInfo"]
+        self.assertEqual((sorted(info), info["name"], isinstance(info["version"], str)),
+                         (["name", "version"], "agent-payment-chain", True))
+        self.assertEqual(out[1]["result"],{"content": [{"type": "text", "text": "invalid arguments: arguments: "
                                                          "unknown member(s)"}], "isError": True})
         self.assertEqual((out[2]["result"]["isError"], "resultType" in out[2]["result"]), (False, False))
 

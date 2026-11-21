@@ -561,10 +561,13 @@ These read apc_verify's report (or a bundle) and change no verdict.
   1..256 characters, "fetched": "YYYY-MM-DDTHH:MM:SSZ"}}`, closed, naming only members the bundle carries: who supplied
   the chain data and the settlement reply, and when. DECLARED: echoed in the report member `provenance` with a note,
   no check reads it, no verdict changes.
-- MCP (apc_mcp.py): a local tool server, JSON-RPC 2.0 over stdio (MCP revisions 2025-06-18, 2025-03-26, 2024-11-05),
+- MCP (apc_mcp.py): a local tool server, JSON-RPC 2.0 over stdio (until Amendment 0.21.6 the MCP revisions
+  2025-06-18, 2025-03-26, 2024-11-05; from it the five revisions of the paragraph "Revisions of MCP" below),
   read-only: `verify_bundle {bundle_json, l1_checkpoint?}` returns apc_verify's report, `apply_policy {policy_json,
   bundle_json}` the report with P1-P5. The bundle is JSON text read by the strict parser; arguments of the wrong shape
-  are protocol errors (-32602), a refused bundle is a report with isError true, and an unexpected error is -32603 (the
+  are protocol errors (-32602) at 2025-06-18 and earlier (from Amendment 0.21.6, at 2025-11-25 and 2026-07-28 they
+  are a tool execution error, `isError` true: "Revisions of MCP" below), a refused bundle is a report with isError
+  true, and an unexpected error is -32603 (the
 server keeps reading). Lines are read as bytes: a line that is not UTF-8 or not JSON is a parse error (-32700),
 whatever the locale. NaN, Infinity and -Infinity are not JSON (RFC 8259 section 6): a parse error too (until
 2026-11-20 Python's json module read them, and an id NaN was echoed in a reply that was not JSON). A member name
@@ -577,7 +580,8 @@ member stands; the repeats are found in time linear in the line. Tests: tests/te
 needed).
 Revisions of MCP (Amendment 0.21.6, section 32.15, Unreleased; read 2026-11-21 at modelcontextprotocol.io and in the
 specification repository modelcontextprotocol/modelcontextprotocol, main at 2f3a950, docs/specification and
-schema/<revision>/schema.ts; licence Apache-2.0 for the specification, MIT for earlier contributions). The current
+schema/<revision>/schema.ts; its LICENSE: new specification contributions under Apache-2.0, earlier
+contributions not yet relicensed under MIT, documentation that is not specification under CC-BY-4.0). The current
 revision is 2026-07-28 ("The current protocol version is 2026-07-28", /specification/versioning); it is "modern" (no
 handshake: every request carries its version and the client's capabilities in `_meta`), 2025-11-25 and earlier are
 "legacy" (an `initialize` handshake first). apc_mcp.py is a dual-era server (2026-07-28 basic/versioning: "A server
@@ -604,6 +608,9 @@ process:
   true; 2025-11-25 server/tools: "Input validation errors" are Tool Execution Errors); at 2025-06-18 and earlier
   they stay -32602 as before. Results have no `resultType` (2026-07-28 basic/index: clients "MUST treat an absent
   resultType as complete").
+  Not served, at any legacy revision: a line that is a JSON array (a JSON-RPC batch) is -32600, although 2025-03-26
+  basic says implementations "MUST support receiving JSON-RPC batches" (the later revisions have no batches); so it
+  was before this amendment too.
 A dual-era client probes with `server/discover` and `_meta` and is served modern; a legacy client sends `initialize`
 and is served the revision it negotiated. Notifications get no reply in either era. PROTOCOLS lists the five revisions,
 the newest first. Tests: tests/test_mcp_eras_20261121.py (no real corpus needed), and, outside the suite, the
@@ -753,8 +760,9 @@ MP6 and the offer and receipt checks of section 13 already read). For each label
   the block, at a time the bundle does not prove, and only the server's clock knew whether it had expired then
   (created T-70, expires T-10 on a real apc-0.3 bundle: `verified`); (a) still applies;
 - a response label: `created` less than T − N is `not_evaluated:created_before_block_time` (signed before the payment
-  it confirms was in a block); otherwise `created` less than the largest `created` of the request labels that
-  verified, minus N, is `not_evaluated:created_before_request` (signed before the request it answers). Its `expires`
+  it confirms was in a block); otherwise `created` less than the largest `created` of the request labels whose
+  result is `verified` (a request label that is `not_evaluated:created_after_block_time` is not one of them), minus
+  N, is `not_evaluated:created_before_request` (signed before the request it answers). Its `expires`
   is not compared (with `created` at or after T − N, (a) leaves `expires` at or after it).
 The comparison with the request needs no T and is made with or without one. A parameter that is absent is not
 compared.
@@ -800,9 +808,10 @@ identifiers (Section 2) and signature parameters (Section 2.3) that are expected
 covered components list"; 7.2.1: "The verifier should only trust message components that have been signed." Without
 this option section 10 requires no coverage, and that stays. Profile `apc-http-coverage/1` (2026-11-21):
 - every request label (a request carries the payment): covers `"@authority"` or `"@target-uri"`, carries `created`
-  and `expires`: the minimum of draft-meunier-webbotauth-httpsig-protocol-02 section 5.2 ("Agents MUST include at
-  least one of the following components: @authority ... @target-uri"; `created`, `expires`; datatracker, revision 02
-  of 2026-08-19, sha256 e85e295f0b2bba21...), the profile x402's `http-message-signatures` extension points requests
+  and `expires`: from the minimum of draft-meunier-webbotauth-httpsig-protocol-02 section 5.2 ("Agents MUST include
+  at least one of the following components: @authority ... @target-uri"; `created`, `expires`; its `keyid` as a JWK
+  thumbprint and its `tag` are not required here; datatracker, revision 02 of 2026-08-18, sha256
+  e85e295f0b2bba21...), the profile x402's `http-message-signatures` extension points requests
   to (x402-foundation/x402 main e35bf88, `specs/extensions/http-message-signatures.md`, sha256 bfafa606fa955549...;
   Apache-2.0); and covers `"payment-signature"`;
 - every response label: covers `"@status"` and `"payment-response"`, the components that extension says servers

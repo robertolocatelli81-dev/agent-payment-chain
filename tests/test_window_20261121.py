@@ -146,6 +146,13 @@ class WindowRule(unittest.TestCase):
                          ["X7: request label sig1 carries created, not compared with a block time: the bundle proves "
                           "none (SPEC 10.1 b)"])
         self.assertEqual([n for n in self.one("request", None, None, None)[2] if "not compared" in n], [])
+        # a response label has its note too (review of 2026-11-21, second round: a mutant that named only the
+        # request labels was alive)
+        x7, r, notes = self.one("response", T0 + 10, None, None)
+        self.assertEqual((x7, r), ("verified", "verified"))
+        self.assertEqual([n for n in notes if "not compared" in n],
+                         ["X7: response label sig1 carries created, not compared with a block time: the bundle proves "
+                          "none (SPEC 10.1 b)"])
 
     def test_without_keys_nothing_is_judged(self):
         self.assertEqual(self.one("request", T0, T0 - 1, T0, keys=None)[1], "not_evaluated:absent:no_http_keys")
@@ -357,6 +364,39 @@ class Coverage(unittest.TestCase):
             self.assertEqual(r["http_signature_required"]["missing"],
                              [{"where": "request", "label": None, "missing": ["signature"]}])
 
+    def test_the_note_counts_the_entries_of_missing(self):
+        # review of 2026-11-21 (second round): the note said "1 label(s) short" of a report with no label at all
+        full_q = {"where": "request", "label": "q", "covered": ['"@authority"', '"payment-signature"'], "created": 5,
+                  "expires": 9, "result": "verified"}
+        full_r = {"where": "response", "label": "r", "covered": ['"@status"', '"payment-response"'], "created": None,
+                  "expires": None, "result": "verified"}
+        bare_q = dict(full_q, label="q2", covered=[])
+        bare_r = dict(full_r, label="r2", covered=['"@status"'])
+        for sigs, x7, n in (([], "not_evaluated:absent:no_signature", 1), ([full_r], "verified", 1),
+                            ([bare_r], "verified", 2), ([full_q, bare_q, bare_r], "verified", 2),
+                            ([full_q, full_r], "not_evaluated:created_after_block_time", 0)):
+            r = av.require_http_signature({"verdict": "chain_verified", "checks": {"X7": x7}, "notes": ["n"],
+                                           "exchange": {"signatures": sigs}})
+            self.assertEqual(len(r["http_signature_required"]["missing"]), n, sigs)
+            note = ("X7 is %s and `missing` has %d entry(ies) under apc-http-coverage/1; a verified HTTP signature "
+                    "with that coverage is required (--require-http-signature, SPEC 10.1 d): verdict chain_incomplete")
+            self.assertEqual(r["notes"], ["n", note % (x7, n)])
+        r = av.require_http_signature({"verdict": "chain_verified", "checks": {"X7": "verified"}, "notes": ["n"],
+                                       "exchange": {"signatures": [full_q, full_r]}})
+        self.assertEqual((r["verdict"], r["notes"]), ("chain_verified", ["n"]))
+
+    def test_a_malformed_field_is_an_entry_of_missing_without_a_label(self):
+        # review of 2026-11-21 (second round): a mutant that skipped the entries without a label was alive
+        ex = {"request": request(T0, T0 + 1)}
+        ex["request"]["fields"][2][1] += ", sig1=()"             # the label repeated: the whole field is malformed
+        res, _, m = h.check({"payment_payload": {}, "exchange": ex}, h.parse_keys(KEYS), T0)
+        r = av.require_http_signature({"verdict": "chain_verified", "checks": res, "notes": [], "exchange": m})
+        self.assertEqual(r["http_signature_required"],
+                         {"profile": "apc-http-coverage/1", "met": False, "X7": "failed:signature_input_malformed",
+                          "missing": [{"where": "request", "label": None,
+                                       "missing": ["@authority|@target-uri", "payment-signature", "created",
+                                                   "expires"]}]})
+
     def signed_md(self, c=None, x=None, resp=None):
         d = md_bundle()
         pp = base64.b64encode(json.dumps(d["payment_payload"]).encode()).decode()
@@ -428,6 +468,21 @@ class ClockSkew(unittest.TestCase):
         self.assertEqual((m["signatures"][0]["result"], m["signatures"][0]["block_time_minus_created"],
                           m["signatures"][0]["expires_minus_block_time"]), ("not_evaluated:absent:no_http_keys", 4, 7))
 
+    def test_deltas_whatever_the_result_of_the_label(self):
+        # SPEC 10.1 (b): the deltas are integers "whatever the label's result" (review of 2026-11-21, second round:
+        # a mutant that gave null to the labels that failed was alive)
+        ex = {"request": request(T0 - 4, T0 + 7)}
+        ex["request"]["fields"][3][1] = "sig1=:%s:" % base64.b64encode(bytes(64)).decode()
+        other = {"apc_http_keys": 1, "keys": {"zz": KEYS["keys"]["k"]}}
+        for keys, want in ((KEYS, "failed:signature_invalid"), (other, "failed:unknown_keyid")):
+            _, _, m = h.check({"payment_payload": {}, "exchange": ex}, h.parse_keys(keys), T0)
+            sg = m["signatures"][0]
+            self.assertEqual((sg["result"], sg["block_time_minus_created"], sg["expires_minus_block_time"]),
+                             (want, 4, 7))
+        sg = self.one("request", T0 + 9, T0 + 2, T0, 0)["signatures"][0]
+        self.assertEqual((sg["result"], sg["block_time_minus_created"], sg["expires_minus_block_time"]),
+                         ("failed:expires_before_created", -9, 2))
+
     def test_deltas_only_from_integer_parameters(self):
         # created as a String, a Boolean or a Decimal is outside RFC 9421 2.3 (Integer): the label fails, no delta
         for bad in ('created="5"', "created=?1", "created=5.5", "expires=?0", 'expires="9"'):
@@ -465,6 +520,7 @@ class ClockSkew(unittest.TestCase):
             self.assertEqual(self.cli("@B", "--http-keys", "@K", "--http-clock-skew", v)[0], 64, repr(v))
         self.assertEqual(self.cli("@B", "--http-keys", "@K", "--http-clock-skew")[0], 64)
         self.assertEqual(self.cli("@B", "--http-clock-skew", "5")[0], 64)                  # without --http-keys
+        self.assertEqual(self.cli("@B", "--http-clock-skew", "0")[0], 64)                  # (the default too)
         self.assertEqual(self.cli("@B", "--http-keys", "@K", "--http-clock-skew", "5", "--http-clock-skew", "5")[0], 64)
 
 
@@ -665,7 +721,7 @@ class RequiredAtTheCli(unittest.TestCase):
         rc, r = self.run_main(md_bundle(), "--http-keys", "@K", "--require-http-signature")
         self.assertTrue(r0["notes"])                             # (the report has notes of its own: 10.1 c)
         self.assertEqual(r["notes"][:-1], r0["notes"])
-        self.assertEqual(r["notes"][-1], "X7 is not_evaluated:absent:no_exchange and 1 label(s) short of "
+        self.assertEqual(r["notes"][-1], "X7 is not_evaluated:absent:no_exchange and `missing` has 1 entry(ies) under "
                          "apc-http-coverage/1; a verified HTTP signature with that coverage is required "
                          "(--require-http-signature, SPEC 10.1 d): verdict chain_incomplete")
 
