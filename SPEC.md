@@ -719,21 +719,25 @@ Ed25519 key is 32 bytes, a P-256 key 65 bytes (0x04 || x || y) on the curve.
 Report member `exchange` of an apc-0.3 or apc-0.5 bundle: null without one (as `provenance`), else {status,
 request_body_sha256, response_body_sha256, signatures} (and, from Amendment 0.21.6, block_time and clock_skew, section
 10.1 (b)). X1-X7 enter `failed` / `not_evaluated` like every check; an
-absent exchange adds none of them (the null member says it is absent).
+absent exchange adds none of them (the null member says it is absent), except X7 when the reader gives http_keys
+(section 10.1 (c)).
 
 ### 10.1 Amendment 0.21.6 (section 32.15; Unreleased, 2026-11-21) — the window of an X7 signature, the keys given, and the reader who requires a signature
 Read 2026-11-21 at rfc-editor.org: RFC 9421 is a Proposed Standard of February 2024, obsoleted by none and updated by
 none (sha256 of rfc9421.txt 612655786bf4293bfc486e4177571467fbb3de6e6f0eea90cb74c346a34fdf3c, the copy of
 sources/http_20261025). Section 2.3: `created` and `expires` are UNIX timestamps of type Integer. Section 3.2.1:
-"Rejecting signatures past the expiration time in the expires timestamp" is one of the requirements an application
-"MAY impose", and "a verifier can always reject a signature ahead of its expiration time"; section 3.2 step 4 examines
+"Rejecting signatures past the expiration time in the expires timestamp" is one of its non-normative examples of the
+requirements an application "MAY impose"; the expiration time "is a hint from the signer" and "a verifier can always
+reject a signature ahead of its expiration time"; section 3.2 step 4 examines
 the parameters against such requirements, and "If any of the above steps fail or produce an error, the signature
 validation fails". This verifier reads no clock: the only instant it compares a window with is the one the bundle
 proves.
 
 (a) An empty window. With http_keys, a label whose `created` and `expires` are both present and whose `expires` is
-less than its `created` is `failed:expires_before_created`, whatever the signature: the signer's own parameters
-contradict each other. Until this revision such a label was `verified` (measured 2026-11-20 and 2026-11-21 on 0.21.5:
+less than its `created` is `failed:expires_before_created`, whether its signature verifies or the label is not judged
+(a component that is not supported): the signer's own parameters contradict each other. A label that already failed
+keeps its own reason (`failed:signature_invalid`, `failed:unknown_keyid` and the others of section 10). Until this
+revision such a label was `verified` (measured 2026-11-20 and 2026-11-21 on 0.21.5:
 created=1618884473, expires=1, an Ed25519 signature of the RFC 9421 B.1.4 key). Equal values are a window of one
 second and are compared as (b) says.
 
@@ -750,18 +754,27 @@ A parameter that is absent is not compared. The margin is the reader's: `--http-
 `--http-keys`; `verify_bundle(..., http_clock_skew=N)`), N an integer from 0 to 300 written in decimal without a sign
 or leading zeros; anything else, or the option given twice, is usage (exit 64; `verify_bundle` refuses it). A request
 label is then compared as `created` > T + N and `expires` < T − N, a response label as `expires` < T − N. The default is
-0 seconds, the closest reading: the window is the signer's declaration, RFC 9421 3.2.1 lets a verifier reject before
-`expires`, never after it, and no number is set by RFC 9421 or by draft-meunier-webbotauth-httpsig-protocol-02.
+0 seconds, the closest reading: the window is the signer's declaration, RFC 9421 3.2.1 says a verifier can always
+reject ahead of `expires` and does not speak of accepting after it, and no number is set by RFC 9421 or by
+draft-meunier-webbotauth-httpsig-protocol-02.
 Implementations read 2026-11-21 (`SCELTE_FUTURO_20261121.md` of the author's notes, section 3a): Cloudflare
 web-bot-auth `ce5e54f` defaults to 0 (`policy.clockSkew ?? 0`), pyauth http-message-signatures 3.0.0 to 5 s,
 remitly-oss httpsig-go 1.2.2 to 60 s, the AP2 `verify_chain` (JWT) to 300 s, the largest default seen and the bound
-of N. No signed HTTP exchange of a real payment is in the corpus to measure a clock offset on (0 of the 1132 bundles
-of the author's corpus carry `exchange`, 2026-11-21). Measured numbers for the reader's own policy: every label of the
-report carries `block_time_minus_created` (T − `created`) and `expires_minus_block_time` (`expires` − T), integers
-when T is proven and the parameter is an integer, null otherwise, whatever the label's result; the report member
+of N. No signed HTTP exchange of a real payment is in the corpus to measure a clock offset on (none of the 1123
+bundles of the author's corpus carries `exchange`, 2026-11-21). Measured numbers for the reader's own policy: every
+label of the report carries `block_time_minus_created` (T − `created`) and `expires_minus_block_time`
+(`expires` − T), integers when T is proven and the parameter is an integer, null otherwise, whatever the label's
+result; the report member
 `exchange` carries `block_time` (T or null) and `clock_skew` (N). A label outside the window is not shown valid at
 the instant the bundle proves; its signature is not shown wrong either: it is `not_evaluated`, X7 takes it as any
-`not_evaluated` label (section 10) and the verdict is `chain_incomplete`, not `chain_failed`.
+`not_evaluated` label (section 10) and a verdict that would be `chain_verified` is `chain_incomplete`; the label
+alone never makes it `chain_failed`.
+
+What the comparison does not show (measured 2026-11-21, margin 0). A request whose `expires` is less than T may have
+reached the server, and been verified there, before it expired: the block follows the request, and the bundle does
+not prove when the request arrived; such a label is `not_evaluated:expired_before_block_time` all the same (created
+T-70, expires T-10 on a real apc-0.3 bundle: `chain_incomplete`). The `created` of a response is compared with
+nothing: a response signed before T, or before the `created` of the request it answers, stays `verified`.
 
 Without a proven block time (B1 not `verified`; apc-0.5, whose `chain_tx.blockTime` is declared; apc-0.12 and
 apc-0.15, which carry no block header; apc-0.16, whose ledger header holds a `close_time` rounded to its
@@ -773,7 +786,8 @@ this revision only by the readers of the versions that can carry `exchange`: bes
 bundle (apc_v1.verify takes no keys) a keys document outside the grammar was not refused; measured 2026-11-21 on
 0f19843 with apc_http_keys 2 and an apc-0.2 bundle), and a bundle without `exchange`, or of a version that cannot
 carry one, reports X7 `not_evaluated:absent:no_exchange`, listed under `absent` (section 5: it does not block). A
-reader who gave keys therefore always finds X7 in the report. Until this revision such a report had no X7 at all.
+reader who gave keys therefore finds X7 in every report that carries checks (a report that is `refused`,
+`unsupported` or `error` carries none). Until this revision such a report had no X7 at all.
 
 (d) `--require-http-signature` (apc_verify; only with `--http-keys`, otherwise usage, exit 64): the reader requires a
 verified HTTP signature that covers, at least, what profile `apc-http-coverage/1` names. The report gains

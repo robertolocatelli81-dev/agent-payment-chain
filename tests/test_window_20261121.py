@@ -485,6 +485,24 @@ class RealBlockTime(unittest.TestCase):
             self.assertEqual(r["checks"]["X7"], "verified", doc["bundle_version"])
             self.assertTrue(any("proves no block time" in n for n in r["notes"]), doc["bundle_version"])
 
+    def test_the_block_time_still_reaches_offers_and_receipts(self):
+        # review of 2026-11-21, mutant p03: apc_permit2 computes the block time before X7 now; the offer and receipt
+        # checks of section 13 (apc_offer, OR 4.6 and the receipt's issuedAt) must still receive it
+        import apc_permit2
+        import apc_verify
+        from unittest import mock
+        for doc, mod in zip(self.docs, (apc_verify, apc_permit2)):
+            t = int(doc["inclusion"]["block_header"]["timestamp"], 16)
+            seen = []
+            real = mod.offer_receipt_checks
+
+            def spy(d, ctx, trust, real=real):
+                seen.append(ctx["block_time"])
+                return real(d, ctx, trust)
+            with mock.patch.object(mod, "offer_receipt_checks", spy):
+                av.verify_bundle(self.with_exchange(t - 5, t + 60, doc), None, KEYS)
+            self.assertEqual(seen, [t], doc["bundle_version"])
+
     def test_margin_on_the_real_bundles(self):
         for doc in self.docs:
             t = int(doc["inclusion"]["block_header"]["timestamp"], 16)
@@ -503,6 +521,152 @@ class RealBlockTime(unittest.TestCase):
         self.assertEqual((r["verdict"], r["http_signature_required"]["met"]), ("chain_incomplete", False))
         r = av.require_http_signature(av.verify_bundle(self.with_exchange(self.t - 5, self.t + 60), None, KEYS))
         self.assertEqual((r["verdict"], r["http_signature_required"]["met"]), ("chain_verified", True))
+
+
+class TextOf101(unittest.TestCase):
+    """the branches SPEC 10.1 names in words: each sentence has its case (review of 2026-11-21)"""
+
+    def one(self, ex, t):
+        res, notes, m = h.check({"payment_payload": {}, "exchange": ex}, h.parse_keys(KEYS), t)
+        return res["X7"], [s["result"] for s in m["signatures"]], notes
+
+    def test_a_label_not_judged_with_an_empty_window_fails(self):
+        # (a): "whether its signature verifies or the label is not judged (a component that is not supported)"
+        p = '("@query-param";name="a");created=%d;expires=%d;keyid="k"' % (T0 + 5, T0 + 4)
+        ex = {"request": request(sign=False)}
+        ex["request"]["fields"] += [["Signature-Input", "sig1=" + p], ["Signature", "sig1=:AAAA:"]]
+        for t in (None, T0):
+            self.assertEqual(self.one(ex, t)[:2], ("failed:expires_before_created", ["failed:expires_before_created"]))
+
+    def test_a_label_that_already_failed_keeps_its_reason_with_an_empty_window(self):
+        # (a): "A label that already failed keeps its own reason"
+        ex = {"request": request(T0 + 5, T0 + 4)}
+        ex["request"]["fields"][1][1] = base64.b64encode(b'{"x402Version":1}').decode()     # covered field changed
+        self.assertEqual(self.one(ex, T0)[1], ["failed:signature_invalid"])
+        ex = {"request": request(T0 + 5, T0 + 4)}
+        ex["request"]["fields"][2][1] = ex["request"]["fields"][2][1].replace('keyid="k"', 'keyid="zz"')
+        self.assertEqual(self.one(ex, T0)[1], ["failed:unknown_keyid"])
+
+    def test_what_the_comparison_does_not_show(self):
+        # a request that expired before the block (it may have been verified in time): not_evaluated all the same
+        self.assertEqual(self.one({"request": request(T0 - 70, T0 - 10)}, T0)[1],
+                         ["not_evaluated:expired_before_block_time"])
+        # the created of a response is compared with nothing: before T, and before the created of the request
+        ex = {"request": request(T0 - 5, T0 + 60), "response": response(T0 - 10 ** 6, T0 + 60)}
+        self.assertEqual(self.one(ex, T0)[:2], ("verified", ["verified", "verified"]))
+        ex = {"request": request(T0 - 5, None), "response": response(0, None)}
+        self.assertEqual(self.one(ex, T0)[:2], ("verified", ["verified", "verified"]))
+
+    def test_x7_is_the_first_failed_then_the_first_not_evaluated_of_several_labels(self):
+        a, b, c = request(T0 - 5, T0 + 60), request(T0 + 1, None), request(T0, T0 - 1)
+
+        def merged(*rs):
+            f = [x for x in rs[0]["fields"] if x[0] not in ("Signature-Input", "Signature")]
+            for name in ("Signature-Input", "Signature"):
+                f.append([name, ", ".join(x[1].replace("sig1=", "s%d=" % i, 1) for i, r in enumerate(rs)
+                                          for x in r["fields"] if x[0] == name)])
+            return {"request": dict(rs[0], fields=f)}
+        self.assertEqual(self.one(merged(a, b), T0)[:2],
+                         ("not_evaluated:created_after_block_time",
+                          ["verified", "not_evaluated:created_after_block_time"]))
+        self.assertEqual(self.one(merged(b, a), T0)[0], "not_evaluated:created_after_block_time")
+        self.assertEqual(self.one(merged(b, c), T0)[:2],
+                         ("failed:expires_before_created",
+                          ["not_evaluated:created_after_block_time", "failed:expires_before_created"]))
+
+    def test_integers_at_the_edge_of_the_grammar(self):
+        # RFC 9651 3.3.1: an Integer has at most 15 digits; a negative one is an Integer
+        self.assertEqual(self.one({"request": request(999999999999999, None)}, T0)[1],
+                         ["not_evaluated:created_after_block_time"])
+        self.assertEqual(self.one({"request": request(-5, -1)}, T0)[1], ["not_evaluated:expired_before_block_time"])
+        self.assertEqual(self.one({"request": request(-999999999999999, 999999999999999)}, T0)[1], ["verified"])
+        for bad in ("created=1000000000000000", "created=%d.0" % T0, 'created="%d"' % T0, "created"):
+            ex = {"request": request(T0, None)}
+            si = ex["request"]["fields"][2]
+            si[1] = si[1].replace("created=%d" % T0, bad)
+            self.assertEqual(self.one(ex, T0)[0], "failed:signature_input_malformed", bad)
+
+
+class RequiredAtTheCli(unittest.TestCase):
+    """--require-http-signature and --require-level together, twice in one process, and on a report without checks"""
+
+    def run_main(self, doc, *opts):
+        import contextlib
+        import io
+        with tempfile.TemporaryDirectory() as tmp:
+            b, k = os.path.join(tmp, "b.json"), os.path.join(tmp, "k.json")
+            with open(b, "w") as fh:
+                json.dump(doc, fh)
+            with open(k, "w") as fh:
+                json.dump(KEYS, fh)
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                rc = av.main(["apc_verify.py", b] + [o.replace("@K", k) for o in opts])
+        return rc, (json.loads(buf.getvalue()) if buf.getvalue().startswith("{") else None)
+
+    def test_after_require_level_and_each_says_its_own_met(self):
+        rc, r = self.run_main(md_bundle(), "--http-keys", "@K", "--require-http-signature", "--require-level",
+                              "finality_proven")
+        self.assertEqual((rc, r["verdict"]), (2, "chain_incomplete"))
+        self.assertEqual(r["evidence_required"]["met"], False)
+        self.assertEqual(r["http_signature_required"]["met"], False)
+        # the level is applied first: its note is there, and the signature requirement, finding the verdict already
+        # chain_incomplete, adds none
+        self.assertEqual(len([n for n in r["notes"] if "--require-level" in n]), 1)
+        self.assertEqual(len([n for n in r["notes"] if "--require-http-signature" in n]), 0)
+
+    def test_the_note_is_added_to_the_notes_the_report_already_has(self):
+        rc0, r0 = self.run_main(md_bundle(), "--http-keys", "@K")
+        rc, r = self.run_main(md_bundle(), "--http-keys", "@K", "--require-http-signature")
+        self.assertTrue(r0["notes"])                             # (the report has notes of its own: 10.1 c)
+        self.assertEqual(r["notes"][:-1], r0["notes"])
+        self.assertEqual(r["notes"][-1], "X7 is not_evaluated:absent:no_exchange and 1 label(s) short of "
+                         "apc-http-coverage/1; a verified HTTP signature with that coverage is required "
+                         "(--require-http-signature, SPEC 10.1 d): verdict chain_incomplete")
+
+    def test_the_option_does_not_stay_for_the_next_call(self):
+        self.assertEqual(self.run_main(md_bundle(), "--http-keys", "@K", "--require-http-signature")[0], 2)
+        rc, r = self.run_main(md_bundle(), "--http-keys", "@K")
+        self.assertEqual((rc, r["verdict"]), (0, "chain_verified"))
+        self.assertNotIn("http_signature_required", r)
+
+    def test_a_report_without_checks_carries_no_member(self):
+        for doc in (dict(md_bundle(), zzz=1), dict(md_bundle(), bundle_version="apc-9.9")):
+            rc, r = self.run_main(doc, "--http-keys", "@K", "--require-http-signature")
+            self.assertEqual((rc, r["verdict"]), (3, "refused"))
+            self.assertNotIn("http_signature_required", r)
+            self.assertNotIn("checks", r)
+
+    def test_usage(self):
+        for opts in (["--http-keys", "@K", "--require-http-signature=1"],
+                     ["--http-keys", "@K", "--require-http-signatur"], ["--http-keys", "", "--require-http-signature"]):
+            self.assertEqual(self.run_main(md_bundle(), *opts), (64, None), opts)
+        rc, r = self.run_main(md_bundle(), "--http-keys", "@K", "--require-http-signature", "--require-http-signature")
+        self.assertEqual((rc, r["http_signature_required"]["met"]), (2, False))
+
+
+class RequiredAndCoverage(unittest.TestCase):
+    """SPEC 10.1 (d), apc-http-coverage/1: one signature over () verifies on every real bundle it is copied into, and is
+    not met (review of 2026-11-21, R12)"""
+    setUpClass = classmethod(RealBlockTime.setUpClass.__func__)
+    with_exchange = RealBlockTime.with_exchange
+
+    def test_an_empty_covered_list_verifies_and_is_not_met(self):
+        p = '();keyid="k"'
+        pair = [["Signature-Input", "sig1=" + p],
+                ["Signature", "sig1=:%s:" % base64.b64encode(
+                    sol.ed25519_sign(ED_SEED, ('"@signature-params": ' + p).encode())).decode()]]
+        for doc in self.docs:
+            d = self.with_exchange(None, None, doc)
+            d["exchange"]["request"]["fields"][2:] = copy.deepcopy(pair)
+            r = av.require_http_signature(av.verify_bundle(d, None, KEYS))
+            self.assertEqual((r["verdict"], r["checks"]["X7"], r["http_signature_required"]["met"]),
+                             ("chain_incomplete", "verified", False), doc["bundle_version"])
+            self.assertEqual(r["http_signature_required"]["missing"],
+                             [{"where": "request", "label": "sig1", "missing": ["@authority|@target-uri",
+                                                                               "payment-signature", "created",
+                                                                               "expires"]}])
+            self.assertEqual(r["exchange"]["signatures"][0]["covered"], [])
 
 
 if __name__ == "__main__":
