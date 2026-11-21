@@ -50,7 +50,10 @@ python3 tools/rebuild_corpus.py --check-manifest
   `block_time_minus_created` and `expires_minus_block_time`.
 - With `--http-keys`, X7 is always in the report: `not_evaluated:absent:no_exchange` for a bundle without `exchange`,
   and the keys document is checked for every bundle version; `--require-http-signature` (with `--http-keys`) turns
-  a `chain_verified` whose X7 is not `verified` into `chain_incomplete` (SPEC 10.1).
+  a `chain_verified` whose X7 is not `verified`, or whose labels do not cover what profile `apc-http-coverage/1`
+  names, into `chain_incomplete`, and lists what is missing (SPEC 10.1 d: a request covers `@authority` or
+  `@target-uri` and `payment-signature` and carries `created` and `expires`; a response covers `@status` and
+  `payment-response`).
 - Verdicts: on the 1123 bundles of the regress list no verdict changes, with or without `--http-keys`; without it no
   check changes either, and with it the 1113 reports that are not refusals gain X7
   `not_evaluated:absent:no_exchange` (SPEC 10.1).

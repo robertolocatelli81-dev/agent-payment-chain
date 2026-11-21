@@ -224,12 +224,16 @@ class KeysGiven(unittest.TestCase):
         self.assertEqual(av.verify_bundle(d, None, KEYS)["checks"]["X7"], "not_evaluated:absent:no_signature")
 
 
+GOOD_REQ = {"where": "request", "label": "sig1", "covered": ['"@authority"', '"payment-signature"'], "created": 1,
+            "expires": 2}
+
+
 class Required(unittest.TestCase):
-    def rep(self, verdict, x7):
+    def rep(self, verdict, x7, sigs=(GOOD_REQ,)):
         checks = {"K1": "verified"}
         if x7 is not None:
             checks["X7"] = x7
-        return {"verdict": verdict, "checks": checks, "notes": []}
+        return {"verdict": verdict, "checks": checks, "notes": [], "exchange": {"signatures": [dict(x) for x in sigs]}}
 
     def test_only_a_chain_verified_without_verified_x7_changes(self):
         x7s = (None, "verified", "not_evaluated:absent:no_exchange", "not_evaluated:absent:no_signature",
@@ -238,7 +242,8 @@ class Required(unittest.TestCase):
             for x7 in x7s:
                 r = av.require_http_signature(self.rep(v, x7))
                 met = x7 == "verified"
-                self.assertEqual(r["http_signature_required"], {"met": met, "X7": x7})
+                self.assertEqual(r["http_signature_required"],
+                                 {"profile": "apc-http-coverage/1", "met": met, "X7": x7, "missing": []})
                 self.assertEqual(r["verdict"], "chain_incomplete" if v == "chain_verified" and not met else v, (v, x7))
                 self.assertEqual(len(r["notes"]), 1 if v == "chain_verified" and not met else 0)
 
@@ -263,13 +268,91 @@ class Required(unittest.TestCase):
         rc0, r0 = self.cli("@B", "--http-keys", "@K")
         rc, r = self.cli("@B", "--http-keys", "@K", "--require-http-signature")
         self.assertNotIn("http_signature_required", r0)
-        self.assertEqual(r["http_signature_required"], {"met": False, "X7": "not_evaluated:absent:no_exchange"})
+        self.assertEqual(r["http_signature_required"], {"profile": "apc-http-coverage/1", "met": False,
+                                                        "X7": "not_evaluated:absent:no_exchange",
+                                                        "missing": [{"where": "request", "label": None,
+                                                                     "missing": ["signature"]}]})
         self.assertEqual((rc0, r0["verdict"]), (0, "chain_verified"))     # the http.md payment verifies
         self.assertEqual((rc, r["verdict"]), (2, "chain_incomplete"))
 
 
 REAL = os.path.join(ROOT, "bundles", "real_v03", "v002_b004_direct_envelope_reconstructed.json")
 REAL_P2 = os.path.join(ROOT, "bundles", "real_permit2", "p029_envelope_reconstructed_proof.json")   # apc-0.10, B1
+
+
+def coverage_model(where, covered, created, expires):
+    """profile apc-http-coverage/1 written from SPEC 10.1 (d)"""
+    miss = []
+    if where == "request":
+        if '"@authority"' not in covered and '"@target-uri"' not in covered:
+            miss.append("@authority|@target-uri")
+        if '"payment-signature"' not in covered:
+            miss.append("payment-signature")
+        miss += [n for n, v in (("created", created), ("expires", expires)) if v is None]
+    else:
+        miss += [n for n in ("@status", "payment-response") if '"%s"' % n not in covered]
+    return miss
+
+
+class Coverage(unittest.TestCase):
+    """SPEC 10.1 (d), Amendment 0.21.6: profile apc-http-coverage/1 under --require-http-signature"""
+    IDS = ['"@authority"', '"@target-uri"', '"payment-signature"', '"@method"', '"@path"', '"@status"',
+           '"payment-response"', '"@authority";req', '"@path";req', '"payment-required"', '"content-digest"']
+
+    def test_generated_label_sets(self):
+        rng = random.Random(20261123)
+        for _ in range(800):
+            sigs = []
+            for i in range(rng.randint(0, 3)):
+                where = rng.choice(("request", "response"))
+                sigs.append({"where": where, "label": "s%d" % i, "covered": rng.sample(self.IDS, rng.randint(0, 5)),
+                             "created": rng.choice((None, 5)), "expires": rng.choice((None, 9)), "result": "verified"})
+            want = [{"where": x["where"], "label": x["label"],
+                     "missing": coverage_model(x["where"], x["covered"], x["created"], x["expires"])} for x in sigs]
+            want = [w for w in want if w["missing"]]
+            if not any(x["where"] == "request" for x in sigs):
+                want.append({"where": "request", "label": None, "missing": ["signature"]})
+            r = av.require_http_signature({"verdict": "chain_verified", "checks": {"X7": "verified"}, "notes": [],
+                                           "exchange": {"signatures": sigs}})
+            self.assertEqual(r["http_signature_required"]["missing"], want, sigs)
+            self.assertEqual((r["verdict"], r["http_signature_required"]["met"]),
+                             ("chain_verified", True) if not want else ("chain_incomplete", False))
+
+    def test_no_exchange_member_or_none(self):
+        for rep in ({"verdict": "chain_verified", "checks": {"X7": "verified"}, "notes": []},
+                    {"verdict": "chain_verified", "checks": {"X7": "verified"}, "notes": [], "exchange": None}):
+            r = av.require_http_signature(rep)
+            self.assertEqual(r["http_signature_required"]["missing"],
+                             [{"where": "request", "label": None, "missing": ["signature"]}])
+
+    def signed_md(self, c=None, x=None, resp=None):
+        d = md_bundle()
+        pp = base64.b64encode(json.dumps(d["payment_payload"]).encode()).decode()
+        d["exchange"] = {"request": request(c, x, paysig=pp)}
+        if resp is not None:
+            d["exchange"]["response"] = resp
+        return d
+
+    def test_end_to_end_on_the_http_md_payment(self):
+        r = av.require_http_signature(av.verify_bundle(self.signed_md(T0, T0 + 60), None, KEYS))
+        self.assertEqual((r["checks"]["X7"], r["verdict"], r["http_signature_required"]["missing"]),
+                         ("verified", "chain_verified", []))
+        r = av.require_http_signature(av.verify_bundle(self.signed_md(T0, None), None, KEYS))
+        self.assertEqual((r["checks"]["X7"], r["verdict"], r["http_signature_required"]["missing"]),
+                         ("verified", "chain_incomplete", [{"where": "request", "label": "sig1", "missing": ["expires"]}]))
+        # the response carries the settlement (X3); signed over @status only, then over @status and payment-response
+        st = base64.b64encode(json.dumps(md_bundle()["settlement"]).encode()).decode()
+        for comps, missing, verdict in ((("@status",), [{"where": "response", "label": "sig1",
+                                                         "missing": ["payment-response"]}], "chain_incomplete"),
+                                        (("@status", "payment-response"), [], "chain_verified")):
+            lines = ['"@status": 200', '"payment-response": %s' % st][:len(comps)]
+            resp = {"status": 200, "fields": [["Content-Type", "application/json"], ["PAYMENT-RESPONSE", st]]
+                    + signed(lines, comps, T0, T0 + 60)}
+            r0 = av.verify_bundle(self.signed_md(T0, T0 + 60, resp), None, KEYS)
+            self.assertEqual((r0["verdict"], r0["checks"]["X3"], r0["checks"]["X7"]),
+                             ("chain_verified", "verified", "verified"))
+            r = av.require_http_signature(r0)
+            self.assertEqual((r["verdict"], r["http_signature_required"]["missing"]), (verdict, missing), comps)
 
 
 class ClockSkew(unittest.TestCase):

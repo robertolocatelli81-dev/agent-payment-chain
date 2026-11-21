@@ -11,10 +11,11 @@ hashes, apc_siglib, SPEC 32.12).
       signed offers and receipts, SPEC 0.11; --drafts: also the draft profiles of proposed x402 rules, SPEC section 17,
       reported apart in `drafts`, the verdict unchanged; --require-level: signature, settlement_record,
       inclusion_proof or finality_proven, a chain_verified whose evidence_level is lower becomes chain_incomplete, SPEC
-      30.3; --require-http-signature (with --http-keys only): a chain_verified whose X7 is not verified becomes
-      chain_incomplete, SPEC 10.1 (d); --http-clock-skew (with --http-keys only): the margin, 0 to 300 seconds
-      (default 0), around the block time an X7 signature window is read at, SPEC 10.1 (b); --ap2-tsa-cert: the TSA certificate the reader trusts for the RFC 3161
-      anchors of a mandate pack, SPEC 31.7;
+      30.3; --require-http-signature (with --http-keys only): a chain_verified whose X7 is not verified, or whose
+      labels do not cover what profile apc-http-coverage/1 names, becomes chain_incomplete, SPEC 10.1 (d);
+      --http-clock-skew (with --http-keys only): the margin, 0 to 300 seconds (default 0), around the block time an
+      X7 signature window is read at, SPEC 10.1 (b); --ap2-tsa-cert: the TSA certificate the reader trusts for the
+      RFC 3161 anchors of a mandate pack, SPEC 31.7;
       a mandate pack is verified by ap2-evidence-pack v1.7.1 from the directory APC_AP2EV names, or from
       ../ap2-evidence-pack beside this folder when the variable is unset, SPEC 31 and 32.11; it needs `cryptography`)
 
@@ -1993,16 +1994,43 @@ def require_level(rep, level):
     return rep
 
 
+HTTP_COVERAGE = "apc-http-coverage/1"           # SPEC 10.1 (d): the profile --require-http-signature requires
+_COVERAGE = {"request": ((('"@authority"', '"@target-uri"'), "@authority|@target-uri"),
+                         (('"payment-signature"',), "payment-signature")),
+             "response": ((('"@status"',), "@status"), (('"payment-response"',), "payment-response"))}
+
+
+def http_coverage_missing(rep):
+    """SPEC 10.1 (d), profile apc-http-coverage/1: [{where, label, missing}] for each label of the report's exchange
+    short of the profile, and a request entry missing "signature" when no request label is there."""
+    ex = rep.get("exchange")
+    sigs = ex.get("signatures", []) if isinstance(ex, dict) else []
+    out = []
+    for s in sigs:
+        cov = s.get("covered") or []
+        miss = [name for any_of, name in _COVERAGE[s["where"]] if not any(c in cov for c in any_of)]
+        if s["where"] == "request":
+            miss += [p for p in ("created", "expires") if s.get(p) is None]
+        if miss:
+            out.append({"where": s["where"], "label": s["label"], "missing": miss})
+    if not any(s["where"] == "request" for s in sigs):
+        out.append({"where": "request", "label": None, "missing": ["signature"]})
+    return out
+
+
 def require_http_signature(rep):
-    """SPEC 10.1 (d): `http_signature_required` on a report of verify_bundle given http_keys; met when X7 is verified;
-    a chain_verified not met becomes chain_incomplete. No other verdict changes."""
+    """SPEC 10.1 (d): `http_signature_required` on a report of verify_bundle given http_keys; met when X7 is verified
+    and every label covers what profile apc-http-coverage/1 names; a chain_verified not met becomes chain_incomplete.
+    No other verdict changes."""
     x7 = rep["checks"].get("X7")
-    met = x7 == "verified"
-    rep["http_signature_required"] = {"met": met, "X7": x7}
+    missing = http_coverage_missing(rep)
+    met = x7 == "verified" and not missing
+    rep["http_signature_required"] = {"profile": HTTP_COVERAGE, "met": met, "X7": x7, "missing": missing}
     if rep["verdict"] == "chain_verified" and not met:
         rep["verdict"] = "chain_incomplete"
-        rep["notes"] = rep["notes"] + ["X7 is %s, not verified, and a verified HTTP signature is required "
-                                       "(--require-http-signature, SPEC 10.1 d): verdict chain_incomplete" % x7]
+        rep["notes"] = rep["notes"] + ["X7 is %s and %d label(s) short of %s; a verified HTTP signature with that "
+                                       "coverage is required (--require-http-signature, SPEC 10.1 d): verdict "
+                                       "chain_incomplete" % (x7, len(missing), HTTP_COVERAGE)]
     return rep
 
 

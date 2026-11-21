@@ -754,11 +754,36 @@ bundle (apc_v1.verify takes no keys) a keys document outside the grammar was not
 carry one, reports X7 `not_evaluated:absent:no_exchange`, listed under `absent` (section 5: it does not block). A
 reader who gave keys therefore always finds X7 in the report. Until this revision such a report had no X7 at all.
 
-(d) `--require-http-signature` (apc_verify; only with `--http-keys`, otherwise usage, exit 64): the report gains
-`http_signature_required: {"met": true | false, "X7": the X7 value or null}`, met when X7 is `verified` (every label
-of the exchange verified, section 10); a `chain_verified` that is not met becomes `chain_incomplete` (exit 2), with a
-note. No other verdict changes. It is applied after `--require-level` (section 30.3), and each says its own `met`.
-What each signature covers stays in the report; a coverage requirement is the reader's policy.
+(d) `--require-http-signature` (apc_verify; only with `--http-keys`, otherwise usage, exit 64): the reader requires a
+verified HTTP signature that covers, at least, what profile `apc-http-coverage/1` names. The report gains
+`http_signature_required: {"profile": "apc-http-coverage/1", "met": true | false, "X7": the X7 value or null,
+"missing": [...]}`; a `chain_verified` that is not met becomes `chain_incomplete` (exit 2), with a note. No other
+verdict changes. It is applied after `--require-level` (section 30.3), and each says its own `met`.
+
+RFC 9421 1.4: "an application or profile of this specification MUST specify, at a minimum, ... The set of component
+identifiers (Section 2) and signature parameters (Section 2.3) that are expected and required to be included in the
+covered components list"; 7.2.1: "The verifier should only trust message components that have been signed." Without
+this option section 10 requires no coverage, and that stays. Profile `apc-http-coverage/1` (2026-11-21):
+- every request label (a request carries the payment): covers `"@authority"` or `"@target-uri"`, carries `created`
+  and `expires`: the minimum of draft-meunier-webbotauth-httpsig-protocol-02 section 5.2 ("Agents MUST include at
+  least one of the following components: @authority ... @target-uri"; `created`, `expires`; datatracker, revision 02
+  of 2026-08-19, sha256 e85e295f0b2bba21...), the profile x402's `http-message-signatures` extension points requests
+  to (x402-foundation/x402 main e35bf88, `specs/extensions/http-message-signatures.md`, sha256 bfafa606fa955549...;
+  Apache-2.0); and covers `"payment-signature"`;
+- every response label: covers `"@status"` and `"payment-response"`, the components that extension says servers
+  signing responses "should include" with the x402 header (its `"@authority";req` and `"@path";req` are not
+  required here);
+- at least one request label.
+Covering the x402 header the signature stands for (`payment-signature` on the request, `payment-response` on the
+response) is in no profile read: it is OUR reading of RFC 9421 7.2.1, since a signature that does not cover the
+header does not bind the payment (or the settlement) to the key. The `tag` parameter is not required (the x402
+extension lists several tags). Coverage is compared on the serialized component identifier as the report shows it
+(`covered`): `"@authority";req` on a response, or a field with parameters, is another identifier.
+`missing` is a list, in label order, of `{"where": "request" | "response", "label": label or null, "missing": [...]}`,
+one entry for each label short of the profile, with the names from the closed list `@authority|@target-uri`,
+`payment-signature`, `created`, `expires`, `@status`, `payment-response`, and `{"where": "request", "label": null,
+"missing": ["signature"]}` when the exchange has no request label (or the bundle no exchange); `met` is X7 `verified`
+and `missing` empty. X7 `verified` means every label of the exchange verified (section 10).
 
 Measured on this revision (2026-11-21): tests/test_window_20261121.py. The 1123 bundles of the regress list
 (regress/VERDICTS.json, with the options it gives), each run on 0f19843 and on this revision: without --http-keys no
