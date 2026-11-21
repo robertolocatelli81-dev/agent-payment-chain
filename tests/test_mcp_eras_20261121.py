@@ -3,7 +3,7 @@ client per era, its messages written from the specification read 2026-11-21 (mod
 main 2f3a950): 2026-07-28 (server/discover, version and capabilities in each request's _meta, resultType, ttlMs and
 cacheScope, -32022), 2025-11-25 (initialize; input validation errors are tool execution errors), 2025-06-18 and
 earlier (initialize; -32602 as before). No real corpus: the bundle is the x402 http.md example payment of
-sources/http_20261025. Positive control: on 3fe46aa (before this amendment) 8 of these 9 tests fail; the one that passes
+sources/http_20261025. Positive control: on 7994d2b (before this amendment) 8 of these 9 tests fail; the one that passes
 there checks what does not change (2025-06-18 and earlier keep -32602 for invalid arguments)."""
 import json
 import os

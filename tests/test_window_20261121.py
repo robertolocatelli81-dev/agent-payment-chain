@@ -590,6 +590,18 @@ class TextOf101(unittest.TestCase):
         self.assertEqual(self.one(ex, None)[:2], ("not_evaluated:created_before_request",
                                                    ["verified", "not_evaluated:created_before_request"]))
 
+    def test_a_response_follows_the_latest_request_signature(self):
+        # two request labels, created T-50 and T-10; a response created T-20 precedes the latest: out of order
+        r1, r2 = request(T0 - 50, None), request(T0 - 10, None)
+        f = [x for x in r1["fields"] if x[0] not in ("Signature-Input", "Signature")]
+        for name in ("Signature-Input", "Signature"):
+            f.append([name, ", ".join(x[1].replace("sig1=", "s%d=" % i, 1) for i, r in enumerate((r1, r2))
+                                      for x in r["fields"] if x[0] == name)])
+        ex = {"request": dict(r1, fields=f), "response": response(T0 - 20, None)}
+        self.assertEqual(self.one(ex, None)[1], ["verified", "verified", "not_evaluated:created_before_request"])
+        ex["response"] = response(T0 - 10, None)
+        self.assertEqual(self.one(ex, None)[1], ["verified", "verified", "verified"])
+
     def test_x7_is_the_first_failed_then_the_first_not_evaluated_of_several_labels(self):
         a, b, c = request(T0 - 5, T0 + 60), request(T0 + 1, None), request(T0, T0 - 1)
 
