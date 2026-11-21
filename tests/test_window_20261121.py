@@ -2,7 +2,7 @@
 keys given for a bundle without exchange, and --require-http-signature. Keys: RFC 9421 B.1.4 (test-key-ed25519);
 signatures are our own, the base written out by hand as RFC 9421 2.5 says. WindowRule, KeysGiven and Required need no
 real corpus; RealBlockTime reads two real bundles with B1 verified (bundles/real_v03, apc-0.3; bundles/real_permit2,
-apc-0.10) and skips without them. Positive control: on 0f19843 (before this revision) 17 of these 20 tests fail."""
+apc-0.10) and skips without them. Positive control: on 0f19843 (before this revision) 20 of these 23 tests fail."""
 import base64
 import copy
 import json
@@ -124,6 +124,16 @@ class WindowRule(unittest.TestCase):
         res, _, m = h.check({"payment_payload": {}, "exchange": ex}, h.parse_keys(KEYS), T0)
         self.assertEqual(m["signatures"][0]["result"], "failed:signature_invalid")
 
+    def test_a_label_not_evaluated_keeps_its_reason(self):
+        # @query-param is not supported (SPEC 10): the label is not judged, so its window is not read either
+        p = '("@query-param";name="a");created=%d;expires=%d;keyid="k"' % (T0 + 100, T0 + 200)
+        ex = {"request": request(sign=False)}
+        ex["request"]["fields"] += [["Signature-Input", "sig1=" + p], ["Signature", "sig1=:AAAA:"]]
+        for t in (None, T0):
+            res, notes, m = h.check({"payment_payload": {}, "exchange": ex}, h.parse_keys(KEYS), t)
+            self.assertEqual(m["signatures"][0]["result"], 'not_evaluated:component_not_supported:"@query-param";name="a"')
+            self.assertEqual([n for n in notes if "not compared" in n], [])
+
     def test_a_malformed_field_with_keys_and_block_time(self):
         ex = {"request": request(T0, T0 + 1)}
         ex["request"]["fields"][2][1] += ", sig1=()"                # a repeated label (RFC 9421 4.1)
@@ -198,6 +208,15 @@ class KeysGiven(unittest.TestCase):
                 with self.assertRaises(av.Refusal, msg=(ver, k)):
                     av.verify_bundle(d, None, k)
         self.assertNotIn("X7", av.verify_bundle(md_bundle(), None, bad[-1])["checks"])   # None = no keys given
+
+    def test_absent_stays_sorted_with_keys_after_x7(self):
+        d = md_bundle()
+        d["exchange_mcp"] = {"request": {"jsonrpc": "2.0", "id": 1, "method": "tools/call",
+                                         "params": {"_meta": {"x402/payment": d["payment_payload"]}}}}
+        r = av.verify_bundle(d, None, KEYS)
+        self.assertIn("XM2", r["absent"])                      # XM2 sorts after X7
+        self.assertEqual(r["absent"], sorted(r["absent"]))
+        self.assertEqual(r["checks"]["X7"], "not_evaluated:absent:no_exchange")
 
     def test_with_exchange_x7_is_the_exchange_one(self):
         d = md_bundle()
@@ -291,6 +310,16 @@ class RealBlockTime(unittest.TestCase):
                 r = av.verify_bundle(self.with_exchange(c, x, doc), None, KEYS)
                 self.assertEqual((r["verdict"], r["checks"]["X7"], r["checks"]["X1"]), (verdict, x7, "verified"),
                                  (doc["bundle_version"], c, x))
+
+    def test_block_time_only_with_b1_verified(self):
+        for doc in self.docs:
+            t = int(doc["inclusion"]["block_header"]["timestamp"], 16)
+            d = self.with_exchange(t + 1000, t + 2000, doc)
+            d["inclusion"]["block_header"]["parentHash"] = "0x" + "11" * 32     # the header no longer hashes to B1
+            r = av.verify_bundle(d, None, KEYS)
+            self.assertFalse(r["checks"]["B1"].startswith("verified"), doc["bundle_version"])
+            self.assertEqual(r["checks"]["X7"], "verified", doc["bundle_version"])
+            self.assertTrue(any("proves no block time" in n for n in r["notes"]), doc["bundle_version"])
 
     def test_required_on_the_real_bundle(self):
         r = av.require_http_signature(av.verify_bundle(self.doc, None, KEYS))
