@@ -3,6 +3,9 @@ read-only (it verifies what it is given; it reads no file, opens no connection, 
 
   python3 apc_mcp.py        (an MCP client starts it and speaks on stdin/stdout, one JSON message per line)
 
+MCP revisions (SPEC 8): 2026-07-28 (modern: the version and the client's capabilities in each request's _meta,
+server/discover) and 2025-11-25, 2025-06-18, 2025-03-26, 2024-11-05 (legacy: initialize first).
+
 Tools: verify_bundle {bundle_json, l1_checkpoint?} -> apc_verify's report; apply_policy {policy_json, bundle_json} ->
 the report with P1-P5 (apc_report.py). The bundle is passed as JSON text so that apc_verify's strict parser reads it
 (duplicate members, non-JSON numbers and surrogates are refused as on the command line).
@@ -18,7 +21,14 @@ import apc_report  # noqa: E402
 import apc_verify as av  # noqa: E402
 
 SERVER = {"name": "agent-payment-chain", "version": av.VERSION.split()[-1]}
-PROTOCOLS = ("2025-06-18", "2025-03-26", "2024-11-05")       # MCP revisions this server speaks; the newest first
+MODERN = ("2026-07-28",)                                    # SPEC 8: per-request _meta, no handshake
+LEGACY = ("2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05")    # SPEC 8: the initialize handshake first
+PROTOCOLS = MODERN + LEGACY                                 # MCP revisions this server speaks; the newest first
+PV = "io.modelcontextprotocol/protocolVersion"
+CAPS = "io.modelcontextprotocol/clientCapabilities"
+SERVER_INFO = "io.modelcontextprotocol/serverInfo"
+TTL_MS = 3600000                                            # SPEC 8: the tool list is fixed in this file
+SESSION = {"version": None}                                 # the legacy revision initialize negotiated on this stdio
 MAX_TEXT = av.MAX_BUNDLE_BYTES
 MAX_LINE = 2 * MAX_TEXT + (1 << 20)   # SPEC 29.2: one JSON-RPC message line; longer = refused, never held in memory
 
@@ -104,7 +114,9 @@ def valid_id(v):
 
 
 def handle(msg):
-    """One JSON-RPC message in, zero or one out (a notification gets no reply)."""
+    """One JSON-RPC message in, zero or one out (a notification gets no reply). SPEC 8: a request whose params._meta
+    names a protocol version is served as MCP 2026-07-28 (modern), any other by the revision initialize negotiated
+    (legacy)."""
     if not isinstance(msg, dict) or msg.get("jsonrpc") != "2.0":
         return {"jsonrpc": "2.0", "id": None, "error": {"code": -32600, "message": "invalid request"}}
     method, id_ = msg.get("method"), msg.get("id")
@@ -117,28 +129,71 @@ def handle(msg):
     def ok(r):
         return {"jsonrpc": "2.0", "id": id_, "result": r}
 
-    def err(code, m):
-        return {"jsonrpc": "2.0", "id": id_, "error": {"code": code, "message": m}}
+    def err(code, m, data=None):
+        e = {"code": code, "message": m}
+        if data is not None:
+            e["data"] = data
+        return {"jsonrpc": "2.0", "id": id_, "error": e}
     params = msg.get("params") if isinstance(msg.get("params"), dict) else {}
+    meta = params.get("_meta")
+    if isinstance(meta, dict) and PV in meta:
+        return _modern(method, params, meta, ok, err)
+    return _legacy(method, params, ok, err)
+
+
+def _tools_call(params, ok, err, validation_is_tool_error, modern):
+    name = params.get("name")
+    if not isinstance(name, str) or name not in TOOLS:
+        return err(-32602, "unknown tool %r" % (name,))
+    try:
+        out, is_err = call(name, params.get("arguments", {}))
+    except av.Refusal as e:
+        if not validation_is_tool_error:                 # MCP 2025-06-18 and earlier: a protocol error
+            return err(-32602, str(e))
+        r = {"content": [{"type": "text", "text": "invalid arguments: %s" % e}], "isError": True}
+        return ok(_complete(r) if modern else r)          # MCP 2025-11-25 and later: a tool execution error
+    except Exception as e:                               # a defect must not end the server (JSON-RPC 2.0: -32603)
+        return err(-32603, "internal error: %s" % type(e).__name__)
+    r = {"content": [{"type": "text", "text": json.dumps(out, sort_keys=True)}], "isError": is_err}
+    return ok(_complete(r) if modern else r)
+
+
+def _complete(r):
+    """MCP 2026-07-28: every result has resultType, and the server names itself in the result's _meta."""
+    return dict(r, resultType="complete", _meta={SERVER_INFO: SERVER})
+
+
+def _modern(method, params, meta, ok, err):
+    v = meta[PV]
+    if not isinstance(v, str) or not isinstance(meta.get(CAPS), dict):
+        return err(-32602, "invalid params: _meta needs %s, a string, and %s, an object (MCP 2026-07-28)" % (PV, CAPS))
+    if v not in MODERN:
+        return err(-32022, "Unsupported protocol version", {"supported": list(MODERN), "requested": v})
+    tools = [dict(t, name=n) for n, t in TOOLS.items()]
+    if method == "server/discover":
+        return ok(_complete({"supportedVersions": list(MODERN), "capabilities": {"tools": {}}, "ttlMs": TTL_MS,
+                             "cacheScope": "public"}))
+    if method == "tools/list":
+        return ok(_complete({"tools": tools, "ttlMs": TTL_MS, "cacheScope": "public"}))
+    if method == "tools/call":
+        return _tools_call(params, ok, err, True, True)
+    return err(-32601, "method not found: %s (MCP %s)" % (method, v))
+
+
+def _legacy(method, params, ok, err):
     if method == "initialize":
         asked = params.get("protocolVersion")
-        return ok({"protocolVersion": asked if asked in PROTOCOLS else PROTOCOLS[0],
-                   "capabilities": {"tools": {}}, "serverInfo": SERVER})
+        SESSION["version"] = asked if isinstance(asked, str) and asked in LEGACY else LEGACY[0]
+        return ok({"protocolVersion": SESSION["version"], "capabilities": {"tools": {}}, "serverInfo": SERVER})
     if method == "ping":
         return ok({})
+    if SESSION["version"] is None:
+        return err(-32600, "invalid request: %s before initialize (MCP %s and earlier); or name revision %s in "
+                           "params._meta" % (method, LEGACY[0], MODERN[0]))
     if method == "tools/list":
         return ok({"tools": [dict(t, name=n) for n, t in TOOLS.items()]})
     if method == "tools/call":
-        name = params.get("name")
-        if not isinstance(name, str) or name not in TOOLS:
-            return err(-32602, "unknown tool %r" % (name,))
-        try:
-            out, is_err = call(name, params.get("arguments", {}))
-        except av.Refusal as e:
-            return err(-32602, str(e))
-        except Exception as e:                           # a defect must not end the server (JSON-RPC 2.0: -32603)
-            return err(-32603, "internal error: %s" % type(e).__name__)
-        return ok({"content": [{"type": "text", "text": json.dumps(out, sort_keys=True)}], "isError": is_err})
+        return _tools_call(params, ok, err, SESSION["version"] == "2025-11-25", False)
     return err(-32601, "method not found: %s" % (method,))
 
 

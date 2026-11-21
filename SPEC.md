@@ -575,19 +575,40 @@ integer), is an invalid request (-32600) answered with id null (JSON-RPC 2.0 sec
 read as an integer. A line that is both not JSON and carries a repeated member is a parse error, wherever the repeated
 member stands; the repeats are found in time linear in the line. Tests: tests/test_fix_20261120.py (no real corpus
 needed).
-The revisions it speaks stop at 2025-06-18 (Amendment 0.21.6, section 32.15, Unreleased; measured 2026-11-21). modelcontextprotocol.io/specification/
-versioning, read that day: "The current protocol version is 2026-07-28"; the specification repository
-(modelcontextprotocol/modelcontextprotocol, main at bbc31f8, docs/specification) holds two later revisions, 2025-11-25
-and 2026-07-28. The changelog of 2026-07-28 removes the `initialize` handshake and `ping`, makes `server/discover` a
-method servers MUST implement, and carries the protocol version in the `_meta` of every request (major changes 2, 3
-and 5): a server that answered `initialize` with 2026-07-28 would name a revision whose messages it does not speak, so
-2026-07-28 is not in the list. Against that revision this server is a legacy server, and a client of both eras still
-reaches it: it probes with `server/discover` and falls back to `initialize` on any error that is not a recognized
-modern error (2026-07-28 basic/transports/stdio, "Backward Compatibility"); this server answers `server/discover` with
--32601 and an `initialize` asking 2025-11-25 or 2026-07-28 with 2025-06-18. 2025-11-25 is not in the list either: its
-server/tools page makes input validation errors tool execution errors (`isError` true), where this server answers
-arguments of the wrong shape with -32602; adding it means answering by the negotiated revision. Speaking 2026-07-28 is
-a server mode of its own, not part of this revision. Tests: tests/test_fix_20261120.py (McpRevisions).
+Revisions of MCP (Amendment 0.21.6, section 32.15, Unreleased; read 2026-11-21 at modelcontextprotocol.io and in the
+specification repository modelcontextprotocol/modelcontextprotocol, main at 2f3a950, docs/specification and
+schema/<revision>/schema.ts; licence Apache-2.0 for the specification, MIT for earlier contributions). The current
+revision is 2026-07-28 ("The current protocol version is 2026-07-28", /specification/versioning); it is "modern" (no
+handshake: every request carries its version and the client's capabilities in `_meta`), 2025-11-25 and earlier are
+"legacy" (an `initialize` handshake first). apc_mcp.py is a dual-era server (2026-07-28 basic/versioning: "A server
+that wishes to support both legacy clients ... and modern clients ... MAY implement both behaviors"), on one stdio
+process:
+- Modern, 2026-07-28: a request whose `params._meta` holds `io.modelcontextprotocol/protocolVersion`. That member a
+  string and `io.modelcontextprotocol/clientCapabilities` an object, else -32602 (basic/index: "A request missing any
+  required field is malformed; the server MUST reject it with JSON-RPC error code -32602"); a version other than
+  2026-07-28 is -32022 with `data: {"supported": ["2026-07-28"], "requested": <version>}` (the legacy revisions are
+  not listed there: they are reached by `initialize`, not by `_meta`). Methods: `server/discover` (supportedVersions
+  ["2026-07-28"], capabilities {tools}, ttlMs, cacheScope "public"), `tools/list` (with ttlMs and cacheScope, the
+  CacheableResult of the schema), `tools/call`; every result carries `resultType: "complete"` and
+  `_meta["io.modelcontextprotocol/serverInfo"]`. `initialize`, `ping` and every other method: -32601 (removed in that
+  revision). Arguments outside a tool's inputSchema are a tool execution error (`isError` true, server/tools "Error
+  Handling"); an unknown tool -32602. `ttlMs` is 3600000 (one hour): the tool list is fixed in this file and changes
+  only with a new version of it.
+- Legacy, 2025-11-25, 2025-06-18, 2025-03-26, 2024-11-05: `initialize` answers the version asked when it is one of
+  these, else 2025-11-25 (2025-11-25 basic/lifecycle: "Otherwise, the server MUST respond with another protocol
+  version it supports"); a later `initialize` negotiates again. `ping` is answered at any time. Before `initialize`
+  any other request is -32600 ("The initialization phase MUST be the first interaction between client and server";
+  until this amendment `tools/list` and `tools/call` were served without it, the case 2026-07-28 stdio "Backward
+  Compatibility" names: legacy servers that "would process an era-ambiguous method ... under legacy semantics").
+  After `initialize` at 2025-11-25, arguments outside a tool's inputSchema are a tool execution error (`isError`
+  true; 2025-11-25 server/tools: "Input validation errors" are Tool Execution Errors); at 2025-06-18 and earlier
+  they stay -32602 as before. Results have no `resultType` (2026-07-28 basic/index: clients "MUST treat an absent
+  resultType as complete").
+A dual-era client probes with `server/discover` and `_meta` and is served modern; a legacy client sends `initialize`
+and is served the revision it negotiated. Notifications get no reply in either era. PROTOCOLS lists the five revisions,
+the newest first. Tests: tests/test_mcp_eras_20261121.py (no real corpus needed), and, outside the suite, the
+official Python SDK (`mcp` 2.3.0) as a client in its three modes (`legacy`, `auto`, `2026-07-28`), measured
+2026-11-21 in the author's notes.
 Tests: tests/test_report.py, tests/test_provenance.py, tests/test_mcp.py (the server on its real stdio transport),
 on the real bundles of bundles/real_v03, real_v04_l1state and the Solana payment of this work.
 

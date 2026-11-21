@@ -21,14 +21,22 @@ def text(p):
         return fh.read()
 
 
-def session(messages):
+INIT = {"jsonrpc": "2.0", "id": "init", "method": "initialize", "params": {"protocolVersion": "2025-06-18"}}
+
+
+def session(messages, init=True):
+    """the server's replies, without the reply to the initialize (revision 2025-06-18) sent first (SPEC 8, Amendment
+    0.21.6: legacy requests after initialize)"""
+    if init:
+        messages = [INIT] + list(messages)
     env = dict(os.environ)
     env.pop("PYTHONPATH", None)
     lines = "".join((m if isinstance(m, str) else json.dumps(m)) + "\n" for m in messages)
     r = subprocess.run([sys.executable, "-B", os.path.join(ROOT, "apc_mcp.py")], input=lines, capture_output=True,
                        text=True, env=env, timeout=600)
     assert r.returncode == 0, r.stderr
-    return [json.loads(x) for x in r.stdout.splitlines()]
+    out = [json.loads(x) for x in r.stdout.splitlines()]
+    return out[1:] if init else out
 
 
 def call(i, name, args):
@@ -41,10 +49,10 @@ class Mcp(unittest.TestCase):
                        {"jsonrpc": "2.0", "method": "notifications/initialized"},
                        {"jsonrpc": "2.0", "id": 2, "method": "tools/list"},
                        {"jsonrpc": "2.0", "id": 3, "method": "initialize", "params": {"protocolVersion": "1999-01-01"}},
-                       {"jsonrpc": "2.0", "id": 4, "method": "ping"}])
+                       {"jsonrpc": "2.0", "id": 4, "method": "ping"}], init=False)
         self.assertEqual([m["id"] for m in out], [1, 2, 3, 4])          # the notification got no reply
         self.assertEqual(out[0]["result"]["protocolVersion"], "2025-03-26")
-        self.assertEqual(out[2]["result"]["protocolVersion"], "2025-06-18")
+        self.assertEqual(out[2]["result"]["protocolVersion"], "2025-11-25")      # the newest legacy revision
         self.assertEqual(sorted(t["name"] for t in out[1]["result"]["tools"]), ["apply_policy", "verify_bundle"])
         self.assertEqual(out[3]["result"], {})
 

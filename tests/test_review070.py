@@ -246,8 +246,13 @@ class McpSurvives(unittest.TestCase):
         from unittest import mock
         msg = {"jsonrpc": "2.0", "id": 5, "method": "tools/call", "params": {"name": "verify_bundle",
                                                                           "arguments": {"bundle_json": "{}"}}}
-        with mock.patch.object(apc_mcp, "call", side_effect=RuntimeError("x")):
-            self.assertEqual(apc_mcp.handle(msg)["error"]["code"], -32603)
+        old = dict(apc_mcp.SESSION)
+        try:                                             # SPEC 8 (Amendment 0.21.6): tools/call after initialize
+            apc_mcp.handle({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2025-06-18"}})
+            with mock.patch.object(apc_mcp, "call", side_effect=RuntimeError("x")):
+                self.assertEqual(apc_mcp.handle(msg)["error"]["code"], -32603)
+        finally:
+            apc_mcp.SESSION.update(old)
 
     def test_bad_inputs_do_not_end_the_server(self):
         big = svm()
@@ -264,15 +269,17 @@ class McpSurvives(unittest.TestCase):
                call("apply_policy", {"policy_json": json.dumps({"apc_policy": 1, "hosts": ["example.com"]}),
                                      "bundle_json": json.dumps(url)})]
         ping = json.dumps({"jsonrpc": "2.0", "id": 99, "method": "ping"})
+        init = json.dumps({"jsonrpc": "2.0", "id": 0, "method": "initialize", "params": {"protocolVersion": "2025-06-18"}})
         env = dict(os.environ)
         env.pop("PYTHONPATH", None)
         for line in bad:
-            p = subprocess.run([sys.executable, "-B", os.path.join(ROOT, "apc_mcp.py")], input=line + "\n" + ping + "\n",
+            p = subprocess.run([sys.executable, "-B", os.path.join(ROOT, "apc_mcp.py")], input=init + "\n" + line + "\n" + ping + "\n",
                                capture_output=True, text=True, env=env, timeout=600)
             outs = [json.loads(x) for x in p.stdout.splitlines() if x.strip()]
             self.assertEqual(p.returncode, 0, p.stderr[-300:])
-            self.assertEqual(len(outs), 2)
-            self.assertEqual(outs[1], {"jsonrpc": "2.0", "id": 99, "result": {}})
+            self.assertEqual(len(outs), 3)
+            self.assertNotEqual(outs[1].get("error", {}).get("code"), -32600)     # the line was served, not refused
+            self.assertEqual(outs[2], {"jsonrpc": "2.0", "id": 99, "result": {}})
 
 
 @unittest.skipUnless(CASES, "APC_PULSE_CASES not set")

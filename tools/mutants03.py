@@ -299,7 +299,7 @@ M = [
     ('apc_mcp.py', 'W01 mcp: unknown arguments accepted', '    if not isinstance(args, dict) or set(args) - set(TOOLS[name]["inputSchema"]["properties"]):\n', '    if not isinstance(args, dict):\n'),
     ('apc_mcp.py', 'W02 mcp: checkpoint unchecked', '    if cp is not None and (not isinstance(cp, str) or not av.HASH32.match(cp)):\n', '    if False:\n'),
     ('apc_mcp.py', 'W03 mcp: notifications answered', '    if "id" not in msg:                                  # notifications', '    if False:                                  # notifications'),
-    ('apc_mcp.py', 'W04 mcp: any protocol version echoed', 'asked if asked in PROTOCOLS else PROTOCOLS[0]', 'asked or PROTOCOLS[0]'),
+    ('apc_mcp.py', 'W04 mcp: any protocol version echoed', 'asked if isinstance(asked, str) and asked in LEGACY else LEGACY[0]', 'asked or LEGACY[0]'),
     ('apc_mcp.py', 'W05 mcp: refusal not an error', 'return {"verifier": av.VERSION, "verdict": "refused", "reason": str(e)}, True', 'return {"verifier": av.VERSION, "verdict": "refused", "reason": str(e)}, False'),
     ('apc_mcp.py', 'W06 mcp: lax JSON parser', '        doc = av.strict_json(texts["bundle_json"])', '        doc = json.loads(texts["bundle_json"])'),
     ('apc_mcp.py', 'W07 mcp: checkpoint dropped', 'return av.verify_bundle(doc, cp.lower() if cp else None), False', 'return av.verify_bundle(doc), False'),
