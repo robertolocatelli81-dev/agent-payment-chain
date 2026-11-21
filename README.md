@@ -45,7 +45,9 @@ python3 tools/rebuild_corpus.py --check-manifest
 - The RFC 9421 signatures of `exchange` (X7) and their window, SPEC 10.1: with `--http-keys`, a label whose `expires`
   is less than its `created` is `failed:expires_before_created` (it was `verified`); when the bundle proves the time
   of its block (B1 verified), a request signed after that time, or a request or response signature expired before
-  it, is `not_evaluated` with the reason (verdict `chain_incomplete`). No clock is read.
+  it, is `not_evaluated` with the reason (verdict `chain_incomplete`). No clock is read. `--http-clock-skew N` (0 to
+  300 seconds, default 0, with `--http-keys`) widens the window by N on each side; every label reports
+  `block_time_minus_created` and `expires_minus_block_time`.
 - With `--http-keys`, X7 is always in the report: `not_evaluated:absent:no_exchange` for a bundle without `exchange`,
   and the keys document is checked for every bundle version; `--require-http-signature` (with `--http-keys`) turns
   a `chain_verified` whose X7 is not `verified` into `chain_incomplete` (SPEC 10.1).

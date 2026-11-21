@@ -4,7 +4,7 @@ hashes, apc_siglib, SPEC 32.12).
 
   python3 apc_verify.py BUNDLE.json [--json] [--l1-checkpoint L1_BLOCK_HASH] [--http-keys KEYS.json]
       [--signer-trust TRUST.json] [--drafts] [--require-level LEVEL] [--ap2-tsa-cert TSA.pem]
-      [--require-http-signature]
+      [--require-http-signature] [--http-clock-skew SECONDS]
       (the report is always JSON; --json is accepted and changes nothing; --l1-checkpoint: the hash of an L1 block the
       reader trusts, from which canonical.l1_state is proven, SPEC 0.4; --http-keys: the keys the reader trusts for
       the RFC 9421 signatures of exchange, SPEC 0.8; --signer-trust: the signers the reader trusts for x402
@@ -12,7 +12,8 @@ hashes, apc_siglib, SPEC 32.12).
       reported apart in `drafts`, the verdict unchanged; --require-level: signature, settlement_record,
       inclusion_proof or finality_proven, a chain_verified whose evidence_level is lower becomes chain_incomplete, SPEC
       30.3; --require-http-signature (with --http-keys only): a chain_verified whose X7 is not verified becomes
-      chain_incomplete, SPEC 10.1 (d); --ap2-tsa-cert: the TSA certificate the reader trusts for the RFC 3161
+      chain_incomplete, SPEC 10.1 (d); --http-clock-skew (with --http-keys only): the margin, 0 to 300 seconds
+      (default 0), around the block time an X7 signature window is read at, SPEC 10.1 (b); --ap2-tsa-cert: the TSA certificate the reader trusts for the RFC 3161
       anchors of a mandate pack, SPEC 31.7;
       a mandate pack is verified by ap2-evidence-pack v1.7.1 from the directory APC_AP2EV names, or from
       ../ap2-evidence-pack beside this folder when the variable is unset, SPEC 31 and 32.11; it needs `cryptography`)
@@ -651,17 +652,24 @@ def _split_drafts(doc, drafts):
     return out, taken
 
 
-def verify_bundle(doc, l1_checkpoint=None, http_keys=None, signer_trust=None, drafts=False):
+def verify_bundle(doc, l1_checkpoint=None, http_keys=None, signer_trust=None, drafts=False, http_clock_skew=0):
     """drafts: also run the draft profiles of SPEC sections 17 and 23 (report member `drafts`, never the verdict).
-    The bytes hashed with Keccak-256 are counted against apc_block.KECCAK_BUDGET (SPEC 29.2)."""
+    The bytes hashed with Keccak-256 are counted against apc_block.KECCAK_BUDGET (SPEC 29.2). http_clock_skew: the
+    reader's margin in seconds for the X7 windows, an integer from 0 to 300 (SPEC 10.1 b)."""
+    import apc_http
+    if isinstance(http_clock_skew, bool) or not isinstance(http_clock_skew, int) \
+            or not 0 <= http_clock_skew <= apc_http.SKEW_MAX:
+        raise Refusal("http_clock_skew: not an integer from 0 to %d (SPEC 10.1 b)" % apc_http.SKEW_MAX)
     outer = apc_block.KECCAK_SPENT is None
     if outer:
         apc_block.KECCAK_SPENT = 0
+    skew, apc_http.WINDOW_SKEW = apc_http.WINDOW_SKEW, http_clock_skew
     try:
         return _verify_counted(doc, l1_checkpoint, http_keys, signer_trust, drafts)
     except apc_block.HashBudget as e:
         raise Refusal(str(e))
     finally:
+        apc_http.WINDOW_SKEW = skew
         if outer:
             apc_block.KECCAK_SPENT = None
 
@@ -2050,6 +2058,15 @@ def main(argv):
         if not AP2_TSA_CERT[0] or AP2_TSA_CERT[0].startswith("-"):
             print(__doc__)
             return 64
+    skew = 0
+    if "--http-clock-skew" in args:                     # SPEC 10.1 (b): the reader's margin for the X7 windows
+        i = args.index("--http-clock-skew")
+        v = args[i + 1] if i + 1 < len(args) else ""
+        del args[i:i + 2]
+        if not re.fullmatch(r"0|[1-9][0-9]{0,2}", v) or int(v) > 300 or keys_path is None:
+            print(__doc__)
+            return 64
+        skew = int(v)
     level = None
     if "--require-level" in args:                       # SPEC 30.3: the evidence the reader requires
         i = args.index("--require-level")
@@ -2078,7 +2095,7 @@ def main(argv):
                 trust = strict_json(read_bundle_bytes(trust_path).decode("utf-8"))
             except OSError as e:
                 raise Refusal("cannot read %s: %s" % (trust_path, e.strerror or e))
-        rep = verify_bundle(doc, checkpoint, keys, trust, drafts)
+        rep = verify_bundle(doc, checkpoint, keys, trust, drafts, skew)
         if level is not None:
             rep = require_level(rep, level)
         if need_sig:

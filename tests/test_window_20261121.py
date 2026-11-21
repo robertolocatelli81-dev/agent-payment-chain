@@ -62,15 +62,15 @@ def response(created=None, expires=None):
             + signed(['"@status": 200'], ("@status",), created, expires)}
 
 
-def expected(where, c, x, t):
-    """SPEC 10.1 (a) and (b), written from the text"""
+def expected(where, c, x, t, n=0):
+    """SPEC 10.1 (a) and (b), written from the text; n the reader's margin"""
     if c is not None and x is not None and x < c:
         return "failed:expires_before_created"
     if t is None:
         return "verified"
-    if where == "request" and c is not None and c > t:
+    if where == "request" and c is not None and c > t + n:
         return "not_evaluated:created_after_block_time"
-    if x is not None and x < t:
+    if x is not None and x < t - n:
         return "not_evaluated:expired_before_block_time"
     return "verified"
 
@@ -272,6 +272,68 @@ REAL = os.path.join(ROOT, "bundles", "real_v03", "v002_b004_direct_envelope_reco
 REAL_P2 = os.path.join(ROOT, "bundles", "real_permit2", "p029_envelope_reconstructed_proof.json")   # apc-0.10, B1
 
 
+class ClockSkew(unittest.TestCase):
+    """SPEC 10.1 (b), Amendment 0.21.6: --http-clock-skew N (0..300, with --http-keys), and the measured deltas"""
+
+    def one(self, where, c, x, t, n):
+        ex = {"request": request(c, x)} if where == "request" else {"request": request(sign=False),
+                                                                    "response": response(c, x)}
+        old = h.WINDOW_SKEW
+        try:
+            h.WINDOW_SKEW = n
+            res, notes, m = h.check({"payment_payload": {}, "exchange": ex}, h.parse_keys(KEYS), t)
+        finally:
+            h.WINDOW_SKEW = old
+        return m
+
+    def test_generated_windows_with_a_margin(self):
+        rng = random.Random(20261122)
+        for _ in range(500):
+            where, n = rng.choice(("request", "response")), rng.randint(0, 300)
+            t = T0
+            c = rng.choice((None, t - n - 1, t - n, t, t + n, t + n + 1, t + rng.randint(-400, 400)))
+            x = rng.choice((None, t - n - 1, t - n, t, t + n, t + n + 1, t + rng.randint(-400, 400)))
+            m = self.one(where, c, x, t, n)
+            (sg,) = m["signatures"]
+            self.assertEqual(sg["result"], expected(where, c, x, t, n), (where, c, x, n))
+            self.assertEqual((sg["block_time_minus_created"], sg["expires_minus_block_time"]),
+                             (None if c is None else t - c, None if x is None else x - t))
+            self.assertEqual((m["block_time"], m["clock_skew"]), (t, n))
+
+    def test_deltas_null_without_block_time_and_on_a_malformed_field(self):
+        m = self.one("request", T0, T0 + 9, None, 0)
+        self.assertEqual((m["signatures"][0]["block_time_minus_created"], m["signatures"][0]["expires_minus_block_time"],
+                          m["block_time"]), (None, None, None))
+        ex = {"request": request(T0, T0 + 1)}
+        ex["request"]["fields"][2][1] += ", sig1=()"
+        _, _, m = h.check({"payment_payload": {}, "exchange": ex}, h.parse_keys(KEYS), T0)
+        self.assertEqual((m["signatures"][0]["result"], m["signatures"][0]["block_time_minus_created"],
+                          m["signatures"][0]["expires_minus_block_time"]), ("failed:signature_input_malformed", None, None))
+        _, _, m = h.check({"payment_payload": {}, "exchange": {"request": request(T0 - 4, T0 + 7)}}, None, T0)
+        self.assertEqual((m["signatures"][0]["result"], m["signatures"][0]["block_time_minus_created"],
+                          m["signatures"][0]["expires_minus_block_time"]), ("not_evaluated:absent:no_http_keys", 4, 7))
+
+    def test_library_grammar(self):
+        for n in (-1, 301, 10 ** 9, True, False, 5.0, "5", None, [5]):
+            with self.assertRaises(av.Refusal, msg=repr(n)):
+                av.verify_bundle(md_bundle(), None, KEYS, http_clock_skew=n)
+        for n in (0, 1, 300):
+            self.assertEqual(av.verify_bundle(md_bundle(), None, KEYS, http_clock_skew=n)["verdict"], "chain_verified")
+        self.assertEqual(h.WINDOW_SKEW, 0)
+
+    def cli(self, *args):
+        return Required.cli(self, *args)
+
+    def test_cli_grammar(self):
+        for v in ("0", "5", "300"):
+            self.assertEqual(self.cli("@B", "--http-keys", "@K", "--http-clock-skew", v)[0], 0, v)
+        for v in ("301", "-1", "+5", "05", "00", "5.0", " 5", "5 ", "1e2", "\u0663", "", "0x5", "1000"):
+            self.assertEqual(self.cli("@B", "--http-keys", "@K", "--http-clock-skew", v)[0], 64, repr(v))
+        self.assertEqual(self.cli("@B", "--http-keys", "@K", "--http-clock-skew")[0], 64)
+        self.assertEqual(self.cli("@B", "--http-clock-skew", "5")[0], 64)                  # without --http-keys
+        self.assertEqual(self.cli("@B", "--http-keys", "@K", "--http-clock-skew", "5", "--http-clock-skew", "5")[0], 64)
+
+
 class RealBlockTime(unittest.TestCase):
     """a real Base payment with B1 verified, given an exchange signed by us: the window read at its block time"""
 
@@ -320,6 +382,19 @@ class RealBlockTime(unittest.TestCase):
             self.assertFalse(r["checks"]["B1"].startswith("verified"), doc["bundle_version"])
             self.assertEqual(r["checks"]["X7"], "verified", doc["bundle_version"])
             self.assertTrue(any("proves no block time" in n for n in r["notes"]), doc["bundle_version"])
+
+    def test_margin_on_the_real_bundles(self):
+        for doc in self.docs:
+            t = int(doc["inclusion"]["block_header"]["timestamp"], 16)
+            d = self.with_exchange(t + 3, t + 60, doc)
+            for n, x7 in ((0, "not_evaluated:created_after_block_time"), (2, "not_evaluated:created_after_block_time"),
+                          (3, "verified"), (300, "verified")):
+                r = av.verify_bundle(d, None, KEYS, http_clock_skew=n)
+                self.assertEqual(r["checks"]["X7"], x7, (doc["bundle_version"], n))
+                self.assertEqual((r["exchange"]["block_time"], r["exchange"]["clock_skew"],
+                                  r["exchange"]["signatures"][0]["block_time_minus_created"],
+                                  r["exchange"]["signatures"][0]["expires_minus_block_time"]), (t, n, -3, 60))
+            self.assertEqual(h.WINDOW_SKEW, 0)
 
     def test_required_on_the_real_bundle(self):
         r = av.require_http_signature(av.verify_bundle(self.doc, None, KEYS))

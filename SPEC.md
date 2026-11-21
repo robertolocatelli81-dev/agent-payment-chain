@@ -696,7 +696,8 @@ Field values are read by name with case ignored; a field that occurs on several 
 Ed25519 key is 32 bytes, a P-256 key 65 bytes (0x04 || x || y) on the curve.
 
 Report member `exchange` of an apc-0.3 or apc-0.5 bundle: null without one (as `provenance`), else {status,
-request_body_sha256, response_body_sha256, signatures}. X1-X7 enter `failed` / `not_evaluated` like every check; an
+request_body_sha256, response_body_sha256, signatures} (and, from Amendment 0.21.6, block_time and clock_skew, section
+10.1 (b)). X1-X7 enter `failed` / `not_evaluated` like every check; an
 absent exchange adds none of them (the null member says it is absent).
 
 ### 10.1 Amendment 0.21.6 (section 32.15; Unreleased, 2026-11-21) — the window of an X7 signature, the keys given, and the reader who requires a signature
@@ -724,11 +725,21 @@ offer and receipt checks of section 13 already read), a label whose signature th
   `not_evaluated:expired_before_block_time`; its `created` is not compared, since a response written after the block
   is the normal order.
 
-A parameter that is absent is not compared. No margin is added (apc_http.WINDOW_SKEW, 0 seconds): the window is the
-signer's declaration, and RFC 9421 3.2.1 lets a verifier reject before `expires`, never after it. No signed HTTP
-exchange of a real payment is in the corpus to measure a clock offset on (0 of the 1132 bundles of the author's corpus
-carry `exchange`, 2026-11-21), so the margin is a parameter left at 0. A label outside the window is not shown valid
-at the instant the bundle proves; its signature is not shown wrong either: it is `not_evaluated`, X7 takes it as any
+A parameter that is absent is not compared. The margin is the reader's: `--http-clock-skew N` (apc_verify, only with
+`--http-keys`; `verify_bundle(..., http_clock_skew=N)`), N an integer from 0 to 300 written in decimal without a sign
+or leading zeros; anything else, or the option given twice, is usage (exit 64; `verify_bundle` refuses it). A request
+label is then compared as `created` > T + N and `expires` < T − N, a response label as `expires` < T − N. The default is
+0 seconds, the closest reading: the window is the signer's declaration, RFC 9421 3.2.1 lets a verifier reject before
+`expires`, never after it, and no number is set by RFC 9421 or by draft-meunier-webbotauth-httpsig-protocol-02.
+Implementations read 2026-11-21 (`SCELTE_FUTURO_20261121.md` of the author's notes, section 3a): Cloudflare
+web-bot-auth `ce5e54f` defaults to 0 (`policy.clockSkew ?? 0`), pyauth http-message-signatures 3.0.0 to 5 s,
+remitly-oss httpsig-go 1.2.2 to 60 s, the AP2 `verify_chain` (JWT) to 300 s, the largest default seen and the bound
+of N. No signed HTTP exchange of a real payment is in the corpus to measure a clock offset on (0 of the 1132 bundles
+of the author's corpus carry `exchange`, 2026-11-21). Measured numbers for the reader's own policy: every label of the
+report carries `block_time_minus_created` (T − `created`) and `expires_minus_block_time` (`expires` − T), integers
+when T is proven and the parameter is an integer, null otherwise, whatever the label's result; the report member
+`exchange` carries `block_time` (T or null) and `clock_skew` (N). A label outside the window is not shown valid at
+the instant the bundle proves; its signature is not shown wrong either: it is `not_evaluated`, X7 takes it as any
 `not_evaluated` label (section 10) and the verdict is `chain_incomplete`, not `chain_failed`.
 
 Without a proven block time (B1 not `verified`; apc-0.5, whose `chain_tx.blockTime` is declared; apc-0.12 and

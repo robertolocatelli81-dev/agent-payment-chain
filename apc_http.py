@@ -19,7 +19,8 @@ FIELD_VALUE = re.compile(r"(?:[\x21-\x7e](?:[\x20-\x7e\t]*[\x21-\x7e])?)?\Z")  #
 B64 = re.compile(r"(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?\Z")
 DEFAULT_PORT = {"http": "80", "https": "443"}
 ALGS = ("ed25519", "ecdsa-p256-sha256")
-WINDOW_SKEW = 0             # SPEC 10.1 (b): seconds added on each side of a signature window (0: the signer's)
+WINDOW_SKEW = 0             # SPEC 10.1 (b): the reader's margin in seconds, set by verify_bundle (0: the signer's window)
+SKEW_MAX = 300              # SPEC 10.1 (b): the largest margin accepted (--http-clock-skew 0..300)
 
 
 class SFError(ValueError):
@@ -595,10 +596,12 @@ def window(sigs, block_time):
     or expires. Returns the notes."""
     notes = []
     for s in sigs:
+        c, x = s.get("created"), s.get("expires")       # measured for the reader's own policy, whatever the result
+        s["block_time_minus_created"] = block_time - c if block_time is not None and _int(c) else None
+        s["expires_minus_block_time"] = x - block_time if block_time is not None and _int(x) else None
         r = s["result"]
         if r.startswith("failed") or r.startswith("not_evaluated:absent:"):
             continue                                    # (an entry of a malformed field has no created, expires)
-        c, x = s["created"], s["expires"]
         if _int(c) and _int(x) and x < c:
             s["result"] = "failed:expires_before_created"
             continue
@@ -707,5 +710,5 @@ def check(doc, keys=None, block_time=None):
               "request_body_sha256": hashlib.sha256(rq["body"]).hexdigest() if rq["body"] is not None else None,
               "response_body_sha256": (hashlib.sha256(rs["body"]).hexdigest()
                                        if rs is not None and rs["body"] is not None else None),
-              "signatures": sigs}
+              "signatures": sigs, "block_time": block_time, "clock_skew": WINDOW_SKEW}
     return res, notes, member

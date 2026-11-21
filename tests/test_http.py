@@ -331,7 +331,7 @@ class X402HttpMd(unittest.TestCase):
                           "X5q": "not_evaluated:absent:no_content_digest", "X5r": "not_evaluated:absent:no_content_digest",
                           "X6": "verified", "X7": "not_evaluated:absent:no_signature"})
         self.assertEqual(r["exchange"], {"status": 200, "request_body_sha256": None, "response_body_sha256": None,
-                                         "signatures": []})
+                                         "signatures": [], "block_time": None, "clock_skew": 0})   # SPEC 10.1 (b)
         self.assertTrue(any(n.startswith("exchange (declared)") for n in r["notes"]))
 
     def test_spec_failure_example(self):
