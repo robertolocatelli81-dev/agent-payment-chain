@@ -19,6 +19,7 @@ FIELD_VALUE = re.compile(r"(?:[\x21-\x7e](?:[\x20-\x7e\t]*[\x21-\x7e])?)?\Z")  #
 B64 = re.compile(r"(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?\Z")
 DEFAULT_PORT = {"http": "80", "https": "443"}
 ALGS = ("ed25519", "ecdsa-p256-sha256")
+WINDOW_SKEW = 0             # SPEC 10.1 (b): seconds added on each side of a signature window (0: the signer's)
 
 
 class SFError(ValueError):
@@ -582,9 +583,41 @@ def _media(v):
     return v.split(";", 1)[0].strip().lower()
 
 
-def check(doc, keys=None):
+def _int(v):
+    return isinstance(v, int) and not isinstance(v, bool)
+
+
+def window(sigs, block_time):
+    """SPEC 10.1 (a) and (b), on the X7 entries judged under the reader's keys: a label whose expires is less than its
+    created is failed:expires_before_created; a verified label is compared with block_time, the block time the bundle
+    proves (never a clock): a request created after it, or a request or response expired before it, is not_evaluated
+    with the reason. Without block_time nothing is compared and a note names each verified label that carries created
+    or expires. Returns the notes."""
+    notes = []
+    for s in sigs:
+        r = s["result"]
+        if r.startswith("failed") or r.startswith("not_evaluated:absent:"):
+            continue                                    # (an entry of a malformed field has no created, expires)
+        c, x = s["created"], s["expires"]
+        if _int(c) and _int(x) and x < c:
+            s["result"] = "failed:expires_before_created"
+            continue
+        if r != "verified" or not (_int(c) or _int(x)):
+            continue
+        if block_time is None:
+            notes.append("X7: %s label %s carries created/expires, not compared: the bundle proves no block time (SPEC "
+                         "10.1 b)" % (s["where"], s["label"]))
+        elif s["where"] == "request" and _int(c) and c > block_time + WINDOW_SKEW:
+            s["result"] = "not_evaluated:created_after_block_time"
+        elif _int(x) and x < block_time - WINDOW_SKEW:
+            s["result"] = "not_evaluated:expired_before_block_time"
+    return notes
+
+
+def check(doc, keys=None, block_time=None):
     """SPEC 0.8 X1-X7 for a bundle with `exchange`: (checks, notes, report member); (None, [], None) without one.
-    keys: parse_keys() output (the reader's trust) or None."""
+    keys: parse_keys() output (the reader's trust) or None. block_time: the block time the bundle proves (SPEC 10.1 b),
+    or None."""
     if "exchange" not in doc:
         return None, [], None
     ex = parse_exchange(doc["exchange"])
@@ -661,6 +694,7 @@ def check(doc, keys=None):
         res["X6"] = ("not_evaluated:absent:no_content_type" if ct is None else
                      "verified" if _media(ct) == _media(mime) else "failed:content_type_not_the_declared_mime_type")
     sigs = signatures(rq, ex, True, keys) + (signatures(rs, ex, False, keys) if rs is not None else [])
+    notes += window(sigs, block_time)                   # SPEC 10.1: without keys every entry is absent, none changes
     if not sigs:
         res["X7"] = "not_evaluated:absent:no_signature"
     else:

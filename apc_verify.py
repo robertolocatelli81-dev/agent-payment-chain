@@ -931,8 +931,11 @@ def _verify_bundle(doc, l1_checkpoint=None, http_keys=None, signer_trust=None):
     else:
         res["M1"] = "not_evaluated:absent:no_mandate"
     xm = None
+    btime = None                                        # the block time B1 proves: X7 windows (10.1), MP, OR
+    if v03 and res.get("B1") == "verified":
+        btime = int(doc["inclusion"]["block_header"]["timestamp"], 16)
     if v03:                                             # SPEC 0.8: the HTTP exchange (X1-X7)
-        xr, xn, xm = exchange_checks(doc, http_keys)
+        xr, xn, xm = exchange_checks(doc, http_keys, btime)
         if xr:
             res.update(xr)
             notes += xn
@@ -953,9 +956,6 @@ def _verify_bundle(doc, l1_checkpoint=None, http_keys=None, signer_trust=None):
     notes += pin
     # SPEC 0.11: signed offers and receipts of the x402 offer-receipt extension (OR1-OR3), every bundle version
     pr_doc = doc.get("payment_required")
-    btime = None
-    if v03 and res.get("B1") == "verified":
-        btime = int(doc["inclusion"]["block_header"]["timestamp"], 16)
     mandate_rep = None
     if mandate_ap2ev is not None:                       # SPEC 0.20 (section 31): MP1-MP7, after the block time of B1
         mr, mn, mandate_rep = apc_mandate.check(mandate_ap2ev, au, acc, btime, AP2_TSA_CERT[0])
@@ -1497,11 +1497,12 @@ def _check_l1(parsed, game, l1_block, results, checkpoint):
     return "verified"
 
 
-def exchange_checks(doc, http_keys):
-    """SPEC 0.8 (apc_http.py): (checks, notes, report member), (None, [], None) without exchange."""
+def exchange_checks(doc, http_keys, block_time=None):
+    """SPEC 0.8 (apc_http.py): (checks, notes, report member), (None, [], None) without exchange. block_time: the time
+    of the block the bundle proves (B1 verified), compared with the windows of the X7 signatures (SPEC 10.1 b)."""
     import apc_http
     keys = apc_http.parse_keys(http_keys) if http_keys is not None else None
-    return apc_http.check(doc, keys)
+    return apc_http.check(doc, keys, block_time)
 
 
 BC_CODE = re.compile(r"[a-z0-9_]{1,32}\Z")

@@ -1,0 +1,202 @@
+"""SPEC 10.1 (a) and (b) (Unreleased, 2026-11-21): the window of an X7 signature read at the block time the
+bundle proves. Keys: RFC 9421 B.1.4 (test-key-ed25519); signatures are our own, the base written out by hand as RFC
+9421 2.5 says. WindowRule needs no real corpus; RealBlockTime reads two real bundles with B1 verified
+(bundles/real_v03, apc-0.3; bundles/real_permit2, apc-0.10) and skips without them."""
+import base64
+import copy
+import json
+import os
+import random
+import sys
+import unittest
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, ROOT)
+import apc_http as h  # noqa: E402
+import apc_solana as sol  # noqa: E402
+import apc_verify as av  # noqa: E402
+
+
+def b64u(s):
+    return base64.urlsafe_b64decode(s + "=" * (-len(s) % 4))
+
+
+ED_PUB = b64u("JrQLj5P_89iXES9-vFgrIy29clF9CC_oPPsw3c5D0bs")
+ED_SEED = b64u("n4Ni-HpISpVObnQMW0wOhCKROaIKqKtW_2ZYb2p9KcU")
+KEYS = {"apc_http_keys": 1, "keys": {"k": {"alg": "ed25519", "public_key": ED_PUB.hex()}}}
+HOST = "api.example.com"
+PAYSIG = base64.b64encode(b'{"x402Version":2}').decode()
+T0 = 1763700000                              # a block time (2025-11-21T04:40:00Z)
+
+
+def params(created, expires, comps):
+    p = "(" + " ".join('"%s"' % c for c in comps) + ")"
+    if created is not None:
+        p += ";created=%d" % created
+    if expires is not None:
+        p += ";expires=%d" % expires
+    return p + ';keyid="k"'
+
+
+def signed(lines, comps, created, expires):
+    p = params(created, expires, comps)
+    base = "\n".join(lines + ['"@signature-params": ' + p]).encode()
+    return [["Signature-Input", "sig1=" + p],
+            ["Signature", "sig1=:%s:" % base64.b64encode(sol.ed25519_sign(ED_SEED, base)).decode()]]
+
+
+def request(created=None, expires=None, sign=True, uri="https://api.example.com/premium-data", paysig=PAYSIG):
+    host = uri.split("/")[2]
+    fields = [["Host", host], ["PAYMENT-SIGNATURE", paysig]]
+    if sign:
+        fields += signed(['"@method": POST', '"@authority": %s' % host, '"payment-signature": %s' % paysig],
+                         ("@method", "@authority", "payment-signature"), created, expires)
+    return {"method": "POST", "target_uri": uri, "fields": fields}
+
+
+def response(created=None, expires=None):
+    return {"status": 200, "fields": [["Content-Type", "application/json"]]
+            + signed(['"@status": 200'], ("@status",), created, expires)}
+
+
+def expected(where, c, x, t):
+    """SPEC 10.1 (a) and (b), written from the text"""
+    if c is not None and x is not None and x < c:
+        return "failed:expires_before_created"
+    if t is None:
+        return "verified"
+    if where == "request" and c is not None and c > t:
+        return "not_evaluated:created_after_block_time"
+    if x is not None and x < t:
+        return "not_evaluated:expired_before_block_time"
+    return "verified"
+
+
+class WindowRule(unittest.TestCase):
+    def one(self, where, c, x, t, keys=KEYS):
+        ex = {"request": request(c, x)} if where == "request" else {"request": request(sign=False),
+                                                                    "response": response(c, x)}
+        res, notes, m = h.check({"payment_payload": {}, "exchange": ex}, h.parse_keys(keys) if keys else None, t)
+        (s,) = m["signatures"]
+        return res["X7"], s["result"], notes
+
+    def test_expires_before_created_fails_with_or_without_block_time(self):
+        for where in ("request", "response"):
+            for t in (None, T0):
+                self.assertEqual(self.one(where, T0, T0 - 1, t)[:2], ("failed:expires_before_created",) * 2)
+        # the 2026-11-20 measure: created=1618884473, expires=1
+        self.assertEqual(self.one("request", 1618884473, 1, None)[1], "failed:expires_before_created")
+
+    def test_equal_created_and_expires_is_one_second(self):
+        self.assertEqual(self.one("request", T0, T0, T0)[1], "verified")
+        self.assertEqual(self.one("request", T0, T0, T0 + 1)[1], "not_evaluated:expired_before_block_time")
+        self.assertEqual(self.one("request", T0, T0, T0 - 1)[1], "not_evaluated:created_after_block_time")
+
+    def test_request_window_at_the_block_time(self):
+        self.assertEqual(self.one("request", T0 - 5, T0 + 60, T0)[:2], ("verified", "verified"))
+        self.assertEqual(self.one("request", T0 + 1, T0 + 60, T0)[:2], ("not_evaluated:created_after_block_time",) * 2)
+        self.assertEqual(self.one("request", T0 - 60, T0 - 1, T0)[:2], ("not_evaluated:expired_before_block_time",) * 2)
+        self.assertEqual(self.one("request", None, T0 - 1, T0)[1], "not_evaluated:expired_before_block_time")
+        self.assertEqual(self.one("request", T0 + 1, None, T0)[1], "not_evaluated:created_after_block_time")
+        self.assertEqual(self.one("request", None, None, T0)[1], "verified")
+
+    def test_response_created_after_the_block_is_the_normal_order(self):
+        self.assertEqual(self.one("response", T0 + 3, T0 + 300, T0)[1], "verified")
+        self.assertEqual(self.one("response", T0 - 10, T0 - 1, T0)[1], "not_evaluated:expired_before_block_time")
+
+    def test_without_block_time_a_note_and_the_result_unchanged(self):
+        x7, r, notes = self.one("request", T0 + 10, T0 + 20, None)
+        self.assertEqual((x7, r), ("verified", "verified"))
+        self.assertEqual([n for n in notes if "not compared" in n],
+                         ["X7: request label sig1 carries created/expires, not compared: the bundle proves no block "
+                          "time (SPEC 10.1 b)"])
+        self.assertEqual([n for n in self.one("request", None, None, None)[2] if "not compared" in n], [])
+
+    def test_without_keys_nothing_is_judged(self):
+        self.assertEqual(self.one("request", T0, T0 - 1, T0, keys=None)[1], "not_evaluated:absent:no_http_keys")
+
+    def test_a_signature_that_fails_keeps_its_failure(self):
+        ex = {"request": request(T0 + 100, T0 + 200)}
+        ex["request"]["fields"][1][1] = base64.b64encode(b'{"x402Version":1}').decode()     # covered field changed
+        res, _, m = h.check({"payment_payload": {}, "exchange": ex}, h.parse_keys(KEYS), T0)
+        self.assertEqual(m["signatures"][0]["result"], "failed:signature_invalid")
+
+    def test_a_malformed_field_with_keys_and_block_time(self):
+        ex = {"request": request(T0, T0 + 1)}
+        ex["request"]["fields"][2][1] += ", sig1=()"                # a repeated label (RFC 9421 4.1)
+        res, _, m = h.check({"payment_payload": {}, "exchange": ex}, h.parse_keys(KEYS), T0)
+        self.assertEqual((res["X7"], len(m["signatures"])), ("failed:signature_input_malformed", 1))
+
+    def test_generated_windows(self):
+        rng = random.Random(20261121)
+        vals = [None, 0, 1, T0 - 10 ** 6, T0 - 1, T0, T0 + 1, T0 + 10 ** 6, 10 ** 14]
+        seen = set()
+        for _ in range(600):
+            where = rng.choice(("request", "response"))
+            c, x = rng.choice(vals), rng.choice(vals)
+            t = rng.choice((None, T0, T0 + rng.randint(-5, 5)))
+            r = self.one(where, c, x, t)[1]
+            self.assertEqual(r, expected(where, c, x, t), (where, c, x, t))
+            seen.add(r)
+        self.assertEqual(seen, {"verified", "failed:expires_before_created", "not_evaluated:created_after_block_time",
+                                "not_evaluated:expired_before_block_time"})
+
+    def test_skew_is_a_parameter(self):
+        old = h.WINDOW_SKEW
+        try:
+            h.WINDOW_SKEW = 2
+            self.assertEqual(self.one("request", T0 + 2, T0 + 60, T0)[1], "verified")
+            self.assertEqual(self.one("request", T0 + 3, T0 + 60, T0)[1], "not_evaluated:created_after_block_time")
+            self.assertEqual(self.one("request", T0 - 60, T0 - 2, T0)[1], "verified")
+            self.assertEqual(self.one("request", T0 - 60, T0 - 3, T0)[1], "not_evaluated:expired_before_block_time")
+        finally:
+            h.WINDOW_SKEW = old
+        self.assertEqual(h.WINDOW_SKEW, 0)
+
+
+REAL = os.path.join(ROOT, "bundles", "real_v03", "v002_b004_direct_envelope_reconstructed.json")
+REAL_P2 = os.path.join(ROOT, "bundles", "real_permit2", "p029_envelope_reconstructed_proof.json")   # apc-0.10, B1
+
+
+class RealBlockTime(unittest.TestCase):
+    """a real Base payment with B1 verified, given an exchange signed by us: the window read at its block time"""
+
+    @classmethod
+    def setUpClass(cls):
+        from tests import real_corpus
+        real_corpus.need("real_v03", "real_permit2")
+        cls.docs = []
+        for p in (REAL, REAL_P2):
+            with open(p) as fh:
+                cls.docs.append(av.strict_json(fh.read()))
+        cls.doc = cls.docs[0]
+        cls.t = int(cls.doc["inclusion"]["block_header"]["timestamp"], 16)
+
+    def with_exchange(self, c, x, doc=None):
+        d = copy.deepcopy(self.doc if doc is None else doc)
+        pp = base64.b64encode(json.dumps(d["payment_payload"]).encode()).decode()
+        url = (d["payment_payload"].get("resource") or d.get("payment_required", {}).get("resource") or {}).get("url")
+        d["exchange"] = {"request": request(c, x, uri=url or "https://api.example.com/premium-data", paysig=pp)}
+        return d
+
+    def test_base_bundles(self):
+        for doc in self.docs:
+            r = av.verify_bundle(doc)
+            self.assertEqual((r["verdict"], r["checks"]["B1"]), ("chain_verified", "verified"))
+
+    def test_window(self):
+        for doc in self.docs:                   # apc-0.3 (apc_verify) and apc-0.10 (apc_permit2)
+            t = int(doc["inclusion"]["block_header"]["timestamp"], 16)
+            for (c, x), (verdict, x7) in (
+                    ((t - 5, t + 60), ("chain_verified", "verified")),
+                    ((t, t), ("chain_verified", "verified")),
+                    ((t + 1, t + 60), ("chain_incomplete", "not_evaluated:created_after_block_time")),
+                    ((t - 60, t - 1), ("chain_incomplete", "not_evaluated:expired_before_block_time")),
+                    ((t - 5, t - 6), ("chain_failed", "failed:expires_before_created"))):
+                r = av.verify_bundle(self.with_exchange(c, x, doc), None, KEYS)
+                self.assertEqual((r["verdict"], r["checks"]["X7"], r["checks"]["X1"]), (verdict, x7, "verified"),
+                                 (doc["bundle_version"], c, x))
+
+
+if __name__ == "__main__":
+    unittest.main()

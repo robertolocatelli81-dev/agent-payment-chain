@@ -672,7 +672,8 @@ Field values are read by name with case ignored; a field that occurs on several 
   `failed:unknown_keyid`, `failed:alg_not_the_key_algorithm`, `failed:signature_input_malformed`,
   `failed:signature_missing`, `failed:component_not_in_message:<identifier>`; a label of a Signature field with no
   Signature-Input is an entry of its own, `failed:signature_without_input` (3.2 step 1.2). Reported per label: where (request or
-  response), keyid, algorithm, the covered components, created and expires (not compared with any clock), and the
+  response), keyid, algorithm, the covered components, created and expires (never compared with a clock; with the
+  block time the bundle proves, section 10.1), and the
   result. No coverage is required; the report shows what each signature covers. X7 itself: the first `failed` of
   the labels (request labels first, then response, each in field order), else the first `not_evaluated`, else
   `verified`; `not_evaluated:absent:no_signature` when neither message has a Signature-Input or a Signature field.
@@ -684,6 +685,48 @@ Ed25519 key is 32 bytes, a P-256 key 65 bytes (0x04 || x || y) on the curve.
 Report member `exchange` of an apc-0.3 or apc-0.5 bundle: null without one (as `provenance`), else {status,
 request_body_sha256, response_body_sha256, signatures}. X1-X7 enter `failed` / `not_evaluated` like every check; an
 absent exchange adds none of them (the null member says it is absent).
+
+### 10.1 Unreleased (2026-11-21, after apc_verify 0.21.5; the number is given at release) — the window of an X7 signature
+Read 2026-11-21 at rfc-editor.org: RFC 9421 is a Proposed Standard of February 2024, obsoleted by none and updated by
+none (sha256 of rfc9421.txt 612655786bf4293bfc486e4177571467fbb3de6e6f0eea90cb74c346a34fdf3c, the copy of
+sources/http_20261025). Section 2.3: `created` and `expires` are UNIX timestamps of type Integer. Section 3.2.1:
+"Rejecting signatures past the expiration time in the expires timestamp" is one of the requirements an application
+"MAY impose", and "a verifier can always reject a signature ahead of its expiration time"; section 3.2 step 4 examines
+the parameters against such requirements, and "If any of the above steps fail or produce an error, the signature
+validation fails". This verifier reads no clock: the only instant it compares a window with is the one the bundle
+proves.
+
+(a) An empty window. With http_keys, a label whose `created` and `expires` are both present and whose `expires` is
+less than its `created` is `failed:expires_before_created`, whatever the signature: the signer's own parameters
+contradict each other. Until this revision such a label was `verified` (measured 2026-11-20 and 2026-11-21 on 0.21.5:
+created=1618884473, expires=1, an Ed25519 signature of the RFC 9421 B.1.4 key). Equal values are a window of one
+second and are compared as (b) says.
+
+(b) The block time. When the bundle proves the time of the block that holds the payment, T, the timestamp of
+`inclusion.block_header` with B1 `verified` (apc-0.3 and apc-0.10; the time the mandate checks MP3 and MP6 and the
+offer and receipt checks of section 13 already read), a label whose signature the key verifies is compared with T:
+- a request label (the request carried the payment and came before its execution): `created` greater than T is
+  `not_evaluated:created_after_block_time`, `expires` less than T is `not_evaluated:expired_before_block_time`;
+- a response label (the response reports the settlement and follows its submission): `expires` less than T is
+  `not_evaluated:expired_before_block_time`; its `created` is not compared, since a response written after the block
+  is the normal order.
+
+A parameter that is absent is not compared. No margin is added (apc_http.WINDOW_SKEW, 0 seconds): the window is the
+signer's declaration, and RFC 9421 3.2.1 lets a verifier reject before `expires`, never after it. No signed HTTP
+exchange of a real payment is in the corpus to measure a clock offset on (0 of the 1132 bundles of the author's corpus
+carry `exchange`, 2026-11-21), so the margin is a parameter left at 0. A label outside the window is not shown valid
+at the instant the bundle proves; its signature is not shown wrong either: it is `not_evaluated`, X7 takes it as any
+`not_evaluated` label (section 10) and the verdict is `chain_incomplete`, not `chain_failed`.
+
+Without a proven block time (B1 not `verified`; apc-0.5, whose `chain_tx.blockTime` is declared; apc-0.12 and
+apc-0.15, which carry no block header; apc-0.16, whose ledger header holds a `close_time` rounded to its
+`close_time_resolution` that no check reads as a time) the window is not compared: a note names each `verified` label
+that carries `created` or `expires`, and its result stays `verified`.
+
+Measured on this revision (2026-11-21): tests/test_window_20261121.py. The 1123 bundles of the regress list
+(regress/VERDICTS.json, with the options it gives), each run on 0f19843 and on this revision: with or without
+--http-keys (the RFC 9421 B.1.4 key) no verdict, exit or check changes (none of the 1123 carries `exchange`), and
+0f19843 gives the frozen verdict and exit of all 1123.
 
 ## 11. SPEC 0.9.1 (draft, 2026-10-26, local) — register of checks on an external device (apc_registry.py, apc-reg-0.2)
 An append-only register, kept on a device the user names (a USB drive, an SD card), of the checks apc_verify made:

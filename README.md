@@ -40,6 +40,15 @@ python3 -m unittest discover -s tests -t .   # the suite; the modules that need 
 python3 tools/rebuild_corpus.py --check-manifest
 ```
 
+## Unreleased (after apc_verify 0.21.5; the version number is given at release)
+
+- The RFC 9421 signatures of `exchange` (X7) and their window, SPEC 10.1: with `--http-keys`, a label whose `expires`
+  is less than its `created` is `failed:expires_before_created` (it was `verified`); when the bundle proves the time
+  of its block (B1 verified), a request signed after that time, or a request or response signature expired before
+  it, is `not_evaluated` with the reason (verdict `chain_incomplete`). No clock is read.
+- Verdicts: on the 1123 bundles of the regress list no verdict changes, with or without `--http-keys`, and no check
+  changes (none of them carries `exchange`).
+
 ## The real corpus
 
 The verifier was measured on real payments (SPEC 33). Their list is `corpus/MANIFEST.json`: chain, transaction, block

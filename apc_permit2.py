@@ -826,7 +826,8 @@ def verify(doc, http_keys=None, l1_checkpoint=None, signer_trust=None):
             res["M1"] = "not_evaluated:ap2_has_no_x402_binding"
     else:
         res["M1"] = "not_evaluated:absent:no_mandate"
-    xr, xn, xm = exchange_checks(doc, http_keys)
+    btime = int(doc["inclusion"]["block_header"]["timestamp"], 16) if res.get("B1") == "verified" else None
+    xr, xn, xm = exchange_checks(doc, http_keys, btime)  # SPEC 10.1 (b): the X7 windows read at the block time of B1
     if xr:
         res.update(xr)
         notes += xn
@@ -839,7 +840,6 @@ def verify(doc, http_keys=None, l1_checkpoint=None, signer_trust=None):
     res.update(pir)
     notes += pin
     pr_doc, st_doc = doc.get("payment_required"), doc.get("settlement")
-    btime = int(doc["inclusion"]["block_header"]["timestamp"], 16) if res.get("B1") == "verified" else None
     orr, orn, orm = offer_receipt_checks(doc, {        # OR1-OR3, section 13
         "evm": True, "network": acc["network"], "scheme": "exact", "asset": acc["asset"], "pay_to": acc["pay_to"],
         "amount": str(acc["amount"]),
