@@ -4,13 +4,16 @@ hashes, apc_siglib, SPEC 32.12).
 
   python3 apc_verify.py BUNDLE.json [--json] [--l1-checkpoint L1_BLOCK_HASH] [--http-keys KEYS.json]
       [--signer-trust TRUST.json] [--drafts] [--require-level LEVEL] [--ap2-tsa-cert TSA.pem]
+      [--require-http-signature]
       (the report is always JSON; --json is accepted and changes nothing; --l1-checkpoint: the hash of an L1 block the
       reader trusts, from which canonical.l1_state is proven, SPEC 0.4; --http-keys: the keys the reader trusts for
       the RFC 9421 signatures of exchange, SPEC 0.8; --signer-trust: the signers the reader trusts for x402
       signed offers and receipts, SPEC 0.11; --drafts: also the draft profiles of proposed x402 rules, SPEC section 17,
       reported apart in `drafts`, the verdict unchanged; --require-level: signature, settlement_record,
       inclusion_proof or finality_proven, a chain_verified whose evidence_level is lower becomes chain_incomplete, SPEC
-      30.3; --ap2-tsa-cert: the TSA certificate the reader trusts for the RFC 3161 anchors of a mandate pack, SPEC 31.7;
+      30.3; --require-http-signature (with --http-keys only): a chain_verified whose X7 is not verified becomes
+      chain_incomplete, SPEC 10.1 (d); --ap2-tsa-cert: the TSA certificate the reader trusts for the RFC 3161
+      anchors of a mandate pack, SPEC 31.7;
       a mandate pack is verified by ap2-evidence-pack v1.7.1 from the directory APC_AP2EV names, or from
       ../ap2-evidence-pack beside this folder when the variable is unset, SPEC 31 and 32.11; it needs `cryptography`)
 
@@ -664,8 +667,17 @@ def verify_bundle(doc, l1_checkpoint=None, http_keys=None, signer_trust=None, dr
 
 
 def _verify_counted(doc, l1_checkpoint, http_keys, signer_trust, drafts):
+    if http_keys is not None:                           # SPEC 10.1 (c): the reader's keys are read for every bundle
+        import apc_http
+        apc_http.parse_keys(http_keys)
     main, taken = _split_drafts(doc, drafts)
     out = _verify_bundle(main, l1_checkpoint, http_keys, signer_trust)
+    if http_keys is not None and "X7" not in out["checks"]:
+        # SPEC 10.1 (c): keys given and no exchange: X7 is listed as absent, so the report says no signature was judged
+        out["checks"]["X7"] = "not_evaluated:absent:no_exchange"
+        out["absent"] = sorted(out["absent"] + ["X7"])
+        out["notes"] = out["notes"] + ["X7: http keys given, but the bundle carries no exchange: no HTTP signature "
+                                       "was judged (SPEC 10.1 c)"]
     # SPEC 30.1: before the draft profiles
     out["evidence_level"], out["facilitator_reply"], en = evidence(main["bundle_version"], out)
     if en:
@@ -1973,6 +1985,19 @@ def require_level(rep, level):
     return rep
 
 
+def require_http_signature(rep):
+    """SPEC 10.1 (d): `http_signature_required` on a report of verify_bundle given http_keys; met when X7 is verified;
+    a chain_verified not met becomes chain_incomplete. No other verdict changes."""
+    x7 = rep["checks"].get("X7")
+    met = x7 == "verified"
+    rep["http_signature_required"] = {"met": met, "X7": x7}
+    if rep["verdict"] == "chain_verified" and not met:
+        rep["verdict"] = "chain_incomplete"
+        rep["notes"] = rep["notes"] + ["X7 is %s, not verified, and a verified HTTP signature is required "
+                                       "(--require-http-signature, SPEC 10.1 d): verdict chain_incomplete" % x7]
+    return rep
+
+
 def read_bundle_bytes(path):
     """The bytes of a regular file of at most MAX_BUNDLE_BYTES (a FIFO would block, /dev/zero would never end)."""
     fd = os.open(path, os.O_RDONLY | getattr(os, "O_NONBLOCK", 0))
@@ -1992,7 +2017,8 @@ def read_bundle_bytes(path):
 
 def main(argv):
     drafts = "--drafts" in argv[1:]                     # SPEC section 17: draft profiles, kept apart
-    args = [a for a in argv[1:] if a not in ("--json", "--drafts")]
+    need_sig = "--require-http-signature" in argv[1:]   # SPEC 10.1 (d): a verified HTTP signature is required
+    args = [a for a in argv[1:] if a not in ("--json", "--drafts", "--require-http-signature")]
     checkpoint = None
     if "--l1-checkpoint" in args:                       # SPEC 0.4: an L1 block hash the reader trusts
         i = args.index("--l1-checkpoint")
@@ -2032,7 +2058,7 @@ def main(argv):
         if level not in EVIDENCE_LEVELS[1:]:
             print(__doc__)
             return 64
-    if len(args) != 1 or args[0].startswith("-"):
+    if len(args) != 1 or args[0].startswith("-") or (need_sig and keys_path is None):
         print(__doc__)
         return 64
     try:
@@ -2055,6 +2081,8 @@ def main(argv):
         rep = verify_bundle(doc, checkpoint, keys, trust, drafts)
         if level is not None:
             rep = require_level(rep, level)
+        if need_sig:
+            rep = require_http_signature(rep)
     except Unsupported as e:
         rep = {"verifier": VERSION, "verdict": "unsupported", "reason": str(e)}
     except (Refusal, UnicodeDecodeError) as e:

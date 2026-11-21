@@ -46,8 +46,12 @@ python3 tools/rebuild_corpus.py --check-manifest
   is less than its `created` is `failed:expires_before_created` (it was `verified`); when the bundle proves the time
   of its block (B1 verified), a request signed after that time, or a request or response signature expired before
   it, is `not_evaluated` with the reason (verdict `chain_incomplete`). No clock is read.
-- Verdicts: on the 1123 bundles of the regress list no verdict changes, with or without `--http-keys`, and no check
-  changes (none of them carries `exchange`).
+- With `--http-keys`, X7 is always in the report: `not_evaluated:absent:no_exchange` for a bundle without `exchange`,
+  and the keys document is checked for every bundle version; `--require-http-signature` (with `--http-keys`) turns
+  a `chain_verified` whose X7 is not `verified` into `chain_incomplete` (SPEC 10.1).
+- Verdicts: on the 1123 bundles of the regress list no verdict changes, with or without `--http-keys`; without it no
+  check changes either, and with it the 1113 reports that are not refusals gain X7
+  `not_evaluated:absent:no_exchange` (SPEC 10.1).
 
 ## The real corpus
 

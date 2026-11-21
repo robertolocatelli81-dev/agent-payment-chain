@@ -686,7 +686,7 @@ Report member `exchange` of an apc-0.3 or apc-0.5 bundle: null without one (as `
 request_body_sha256, response_body_sha256, signatures}. X1-X7 enter `failed` / `not_evaluated` like every check; an
 absent exchange adds none of them (the null member says it is absent).
 
-### 10.1 Unreleased (2026-11-21, after apc_verify 0.21.5; the number is given at release) — the window of an X7 signature
+### 10.1 Unreleased (2026-11-21, after apc_verify 0.21.5; the number is given at release) — the window of an X7 signature, the keys given, and the reader who requires a signature
 Read 2026-11-21 at rfc-editor.org: RFC 9421 is a Proposed Standard of February 2024, obsoleted by none and updated by
 none (sha256 of rfc9421.txt 612655786bf4293bfc486e4177571467fbb3de6e6f0eea90cb74c346a34fdf3c, the copy of
 sources/http_20261025). Section 2.3: `created` and `expires` are UNIX timestamps of type Integer. Section 3.2.1:
@@ -723,10 +723,24 @@ apc-0.15, which carry no block header; apc-0.16, whose ledger header holds a `cl
 `close_time_resolution` that no check reads as a time) the window is not compared: a note names each `verified` label
 that carries `created` or `expires`, and its result stays `verified`.
 
+(c) The keys given. When the reader gives http_keys, the keys document is read and checked for every bundle (until
+this revision only by the readers of the versions that can carry `exchange`: beside an apc-0.1, apc-0.2 or apc-0.13
+bundle (apc_v1.verify takes no keys) a keys document outside the grammar was not refused; measured 2026-11-21 on
+0f19843 with apc_http_keys 2 and an apc-0.2 bundle), and a bundle without `exchange`, or of a version that cannot
+carry one, reports X7 `not_evaluated:absent:no_exchange`, listed under `absent` (section 5: it does not block). A
+reader who gave keys therefore always finds X7 in the report. Until this revision such a report had no X7 at all.
+
+(d) `--require-http-signature` (apc_verify; only with `--http-keys`, otherwise usage, exit 64): the report gains
+`http_signature_required: {"met": true | false, "X7": the X7 value or null}`, met when X7 is `verified` (every label
+of the exchange verified, section 10); a `chain_verified` that is not met becomes `chain_incomplete` (exit 2), with a
+note. No other verdict changes. It is applied after `--require-level` (section 30.3), and each says its own `met`.
+What each signature covers stays in the report; a coverage requirement is the reader's policy.
+
 Measured on this revision (2026-11-21): tests/test_window_20261121.py. The 1123 bundles of the regress list
-(regress/VERDICTS.json, with the options it gives), each run on 0f19843 and on this revision: with or without
---http-keys (the RFC 9421 B.1.4 key) no verdict, exit or check changes (none of the 1123 carries `exchange`), and
-0f19843 gives the frozen verdict and exit of all 1123.
+(regress/VERDICTS.json, with the options it gives), each run on 0f19843 and on this revision: without --http-keys no
+verdict, exit or check changes (and 0f19843 gives the frozen verdict and exit of all 1123); with --http-keys (the RFC
+9421 B.1.4 key) no verdict or exit changes, and the 1113 reports that are not refusals gain X7
+`not_evaluated:absent:no_exchange` (none of the 1123 carries `exchange`), the only check that changes.
 
 ## 11. SPEC 0.9.1 (draft, 2026-10-26, local) — register of checks on an external device (apc_registry.py, apc-reg-0.2)
 An append-only register, kept on a device the user names (a USB drive, an SD card), of the checks apc_verify made:

@@ -1,13 +1,16 @@
-"""SPEC 10.1 (a) and (b) (Unreleased, 2026-11-21): the window of an X7 signature read at the block time the
-bundle proves. Keys: RFC 9421 B.1.4 (test-key-ed25519); signatures are our own, the base written out by hand as RFC
-9421 2.5 says. WindowRule needs no real corpus; RealBlockTime reads two real bundles with B1 verified
-(bundles/real_v03, apc-0.3; bundles/real_permit2, apc-0.10) and skips without them."""
+"""SPEC 10.1 (Unreleased, 2026-11-21): the window of an X7 signature read at the block time the bundle proves, the
+keys given for a bundle without exchange, and --require-http-signature. Keys: RFC 9421 B.1.4 (test-key-ed25519);
+signatures are our own, the base written out by hand as RFC 9421 2.5 says. WindowRule, KeysGiven and Required need no
+real corpus; RealBlockTime reads two real bundles with B1 verified (bundles/real_v03, apc-0.3; bundles/real_permit2,
+apc-0.10) and skips without them. Positive control: on 0f19843 (before this revision) 17 of these 20 tests fail."""
 import base64
 import copy
 import json
 import os
 import random
+import subprocess
 import sys
+import tempfile
 import unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -154,6 +157,98 @@ class WindowRule(unittest.TestCase):
         self.assertEqual(h.WINDOW_SKEW, 0)
 
 
+def md_bundle():
+    """the x402 http.md example payment (sources/http_20261025/http.md), without exchange"""
+    import re
+    with open(os.path.join(ROOT, "sources", "http_20261025", "http.md")) as fh:
+        md = fh.read()
+    blocks = [json.loads(b) for b in re.findall(r"```json\n(.*?)```", md, re.S)]
+    return {"bundle_version": "apc-0.3", "payment_payload": blocks[1], "payment_required": blocks[0],
+            "settlement": blocks[2]}
+
+
+class KeysGiven(unittest.TestCase):
+    def test_no_exchange_lists_x7_absent(self):
+        r = av.verify_bundle(md_bundle(), None, KEYS)
+        self.assertEqual(r["checks"]["X7"], "not_evaluated:absent:no_exchange")
+        self.assertIn("X7", r["absent"])
+        self.assertEqual(r["absent"], sorted(r["absent"]))
+        self.assertIn("X7: http keys given, but the bundle carries no exchange: no HTTP signature was judged "
+                      "(SPEC 10.1 c)", r["notes"])
+        r0 = av.verify_bundle(md_bundle())
+        self.assertNotIn("X7", r0["checks"])
+        self.assertEqual(r0["verdict"], r["verdict"])          # absent does not block (section 5)
+        self.assertEqual(sorted(set(r["absent"]) - set(r0["absent"])), ["X7"])
+
+    def test_every_bundle_version_without_exchange(self):
+        for ver in ("apc-0.1", "apc-0.2", "apc-0.3"):     # apc-0.1 and apc-0.2 cannot carry exchange
+            d = md_bundle()
+            d["bundle_version"] = ver
+            r = av.verify_bundle(d, None, KEYS)
+            self.assertEqual((r["verdict"], r["checks"]["X7"]), ("chain_verified", "not_evaluated:absent:no_exchange"),
+                             ver)
+
+    def test_keys_outside_the_grammar_refused_without_exchange(self):
+        bad = [{"apc_http_keys": 2, "keys": KEYS["keys"]}, {"apc_http_keys": 1, "keys": {}},
+               dict(KEYS, extra=1), {"apc_http_keys": 1, "keys": {"k": {"alg": "ed25519", "public_key": "00"}}}, [], None]
+        for ver in ("apc-0.1", "apc-0.2", "apc-0.3"):     # until this revision apc-0.1 and apc-0.2 did not read them
+            d = md_bundle()
+            d["bundle_version"] = ver
+            for k in bad[:-1]:
+                with self.assertRaises(av.Refusal, msg=(ver, k)):
+                    av.verify_bundle(d, None, k)
+        self.assertNotIn("X7", av.verify_bundle(md_bundle(), None, bad[-1])["checks"])   # None = no keys given
+
+    def test_with_exchange_x7_is_the_exchange_one(self):
+        d = md_bundle()
+        d["exchange"] = {"request": request(sign=False)}
+        self.assertEqual(av.verify_bundle(d, None, KEYS)["checks"]["X7"], "not_evaluated:absent:no_signature")
+
+
+class Required(unittest.TestCase):
+    def rep(self, verdict, x7):
+        checks = {"K1": "verified"}
+        if x7 is not None:
+            checks["X7"] = x7
+        return {"verdict": verdict, "checks": checks, "notes": []}
+
+    def test_only_a_chain_verified_without_verified_x7_changes(self):
+        x7s = (None, "verified", "not_evaluated:absent:no_exchange", "not_evaluated:absent:no_signature",
+               "not_evaluated:created_after_block_time", "failed:expires_before_created")
+        for v in ("chain_verified", "chain_incomplete", "chain_failed"):
+            for x7 in x7s:
+                r = av.require_http_signature(self.rep(v, x7))
+                met = x7 == "verified"
+                self.assertEqual(r["http_signature_required"], {"met": met, "X7": x7})
+                self.assertEqual(r["verdict"], "chain_incomplete" if v == "chain_verified" and not met else v, (v, x7))
+                self.assertEqual(len(r["notes"]), 1 if v == "chain_verified" and not met else 0)
+
+    def cli(self, *args):
+        with tempfile.TemporaryDirectory() as tmp:
+            b, k = os.path.join(tmp, "b.json"), os.path.join(tmp, "k.json")
+            with open(b, "w") as fh:
+                json.dump(md_bundle(), fh)
+            with open(k, "w") as fh:
+                json.dump(KEYS, fh)
+            argv = [a.replace("@B", b).replace("@K", k) for a in args]
+            env = {x: y for x, y in os.environ.items() if x != "PYTHONPATH"}
+            p = subprocess.run([sys.executable, os.path.join(ROOT, "apc_verify.py")] + argv, capture_output=True,
+                               text=True, env=env, timeout=120)
+            return p.returncode, (json.loads(p.stdout) if p.stdout.startswith("{") else None)
+
+    def test_cli_needs_http_keys(self):
+        self.assertEqual(self.cli("@B", "--require-http-signature")[0], 64)
+        self.assertEqual(self.cli("--require-http-signature", "@B", "--require-level", "signature")[0], 64)
+
+    def test_cli_with_keys(self):
+        rc0, r0 = self.cli("@B", "--http-keys", "@K")
+        rc, r = self.cli("@B", "--http-keys", "@K", "--require-http-signature")
+        self.assertNotIn("http_signature_required", r0)
+        self.assertEqual(r["http_signature_required"], {"met": False, "X7": "not_evaluated:absent:no_exchange"})
+        self.assertEqual((rc0, r0["verdict"]), (0, "chain_verified"))     # the http.md payment verifies
+        self.assertEqual((rc, r["verdict"]), (2, "chain_incomplete"))
+
+
 REAL = os.path.join(ROOT, "bundles", "real_v03", "v002_b004_direct_envelope_reconstructed.json")
 REAL_P2 = os.path.join(ROOT, "bundles", "real_permit2", "p029_envelope_reconstructed_proof.json")   # apc-0.10, B1
 
@@ -196,6 +291,12 @@ class RealBlockTime(unittest.TestCase):
                 r = av.verify_bundle(self.with_exchange(c, x, doc), None, KEYS)
                 self.assertEqual((r["verdict"], r["checks"]["X7"], r["checks"]["X1"]), (verdict, x7, "verified"),
                                  (doc["bundle_version"], c, x))
+
+    def test_required_on_the_real_bundle(self):
+        r = av.require_http_signature(av.verify_bundle(self.doc, None, KEYS))
+        self.assertEqual((r["verdict"], r["http_signature_required"]["met"]), ("chain_incomplete", False))
+        r = av.require_http_signature(av.verify_bundle(self.with_exchange(self.t - 5, self.t + 60), None, KEYS))
+        self.assertEqual((r["verdict"], r["http_signature_required"]["met"]), ("chain_verified", True))
 
 
 if __name__ == "__main__":
