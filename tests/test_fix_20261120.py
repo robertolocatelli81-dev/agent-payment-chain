@@ -96,7 +96,8 @@ class McpLinesAndIds(unittest.TestCase):
         lines, expect = [], []
         for _ in range(300):
             i = rnd.choice(ids)
-            members = ['"jsonrpc":"2.0"', '"method":%s' % rnd.choice(methods)]
+            meth = rnd.choice(methods)
+            members = ['"jsonrpc":"2.0"', '"method":%s' % meth]
             if i is not None:
                 members.append('"id":%s' % i)
             extra = rnd.choice(["", ',"params":{"v":%s}' % rnd.choice(["1", "NaN", "-Infinity", '"s"']), ',"params":{"d":1,"d":2}'])
@@ -104,8 +105,10 @@ class McpLinesAndIds(unittest.TestCase):
             lines.append("{" + ",".join(members) + extra + "}")
             nonjson = i in ("NaN", "Infinity", "-Infinity") or "NaN" in extra or "Infinity" in extra
             dup = '"d":1,"d":2' in extra
-            expect.append("parse" if nonjson else "dup" if dup else "notification" if i is None
-                          else "badid" if i not in ("1", "42", '"x"') else "ok")
+            # a method that is not a string is not a Request object: -32600 id null, with or without an id (JSON-RPC
+            # 2.0 section 4 and its example; SPEC 8, Amendment 0.21.6)
+            expect.append("parse" if nonjson else "dup" if dup else "badid" if meth in ("1", "null")
+                          else "notification" if i is None else "badid" if i not in ("1", "42", '"x"') else "ok")
         rc, out = session(lines)
         self.assertEqual(rc, 0)
         replies = iter(out)

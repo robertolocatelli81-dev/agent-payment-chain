@@ -278,7 +278,11 @@ class McpSurvives(unittest.TestCase):
             outs = [json.loads(x) for x in p.stdout.splitlines() if x.strip()]
             self.assertEqual(p.returncode, 0, p.stderr[-300:])
             self.assertEqual(len(outs), 3)
-            self.assertNotEqual(outs[1].get("error", {}).get("code"), -32600)     # the line was served, not refused
+            if line.startswith("[["):                    # SPEC 8 (Amendment 0.21.6): nested deeper than 64, not read
+                self.assertEqual(outs[1]["error"], {"code": -32600, "message": "invalid request: nested deeper than "
+                                                                              "64 (SPEC 8)"})
+            else:
+                self.assertNotEqual(outs[1].get("error", {}).get("code"), -32600)     # the line was served, not refused
             self.assertEqual(outs[2], {"jsonrpc": "2.0", "id": 99, "result": {}})
 
 

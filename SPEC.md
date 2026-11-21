@@ -576,7 +576,18 @@ repeated in one object of a message, or an id that is not a string or an integer
 integer), is an invalid request (-32600) answered with id null (JSON-RPC 2.0 section 5); until 2026-11-20 such an id
 (true, an object, an array, null, 1.5) was echoed. A number written with a fraction or an exponent (1.0, 1e2) is not
 read as an integer. A line that is both not JSON and carries a repeated member is a parse error, wherever the repeated
-member stands; the repeats are found in time linear in the line. Tests: tests/test_fix_20261120.py (no real corpus
+member stands; the repeats are found in time linear in the line. (Amendment 0.21.6, Unreleased, 2026-11-21.) A line whose arrays and
+objects nest deeper than 64 (counted on the text before it is read, outside strings; the bound of section 29.1) is
+-32600 with id null, not read; a line that is not JSON stays a parse error (-32700) however deep, checked without
+recursion: until then such a line got whatever the interpreter's recursion limit gave (a line of
+5000 nested arrays: -32700 on Python 3.9 and 3.11, -32600 on 3.13, review of 2026-11-21); the deepest of the 131
+examples of schema/2026-07-28 (specification repository, main 2f3a950) nests 7. A message that is not a JSON-RPC 2.0
+Request object is -32600 with id null, with or without an id and inside a batch as alone: JSON-RPC 2.0 section 4
+(read at jsonrpc.org, "Updated: 2013-01-04") makes `method` "A String" and `params`, "If present", "a Structured
+value" (an array or an object), and its example answers `{"jsonrpc": "2.0", "method": 1, "params": "bar"}` with -32600
+and id null; until then a message without id whose `method` was not a string was taken for a notification and not
+answered, one with an id was answered as an unknown method (-32601, or -32600 before `initialize`), and `params` that
+were not structured (a string, a number) were read as no parameters. Tests: tests/test_fix_20261120.py (no real corpus
 needed).
 Revisions of MCP (Amendment 0.21.6, section 32.15, Unreleased; read 2026-11-21 at modelcontextprotocol.io and in the
 specification repository modelcontextprotocol/modelcontextprotocol, main at 2f3a950, docs/specification and

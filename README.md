@@ -63,7 +63,9 @@ python3 tools/rebuild_corpus.py --check-manifest
   request's `_meta`, no `initialize`) and 2025-11-25, 2025-06-18, 2025-03-26, 2024-11-05 after `initialize`. A legacy
   request other than `ping` before `initialize` is now refused (-32600); from 2025-11-25 on, invalid tool arguments
   are a tool error (`isError`) instead of -32602; after an `initialize` at 2025-03-26 a JSON-RPC batch (a JSON array)
-  is answered as that revision requires (SPEC section 8).
+  is answered as that revision requires. A JSON line nested deeper than 64, or a message that is not a JSON-RPC 2.0
+  Request object (`method` not a string, `params` not an array or object), is -32600 with id null, on every Python
+  (SPEC section 8).
 
 ## The real corpus
 

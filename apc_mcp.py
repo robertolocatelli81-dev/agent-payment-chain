@@ -12,6 +12,7 @@ the report with P1-P5 (apc_report.py). The bundle is passed as JSON text so that
 """
 import json
 import os
+import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -85,6 +86,102 @@ def _not_json(name):
     raise ValueError("%s is not JSON (RFC 8259 6)" % name)
 
 
+MAX_DEPTH = 64                                              # SPEC 8 and 29.1: arrays and objects nested in one line
+
+
+class TooDeep(Exception):
+    """A line whose arrays and objects nest deeper than MAX_DEPTH (SPEC 8): not read, -32600 on every interpreter."""
+
+
+def too_deep(text, limit=MAX_DEPTH):
+    """True when the brackets of a JSON text, counted outside strings, open more than `limit` deep. One pass over the
+    text, before any parser: the same answer on every Python (json's recursion limit differs between versions)."""
+    depth, in_str, esc = 0, False, False
+    for ch in text:
+        if in_str:
+            if esc:
+                esc = False
+            elif ch == "\\":
+                esc = True
+            elif ch == '"':
+                in_str = False
+        elif ch == '"':
+            in_str = True
+        elif ch in "[{":
+            depth += 1
+            if depth > limit:
+                return True
+        elif ch in "]}":
+            depth -= 1
+    return False
+
+
+_WS = re.compile(r"[ \t\n\r]*")
+_NUMBER = re.compile(r"-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][-+]?[0-9]+)?")
+
+
+def json_text(text):
+    """True when `text` is one JSON text (RFC 8259) as json.loads reads it here (NaN, Infinity and -Infinity are not
+    JSON), checked with a stack instead of recursion: a line too deep for json is still told apart from a line that is
+    not JSON (SPEC 8). Strings are read by json's own scanstring, strict as json.loads."""
+    i, n, stack, state = 0, len(text), [], "value"
+    while True:
+        i = _WS.match(text, i).end()
+        if state in ("value", "value_or_end"):
+            if state == "value_or_end" and text.startswith("]", i):
+                stack.pop()
+                i, state = i + 1, "after"
+                continue
+            if text.startswith("[", i):
+                stack.append("]")
+                i, state = i + 1, "value_or_end"
+                continue
+            if text.startswith("{", i):
+                stack.append("}")
+                i, state = i + 1, "key_or_end"
+                continue
+            if text.startswith('"', i):
+                try:
+                    i = json.decoder.scanstring(text, i + 1, True)[1]
+                except ValueError:
+                    return False
+            elif text.startswith(("true", "null"), i):
+                i += 4
+            elif text.startswith("false", i):
+                i += 5
+            else:
+                m = _NUMBER.match(text, i)
+                if not m:
+                    return False
+                i = m.end()
+            state = "after"
+        elif state in ("key", "key_or_end"):
+            if state == "key_or_end" and text.startswith("}", i):
+                stack.pop()
+                i, state = i + 1, "after"
+                continue
+            if not text.startswith('"', i):
+                return False
+            try:
+                i = json.decoder.scanstring(text, i + 1, True)[1]
+            except ValueError:
+                return False
+            i = _WS.match(text, i).end()
+            if not text.startswith(":", i):
+                return False
+            i, state = i + 1, "value"
+        else:                                            # after a value
+            if not stack:
+                return i == n
+            if text.startswith(",", i):
+                i, state = i + 1, ("value" if stack[-1] == "]" else "key")
+            elif text.startswith(stack[-1], i):
+                stack.pop()
+                i += 1
+            else:
+                return False
+
+
 def parse_line(text):
     """One message line -> the decoded value. NaN, Infinity and -Infinity, which Python's json module accepts, are not
     JSON (RFC 8259 6): ValueError, so a parse error (-32700) as SPEC section 8 says for a line that is not JSON; until
@@ -92,6 +189,10 @@ def parse_line(text):
     DuplicateMember (invalid request, -32600), but only once the whole line has been read as JSON: a line that is not
     JSON is a parse error wherever the repeated member stands. The repeats are found in one pass per object (time
     linear in the line)."""
+    if too_deep(text):
+        if not json_text(text):                          # not JSON first, as for a repeated member (JSON-RPC 2.0 5.1)
+            raise ValueError("not JSON (RFC 8259)")
+        raise TooDeep("nested deeper than %d (SPEC 8)" % MAX_DEPTH)
     repeated = []
 
     def members(pairs):
@@ -121,6 +222,11 @@ def handle(msg):
     if not isinstance(msg, dict) or msg.get("jsonrpc") != "2.0":
         return {"jsonrpc": "2.0", "id": None, "error": {"code": -32600, "message": "invalid request"}}
     method, id_ = msg.get("method"), msg.get("id")
+    if not isinstance(method, str) or ("params" in msg and not isinstance(msg["params"], (dict, list))):
+        # JSON-RPC 2.0 section 4: method "A String", params "a Structured value"; not a Request object, so not a
+        # notification either: -32600 with id null (section 5 and its example), with or without an id (SPEC 8)
+        return {"jsonrpc": "2.0", "id": None,
+                "error": {"code": -32600, "message": "invalid request: not a JSON-RPC 2.0 Request object"}}
     if "id" not in msg:                                  # notifications (notifications/initialized, ...)
         return None
     if not valid_id(id_):                                # JSON-RPC 2.0 section 5: an id not detected is answered null
@@ -265,7 +371,7 @@ def main():
             continue
         try:
             msg = parse_line(raw.decode("utf-8"))
-        except DuplicateMember as e:
+        except (DuplicateMember, TooDeep) as e:
             reply = {"jsonrpc": "2.0", "id": None, "error": {"code": -32600, "message": "invalid request: %s" % e}}
         except (ValueError, RecursionError):                 # UnicodeDecodeError is a ValueError
             reply = {"jsonrpc": "2.0", "id": None, "error": {"code": -32700, "message": "parse error"}}
