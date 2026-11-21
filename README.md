@@ -40,7 +40,7 @@ python3 -m unittest discover -s tests -t .   # the suite; the modules that need 
 python3 tools/rebuild_corpus.py --check-manifest
 ```
 
-## Unreleased (after apc_verify 0.21.5; the version number is given at release)
+## Unreleased: apc_verify 0.21.6, SPEC 32.15 (`VERSION` changes at the release)
 
 - The RFC 9421 signatures of `exchange` (X7) and their window, SPEC 10.1: with `--http-keys`, a label whose `expires`
   is less than its `created` is `failed:expires_before_created` (it was `verified`); when the bundle proves the time

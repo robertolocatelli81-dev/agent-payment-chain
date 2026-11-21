@@ -575,7 +575,7 @@ integer), is an invalid request (-32600) answered with id null (JSON-RPC 2.0 sec
 read as an integer. A line that is both not JSON and carries a repeated member is a parse error, wherever the repeated
 member stands; the repeats are found in time linear in the line. Tests: tests/test_fix_20261120.py (no real corpus
 needed).
-The revisions it speaks stop at 2025-06-18 (Unreleased, measured 2026-11-21). modelcontextprotocol.io/specification/
+The revisions it speaks stop at 2025-06-18 (Amendment 0.21.6, section 32.15, Unreleased; measured 2026-11-21). modelcontextprotocol.io/specification/
 versioning, read that day: "The current protocol version is 2026-07-28"; the specification repository
 (modelcontextprotocol/modelcontextprotocol, main at bbc31f8, docs/specification) holds two later revisions, 2025-11-25
 and 2026-07-28. The changelog of 2026-07-28 removes the `initialize` handshake and `ping`, makes `server/discover` a
@@ -699,7 +699,7 @@ Report member `exchange` of an apc-0.3 or apc-0.5 bundle: null without one (as `
 request_body_sha256, response_body_sha256, signatures}. X1-X7 enter `failed` / `not_evaluated` like every check; an
 absent exchange adds none of them (the null member says it is absent).
 
-### 10.1 Unreleased (2026-11-21, after apc_verify 0.21.5; the number is given at release) — the window of an X7 signature, the keys given, and the reader who requires a signature
+### 10.1 Amendment 0.21.6 (section 32.15; Unreleased, 2026-11-21) — the window of an X7 signature, the keys given, and the reader who requires a signature
 Read 2026-11-21 at rfc-editor.org: RFC 9421 is a Proposed Standard of February 2024, obsoleted by none and updated by
 none (sha256 of rfc9421.txt 612655786bf4293bfc486e4177571467fbb3de6e6f0eea90cb74c346a34fdf3c, the copy of
 sources/http_20261025). Section 2.3: `created` and `expires` are UNIX timestamps of type Integer. Section 3.2.1:
@@ -3220,6 +3220,12 @@ ResourceInfo stays closed, and K4 compares `accepted` with each `accepts` entry 
 reader reads the entry by its grammar: the `exact` entries on an EVM network (apc_verify, apc_permit2), on Solana
 (apc_svm) and on a v1 EVM network (apc_v1); apc_xlm, apc_xrp and apc_authcap, and every other entry, read it only through
 K4 (as in 0.21.4).
+
+### 32.15 Amendment 0.21.6 (Unreleased, 2026-11-21; apc_verify 0.21.6 at release; every bundle version) — HTTP signatures read at the block time, the keys given, the reader who requires a signature, the MCP server's revisions
+The rules are where the matter is: section 10.1 for the X7 signatures of `exchange` (their window read at the block time
+the bundle proves, the keys document read for every bundle, `--require-http-signature`), section 8 for the revisions of
+MCP that apc_mcp.py speaks. The constant `VERSION` of apc_verify.py stays `apc_verify 0.21.5` until the release that
+carries this amendment sets it to `apc_verify 0.21.6`; until then a report made under these rules names 0.21.5.
 
 ## 33. The real corpus as a LIST (2026-11-01, local; corpus/MANIFEST.json, format `apc-corpus-0.2`, `apc-corpus-0.3` by 33.10; tools/rebuild_corpus.py, tools/make_corpus_manifest.py) — what is distributed, what is rebuilt, what is accepted
 
