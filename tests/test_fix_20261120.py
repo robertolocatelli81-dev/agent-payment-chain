@@ -123,5 +123,30 @@ class McpLinesAndIds(unittest.TestCase):
         self.assertIsNone(next(replies, None))
 
 
+class McpRevisions(unittest.TestCase):
+    """SPEC section 8 (Unreleased, 2026-11-21): the server speaks 2025-06-18 and older; against MCP 2026-07-28 it is a
+    legacy server that a client of both eras reaches by the server/discover probe and its fallback to initialize."""
+
+    def test_later_revisions_are_answered_with_2025_06_18_and_discover_is_an_error(self):
+        rc, out = session(['{"jsonrpc":"2.0","id":1,"method":"server/discover","params":{"_meta":'
+                           '{"io.modelcontextprotocol/protocolVersion":"2026-07-28"}}}',
+                           '{"jsonrpc":"2.0","id":2,"method":"initialize","params":{"protocolVersion":"2026-07-28"}}',
+                           '{"jsonrpc":"2.0","id":3,"method":"initialize","params":{"protocolVersion":"2025-11-25"}}',
+                           '{"jsonrpc":"2.0","id":4,"method":"initialize","params":{"protocolVersion":"2025-06-18"}}'])
+        self.assertEqual(rc, 0)
+        r = [strict(x) for x in out]
+        self.assertEqual((r[0]["id"], r[0]["error"]["code"]), (1, -32601))
+        self.assertNotIn("result", r[0])
+        self.assertEqual([x["result"]["protocolVersion"] for x in r[1:]], ["2025-06-18"] * 3)
+
+    def test_the_list_is_the_one_measured(self):
+        env_ok = subprocess.run([sys.executable, "-c", "import sys; sys.path.insert(0, %r); import apc_mcp; "
+                                 "print(','.join(apc_mcp.PROTOCOLS))" % ROOT], capture_output=True, text=True,
+                                env={k: v for k, v in os.environ.items() if k != "PYTHONPATH"}, timeout=120)
+        if env_ok.returncode == 64:
+            raise unittest.SkipTest("the signature library is absent (SPEC 32.12 (f))")
+        self.assertEqual(env_ok.stdout.strip(), "2025-06-18,2025-03-26,2024-11-05")
+
+
 if __name__ == "__main__":
     unittest.main()

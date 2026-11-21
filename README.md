@@ -52,6 +52,8 @@ python3 tools/rebuild_corpus.py --check-manifest
 - Verdicts: on the 1123 bundles of the regress list no verdict changes, with or without `--http-keys`; without it no
   check changes either, and with it the 1113 reports that are not refusals gain X7
   `not_evaluated:absent:no_exchange` (SPEC 10.1).
+- The MCP server still speaks the revisions 2025-06-18, 2025-03-26 and 2024-11-05; why 2025-11-25 and the current
+  2026-07-28 are not added is in SPEC section 8.
 
 ## The real corpus
 
