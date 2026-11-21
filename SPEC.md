@@ -608,12 +608,29 @@ process:
   true; 2025-11-25 server/tools: "Input validation errors" are Tool Execution Errors); at 2025-06-18 and earlier
   they stay -32602 as before. Results have no `resultType` (2026-07-28 basic/index: clients "MUST treat an absent
   resultType as complete").
-  Not served, at any legacy revision: a line that is a JSON array (a JSON-RPC batch) is -32600, although 2025-03-26
-  basic says implementations "MUST support receiving JSON-RPC batches" (the later revisions have no batches); so it
-  was before this amendment too.
+  JSON-RPC batches (a line that is a JSON array; read 2026-11-21 in the specification repository, main 2f3a950,
+  docs/specification/2025-03-26 and schema/2025-03-26/schema.ts, and at jsonrpc.org, JSON-RPC 2.0 sections 6 (Batch) and 7
+  (Examples), "Updated: 2013-01-04"): 2025-03-26 basic says implementations "MUST support receiving JSON-RPC batches", its stdio transport
+  that messages may be "a JSON-RPC batch containing one or more requests and/or notifications", its lifecycle that
+  "The initialize request MUST NOT be part of a JSON-RPC batch"; 2025-06-18 "Remove[s] support for JSON-RPC
+  batching" (its changelog), and no later revision has batches. So a batch is served only on a process whose last
+  `initialize` negotiated 2025-03-26: each member is answered as the same message alone would be (a notification gets
+  no reply; an object that is not JSON-RPC 2.0 is -32600 with id null, whatever else it carries), and the replies are
+  written as one JSON array on one line, each as it is made (the replies of a batch are not held in memory: section
+  29.2); a member that is JSON-RPC 2.0 and is `initialize`, or names a protocol version in `params._meta` (2026-07-28
+  has no batches), is -32600 with its id (id null when that id is not a string or an integer; without an id it is a
+  notification); a member that is not an object is -32600 with id null (JSON-RPC 2.0 section 7, the example "rpc call
+  with an invalid Batch (but not empty)": `[1]` is answered by an array of one -32600 with id null); an empty array
+  is one -32600 with id null, not an array (section 6: "the response from the Server MUST be a single Response
+  object"); a batch with no reply to give, as one whose members all are notifications, writes nothing (section 6:
+  "the server MUST NOT return an empty Array"). Members are answered in their order. Before `initialize`, after an
+  `initialize` that negotiated another revision, and on modern requests, a line that is a JSON array is one -32600
+  with id null, as before this amendment (until it, 2025-03-26 too: the server declared the revision without its
+  batches).
 A dual-era client probes with `server/discover` and `_meta` and is served modern; a legacy client sends `initialize`
 and is served the revision it negotiated. Notifications get no reply in either era. PROTOCOLS lists the five revisions,
-the newest first. Tests: tests/test_mcp_eras_20261121.py (no real corpus needed), and, outside the suite, the
+the newest first. Tests: tests/test_mcp_eras_20261121.py and tests/test_mcp_batch_20261121.py (no real corpus
+needed), and, outside the suite, the
 official Python SDK (`mcp` 2.3.0) as a client in its three modes (`legacy`, `auto`, `2026-07-28`), measured
 2026-11-21 in the author's notes.
 Tests: tests/test_report.py, tests/test_provenance.py, tests/test_mcp.py (the server on its real stdio transport),

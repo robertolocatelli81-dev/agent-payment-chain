@@ -198,6 +198,53 @@ def _legacy(method, params, ok, err):
     return err(-32601, "method not found: %s" % (method,))
 
 
+BATCHED = "2025-03-26"                                      # SPEC 8: the one revision with JSON-RPC batches
+
+
+def _modern_meta(m):
+    p = m.get("params")
+    return isinstance(p, dict) and isinstance(p.get("_meta"), dict) and PV in p["_meta"]
+
+
+def batch(msgs):
+    """SPEC 8: the members of a JSON array on a process whose last initialize negotiated 2025-03-26 ("MUST support
+    receiving JSON-RPC batches") -> the replies one by one, in member order: each member answered as it would be alone;
+    initialize, or a member naming a protocol version in _meta, is -32600. A generator: the replies are not held, so a
+    batch costs the memory of its line and of one reply, as the same messages on lines of their own (SPEC 29.2)."""
+    for m in msgs:
+        if isinstance(m, dict) and m.get("jsonrpc") == "2.0" and (m.get("method") == "initialize" or _modern_meta(m)):
+            if "id" in m:                                # a notification is never answered
+                yield {"jsonrpc": "2.0", "id": m["id"] if valid_id(m["id"]) else None,
+                       "error": {"code": -32600, "message": "invalid request: not in a batch (MCP %s: initialize is "
+                                 "never batched; %s has no batches)" % (BATCHED, MODERN[0])}}
+            continue
+        r = handle(m)                                    # an object that is not JSON-RPC 2.0: -32600, as alone
+        if r is not None:
+            yield r
+
+
+def write_line(msg, out):
+    """One decoded line -> its reply on `out`, if it has one. A non-empty array on a 2025-03-26 session is a batch
+    (SPEC 8): its replies as one JSON array on one line, byte for byte json.dumps of their list, each written as it
+    is made; no reply, nothing written (JSON-RPC 2.0 section 6). Anything else is one message."""
+    if isinstance(msg, list) and msg and SESSION["version"] == BATCHED:
+        n = 0
+        for r in batch(msg):
+            out.write(("[" if not n else ", ") + json.dumps(r))
+            n += 1
+        if n:
+            out.write("]\n")
+            out.flush()
+        return
+    if isinstance(msg, list) and SESSION["version"] == BATCHED:
+        reply = {"jsonrpc": "2.0", "id": None, "error": {"code": -32600, "message": "invalid request: an empty batch"}}
+    else:
+        reply = handle(msg)
+    if reply is not None:
+        out.write(json.dumps(reply) + "\n")
+        out.flush()
+
+
 def main():
     # bytes, not the locale's text stream: a line that is not UTF-8 (MCP stdio messages are UTF-8) is a parse error,
     # whatever the locale (a strict UTF-8 locale used to raise UnicodeDecodeError here and end the server)
@@ -223,10 +270,10 @@ def main():
         except (ValueError, RecursionError):                 # UnicodeDecodeError is a ValueError
             reply = {"jsonrpc": "2.0", "id": None, "error": {"code": -32700, "message": "parse error"}}
         else:
-            reply = handle(msg)
-        if reply is not None:
-            sys.stdout.write(json.dumps(reply) + "\n")
-            sys.stdout.flush()
+            write_line(msg, sys.stdout)
+            continue
+        sys.stdout.write(json.dumps(reply) + "\n")
+        sys.stdout.flush()
     return 0
 
 
