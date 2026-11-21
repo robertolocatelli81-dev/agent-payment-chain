@@ -183,7 +183,7 @@ def _modern(method, params, meta, ok, err):
 def _legacy(method, params, ok, err):
     if method == "initialize":
         asked = params.get("protocolVersion")
-        SESSION["version"] = asked if isinstance(asked, str) and asked in LEGACY else LEGACY[0]
+        SESSION["version"] = asked if asked in LEGACY else LEGACY[0]
         return ok({"protocolVersion": SESSION["version"], "capabilities": {"tools": {}}, "serverInfo": SERVER})
     if method == "ping":
         return ok({})

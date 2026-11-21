@@ -247,11 +247,11 @@ class Required(unittest.TestCase):
                 self.assertEqual(r["verdict"], "chain_incomplete" if v == "chain_verified" and not met else v, (v, x7))
                 self.assertEqual(len(r["notes"]), 1 if v == "chain_verified" and not met else 0)
 
-    def cli(self, *args):
+    def cli(self, *args, bundle=None):
         with tempfile.TemporaryDirectory() as tmp:
             b, k = os.path.join(tmp, "b.json"), os.path.join(tmp, "k.json")
             with open(b, "w") as fh:
-                json.dump(md_bundle(), fh)
+                json.dump(md_bundle() if bundle is None else bundle, fh)
             with open(k, "w") as fh:
                 json.dump(KEYS, fh)
             argv = [a.replace("@B", b).replace("@K", k) for a in args]
@@ -396,6 +396,19 @@ class ClockSkew(unittest.TestCase):
         self.assertEqual((m["signatures"][0]["result"], m["signatures"][0]["block_time_minus_created"],
                           m["signatures"][0]["expires_minus_block_time"]), ("not_evaluated:absent:no_http_keys", 4, 7))
 
+    def test_deltas_only_from_integer_parameters(self):
+        # created as a String, a Boolean or a Decimal is outside RFC 9421 2.3 (Integer): the label fails, no delta
+        for bad in ('created="5"', "created=?1", "created=5.5", "expires=?0", 'expires="9"'):
+            p = '("@method");%s;keyid="k"' % bad
+            ex = {"request": request(sign=False)}
+            ex["request"]["fields"] += [["Signature-Input", "sig1=" + p], ["Signature", "sig1=:AAAA:"]]
+            for keys in (h.parse_keys(KEYS), None):
+                _, _, m = h.check({"payment_payload": {}, "exchange": ex}, keys, T0)
+                sg = m["signatures"][0]
+                self.assertEqual((sg["block_time_minus_created"], sg["expires_minus_block_time"]), (None, None), bad)
+                if keys is not None:
+                    self.assertEqual(sg["result"], "failed:signature_input_malformed", bad)
+
     def test_library_grammar(self):
         for n in (-1, 301, 10 ** 9, True, False, 5.0, "5", None, [5]):
             with self.assertRaises(av.Refusal, msg=repr(n)):
@@ -404,8 +417,14 @@ class ClockSkew(unittest.TestCase):
             self.assertEqual(av.verify_bundle(md_bundle(), None, KEYS, http_clock_skew=n)["verdict"], "chain_verified")
         self.assertEqual(h.WINDOW_SKEW, 0)
 
-    def cli(self, *args):
-        return Required.cli(self, *args)
+    def cli(self, *args, bundle=None):
+        return Required.cli(self, *args, bundle=bundle)
+
+    def test_cli_margin_reaches_the_report(self):
+        d = Coverage.signed_md(self, T0, T0 + 60)
+        for extra, n in (((), 0), (("--http-clock-skew", "7"), 7), (("--http-clock-skew", "300"), 300)):
+            rc, r = self.cli("@B", "--http-keys", "@K", *extra, bundle=d)
+            self.assertEqual((rc, r["exchange"]["clock_skew"], r["checks"]["X7"]), (0, n, "verified"), extra)
 
     def test_cli_grammar(self):
         for v in ("0", "5", "300"):
