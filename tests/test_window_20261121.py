@@ -63,15 +63,15 @@ def response(created=None, expires=None):
 
 
 def expected(where, c, x, t, n=0):
-    """SPEC 10.1 (a) and (b), written from the text; n the reader's margin"""
+    """SPEC 10.1 (a) and (b), written from the text (one label, the other message unsigned); n the reader's margin"""
     if c is not None and x is not None and x < c:
         return "failed:expires_before_created"
-    if t is None:
+    if t is None or c is None:
         return "verified"
-    if where == "request" and c is not None and c > t + n:
+    if where == "request" and c > t + n:
         return "not_evaluated:created_after_block_time"
-    if x is not None and x < t - n:
-        return "not_evaluated:expired_before_block_time"
+    if where == "response" and c < t - n:
+        return "not_evaluated:created_before_block_time"
     return "verified"
 
 
@@ -92,27 +92,59 @@ class WindowRule(unittest.TestCase):
 
     def test_equal_created_and_expires_is_one_second(self):
         self.assertEqual(self.one("request", T0, T0, T0)[1], "verified")
-        self.assertEqual(self.one("request", T0, T0, T0 + 1)[1], "not_evaluated:expired_before_block_time")
+        self.assertEqual(self.one("request", T0, T0, T0 + 1)[1], "verified")      # expires not compared with T
         self.assertEqual(self.one("request", T0, T0, T0 - 1)[1], "not_evaluated:created_after_block_time")
+        self.assertEqual(self.one("response", T0, T0, T0)[1], "verified")
+        self.assertEqual(self.one("response", T0, T0, T0 + 1)[1], "not_evaluated:created_before_block_time")
 
-    def test_request_window_at_the_block_time(self):
+    def test_request_order_at_the_block_time(self):
         self.assertEqual(self.one("request", T0 - 5, T0 + 60, T0)[:2], ("verified", "verified"))
         self.assertEqual(self.one("request", T0 + 1, T0 + 60, T0)[:2], ("not_evaluated:created_after_block_time",) * 2)
-        self.assertEqual(self.one("request", T0 - 60, T0 - 1, T0)[:2], ("not_evaluated:expired_before_block_time",) * 2)
-        self.assertEqual(self.one("request", None, T0 - 1, T0)[1], "not_evaluated:expired_before_block_time")
+        # an honest slow request: signed 70 s before the block, expired 10 s before it (D-B): verified
+        self.assertEqual(self.one("request", T0 - 70, T0 - 10, T0)[:2], ("verified", "verified"))
+        self.assertEqual(self.one("request", None, T0 - 1, T0)[1], "verified")
         self.assertEqual(self.one("request", T0 + 1, None, T0)[1], "not_evaluated:created_after_block_time")
         self.assertEqual(self.one("request", None, None, T0)[1], "verified")
 
-    def test_response_created_after_the_block_is_the_normal_order(self):
+    def test_response_order_at_the_block_time(self):
         self.assertEqual(self.one("response", T0 + 3, T0 + 300, T0)[1], "verified")
-        self.assertEqual(self.one("response", T0 - 10, T0 - 1, T0)[1], "not_evaluated:expired_before_block_time")
+        self.assertEqual(self.one("response", T0, None, T0)[1], "verified")
+        self.assertEqual(self.one("response", T0 - 1, T0 + 300, T0)[:2], ("not_evaluated:created_before_block_time",) * 2)
+        self.assertEqual(self.one("response", None, T0 - 1, T0)[1], "verified")             # expires not compared
+
+    def pair(self, rc, rx, sc, sx, t, n=0):
+        ex = {"request": request(rc, rx), "response": response(sc, sx)}
+        old = h.WINDOW_SKEW
+        try:
+            h.WINDOW_SKEW = n
+            res, notes, m = h.check({"payment_payload": {}, "exchange": ex}, h.parse_keys(KEYS), t)
+        finally:
+            h.WINDOW_SKEW = old
+        return res["X7"], [s["result"] for s in m["signatures"]]
+
+    def test_response_after_its_request_with_or_without_block_time(self):
+        self.assertEqual(self.pair(T0 - 5, None, T0 - 4, None, None), ("verified", ["verified", "verified"]))
+        self.assertEqual(self.pair(T0 - 5, None, T0 - 5, None, None), ("verified", ["verified", "verified"]))
+        self.assertEqual(self.pair(T0 - 5, None, T0 - 6, None, None),
+                         ("not_evaluated:created_before_request", ["verified", "not_evaluated:created_before_request"]))
+        self.assertEqual(self.pair(T0 - 5, None, T0 - 6, None, None, 1), ("verified", ["verified", "verified"]))
+        self.assertEqual(self.pair(T0 - 5, None, T0 - 7, None, None, 1)[0], "not_evaluated:created_before_request")
+        # with T, the block time is read first
+        self.assertEqual(self.pair(T0 - 5, None, T0 - 6, None, T0)[1],
+                         ["verified", "not_evaluated:created_before_block_time"])
+        self.assertEqual(self.pair(T0 - 50, None, T0 + 1, None, T0), ("verified", ["verified", "verified"]))
+        # a request out of order is not the request the response is compared with
+        self.assertEqual(self.pair(T0 + 10, None, T0 + 5, None, T0)[1],
+                         ["not_evaluated:created_after_block_time", "verified"])
+        # a request without created, or not judged: nothing to compare with
+        self.assertEqual(self.pair(None, None, 3, None, None)[1], ["verified", "verified"])
 
     def test_without_block_time_a_note_and_the_result_unchanged(self):
         x7, r, notes = self.one("request", T0 + 10, T0 + 20, None)
         self.assertEqual((x7, r), ("verified", "verified"))
         self.assertEqual([n for n in notes if "not compared" in n],
-                         ["X7: request label sig1 carries created/expires, not compared: the bundle proves no block "
-                          "time (SPEC 10.1 b)"])
+                         ["X7: request label sig1 carries created, not compared with a block time: the bundle proves "
+                          "none (SPEC 10.1 b)"])
         self.assertEqual([n for n in self.one("request", None, None, None)[2] if "not compared" in n], [])
 
     def test_without_keys_nothing_is_judged(self):
@@ -152,7 +184,7 @@ class WindowRule(unittest.TestCase):
             self.assertEqual(r, expected(where, c, x, t), (where, c, x, t))
             seen.add(r)
         self.assertEqual(seen, {"verified", "failed:expires_before_created", "not_evaluated:created_after_block_time",
-                                "not_evaluated:expired_before_block_time"})
+                                "not_evaluated:created_before_block_time"})
 
     def test_skew_is_a_parameter(self):
         old = h.WINDOW_SKEW
@@ -160,8 +192,8 @@ class WindowRule(unittest.TestCase):
             h.WINDOW_SKEW = 2
             self.assertEqual(self.one("request", T0 + 2, T0 + 60, T0)[1], "verified")
             self.assertEqual(self.one("request", T0 + 3, T0 + 60, T0)[1], "not_evaluated:created_after_block_time")
-            self.assertEqual(self.one("request", T0 - 60, T0 - 2, T0)[1], "verified")
-            self.assertEqual(self.one("request", T0 - 60, T0 - 3, T0)[1], "not_evaluated:expired_before_block_time")
+            self.assertEqual(self.one("response", T0 - 2, T0 + 60, T0)[1], "verified")
+            self.assertEqual(self.one("response", T0 - 3, T0 + 60, T0)[1], "not_evaluated:created_before_block_time")
         finally:
             h.WINDOW_SKEW = old
         self.assertEqual(h.WINDOW_SKEW, 0)
@@ -469,7 +501,7 @@ class RealBlockTime(unittest.TestCase):
                     ((t - 5, t + 60), ("chain_verified", "verified")),
                     ((t, t), ("chain_verified", "verified")),
                     ((t + 1, t + 60), ("chain_incomplete", "not_evaluated:created_after_block_time")),
-                    ((t - 60, t - 1), ("chain_incomplete", "not_evaluated:expired_before_block_time")),
+                    ((t - 70, t - 10), ("chain_verified", "verified")),
                     ((t - 5, t - 6), ("chain_failed", "failed:expires_before_created"))):
                 r = av.verify_bundle(self.with_exchange(c, x, doc), None, KEYS)
                 self.assertEqual((r["verdict"], r["checks"]["X7"], r["checks"]["X1"]), (verdict, x7, "verified"),
@@ -483,7 +515,7 @@ class RealBlockTime(unittest.TestCase):
             r = av.verify_bundle(d, None, KEYS)
             self.assertFalse(r["checks"]["B1"].startswith("verified"), doc["bundle_version"])
             self.assertEqual(r["checks"]["X7"], "verified", doc["bundle_version"])
-            self.assertTrue(any("proves no block time" in n for n in r["notes"]), doc["bundle_version"])
+            self.assertTrue(any("the bundle proves none" in n for n in r["notes"]), doc["bundle_version"])
 
     def test_the_block_time_still_reaches_offers_and_receipts(self):
         # review of 2026-11-21, mutant p03: apc_permit2 computes the block time before X7 now; the offer and receipt
@@ -547,15 +579,16 @@ class TextOf101(unittest.TestCase):
         ex["request"]["fields"][2][1] = ex["request"]["fields"][2][1].replace('keyid="k"', 'keyid="zz"')
         self.assertEqual(self.one(ex, T0)[1], ["failed:unknown_keyid"])
 
-    def test_what_the_comparison_does_not_show(self):
-        # a request that expired before the block (it may have been verified in time): not_evaluated all the same
-        self.assertEqual(self.one({"request": request(T0 - 70, T0 - 10)}, T0)[1],
-                         ["not_evaluated:expired_before_block_time"])
-        # the created of a response is compared with nothing: before T, and before the created of the request
+    def test_the_order_of_the_exchange(self):
+        # D-B (2026-11-21): a request that expired before the block may have been verified in time: verified
+        self.assertEqual(self.one({"request": request(T0 - 70, T0 - 10)}, T0)[1], ["verified"])
+        # a response signed before T, or before the created of the request it answers, is out of order
         ex = {"request": request(T0 - 5, T0 + 60), "response": response(T0 - 10 ** 6, T0 + 60)}
-        self.assertEqual(self.one(ex, T0)[:2], ("verified", ["verified", "verified"]))
+        self.assertEqual(self.one(ex, T0)[:2], ("not_evaluated:created_before_block_time",
+                                                 ["verified", "not_evaluated:created_before_block_time"]))
         ex = {"request": request(T0 - 5, None), "response": response(0, None)}
-        self.assertEqual(self.one(ex, T0)[:2], ("verified", ["verified", "verified"]))
+        self.assertEqual(self.one(ex, None)[:2], ("not_evaluated:created_before_request",
+                                                   ["verified", "not_evaluated:created_before_request"]))
 
     def test_x7_is_the_first_failed_then_the_first_not_evaluated_of_several_labels(self):
         a, b, c = request(T0 - 5, T0 + 60), request(T0 + 1, None), request(T0, T0 - 1)
@@ -578,7 +611,7 @@ class TextOf101(unittest.TestCase):
         # RFC 9651 3.3.1: an Integer has at most 15 digits; a negative one is an Integer
         self.assertEqual(self.one({"request": request(999999999999999, None)}, T0)[1],
                          ["not_evaluated:created_after_block_time"])
-        self.assertEqual(self.one({"request": request(-5, -1)}, T0)[1], ["not_evaluated:expired_before_block_time"])
+        self.assertEqual(self.one({"request": request(-5, -1)}, T0)[1], ["verified"])
         self.assertEqual(self.one({"request": request(-999999999999999, 999999999999999)}, T0)[1], ["verified"])
         for bad in ("created=1000000000000000", "created=%d.0" % T0, 'created="%d"' % T0, "created"):
             ex = {"request": request(T0, None)}

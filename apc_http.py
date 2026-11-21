@@ -589,12 +589,15 @@ def _int(v):
 
 
 def window(sigs, block_time):
-    """SPEC 10.1 (a) and (b), on the X7 entries judged under the reader's keys: a label whose expires is less than its
-    created is failed:expires_before_created; a verified label is compared with block_time, the block time the bundle
-    proves (never a clock): a request created after it, or a request or response expired before it, is not_evaluated
-    with the reason. Without block_time nothing is compared and a note names each verified label that carries created
-    or expires. Returns the notes."""
+    """SPEC 10.1 (a) and (b), on the X7 entries judged under the reader's keys. (a) a label whose expires is less than
+    its created is failed:expires_before_created. (b) the order of the exchange, request <= payment <= response, with
+    block_time the time of the block the bundle proves (never a clock) and WINDOW_SKEW the reader's margin: a verified
+    request label created after block_time is not_evaluated:created_after_block_time (its expires is not compared); a
+    verified response label created before block_time is not_evaluated:created_before_block_time, else, created
+    before the latest created of the verified request labels, not_evaluated:created_before_request. Without
+    block_time a note names each verified label that carries created. Returns the notes."""
     notes = []
+    judged = []
     for s in sigs:
         c, x = s.get("created"), s.get("expires")       # measured for the reader's own policy, whatever the result
         s["block_time_minus_created"] = block_time - c if block_time is not None and _int(c) else None
@@ -605,15 +608,20 @@ def window(sigs, block_time):
         if _int(c) and _int(x) and x < c:
             s["result"] = "failed:expires_before_created"
             continue
-        if r != "verified" or not (_int(c) or _int(x)):
+        if r != "verified" or not _int(c):
             continue
         if block_time is None:
-            notes.append("X7: %s label %s carries created/expires, not compared: the bundle proves no block time (SPEC "
-                         "10.1 b)" % (s["where"], s["label"]))
-        elif s["where"] == "request" and _int(c) and c > block_time + WINDOW_SKEW:
+            notes.append("X7: %s label %s carries created, not compared with a block time: the bundle proves none "
+                         "(SPEC 10.1 b)" % (s["where"], s["label"]))
+        elif s["where"] == "request" and c > block_time + WINDOW_SKEW:
             s["result"] = "not_evaluated:created_after_block_time"
-        elif _int(x) and x < block_time - WINDOW_SKEW:
-            s["result"] = "not_evaluated:expired_before_block_time"
+        elif s["where"] == "response" and c < block_time - WINDOW_SKEW:
+            s["result"] = "not_evaluated:created_before_block_time"
+        judged.append(s)
+    asked = [s["created"] for s in judged if s["where"] == "request" and s["result"] == "verified"]
+    for s in judged:
+        if s["where"] == "response" and s["result"] == "verified" and asked and s["created"] < max(asked) - WINDOW_SKEW:
+            s["result"] = "not_evaluated:created_before_request"
     return notes
 
 

@@ -739,24 +739,31 @@ less than its `created` is `failed:expires_before_created`, whether its signatur
 keeps its own reason (`failed:signature_invalid`, `failed:unknown_keyid` and the others of section 10). Until this
 revision such a label was `verified` (measured 2026-11-20 and 2026-11-21 on 0.21.5:
 created=1618884473, expires=1, an Ed25519 signature of the RFC 9421 B.1.4 key). Equal values are a window of one
-second and are compared as (b) says.
+second and are not refused.
 
-(b) The block time. When the bundle proves the time of the block that holds the payment, T, the timestamp of
-`inclusion.block_header` with B1 `verified` (apc-0.3 and apc-0.10; the time the mandate checks MP3 and MP6 and the
-offer and receipt checks of section 13 already read), a label whose signature the key verifies is compared with T:
-- a request label (the request carried the payment and came before its execution): `created` greater than T is
-  `not_evaluated:created_after_block_time`, `expires` less than T is `not_evaluated:expired_before_block_time`;
-- a response label (the response reports the settlement and follows its submission): `expires` less than T is
-  `not_evaluated:expired_before_block_time`; its `created` is not compared, since a response written after the block
-  is the normal order.
+(b) The order of the exchange. RFC 9421 does not say what a verifier compares a window with (its example of section
+3.2 speaks of the "time of verification"); this verifier reads no clock, and the reading below is OURS, written down
+here first (decision of 2026-11-21, after the review of the same day): the window follows the order the x402
+exchange has, request <= payment <= response. The request carries the payment and is sent before it is executed; the
+response confirms the settlement and is sent after it. T is the time of the block that holds the payment, the
+timestamp of `inclusion.block_header` with B1 `verified` (apc-0.3 and apc-0.10; the time the mandate checks MP3 and
+MP6 and the offer and receipt checks of section 13 already read). For each label whose signature the key verifies:
+- a request label: `created` greater than T + N is `not_evaluated:created_after_block_time` (signed after the block
+  that executed the payment it carries). Its `expires` is not compared with T: the request reached the server before
+  the block, at a time the bundle does not prove, and only the server's clock knew whether it had expired then
+  (created T-70, expires T-10 on a real apc-0.3 bundle: `verified`); (a) still applies;
+- a response label: `created` less than T − N is `not_evaluated:created_before_block_time` (signed before the payment
+  it confirms was in a block); otherwise `created` less than the largest `created` of the request labels that
+  verified, minus N, is `not_evaluated:created_before_request` (signed before the request it answers). Its `expires`
+  is not compared (with `created` at or after T − N, (a) leaves `expires` at or after it).
+The comparison with the request needs no T and is made with or without one. A parameter that is absent is not
+compared.
 
-A parameter that is absent is not compared. The margin is the reader's: `--http-clock-skew N` (apc_verify, only with
-`--http-keys`; `verify_bundle(..., http_clock_skew=N)`), N an integer from 0 to 300 written in decimal without a sign
-or leading zeros; anything else, or the option given twice, is usage (exit 64; `verify_bundle` refuses it). A request
-label is then compared as `created` > T + N and `expires` < T − N, a response label as `expires` < T − N. The default is
-0 seconds, the closest reading: the window is the signer's declaration, RFC 9421 3.2.1 says a verifier can always
-reject ahead of `expires` and does not speak of accepting after it, and no number is set by RFC 9421 or by
-draft-meunier-webbotauth-httpsig-protocol-02.
+The margin N is the reader's: `--http-clock-skew N` (apc_verify, only with `--http-keys`;
+`verify_bundle(..., http_clock_skew=N)`), an integer from 0 to 300 written in decimal without a sign or leading
+zeros; anything else, or the option given twice, is usage (exit 64; `verify_bundle` refuses it). The default is 0
+seconds, the closest reading: RFC 9421 3.2.1 says a verifier can always reject ahead of `expires` and does not speak
+of accepting after it, and no number is set by RFC 9421 or by draft-meunier-webbotauth-httpsig-protocol-02.
 Implementations read 2026-11-21 (`SCELTE_FUTURO_20261121.md` of the author's notes, section 3a): Cloudflare
 web-bot-auth `ce5e54f` defaults to 0 (`policy.clockSkew ?? 0`), pyauth http-message-signatures 3.0.0 to 5 s,
 remitly-oss httpsig-go 1.2.2 to 60 s, the AP2 `verify_chain` (JWT) to 300 s, the largest default seen and the bound
@@ -764,22 +771,15 @@ of N. No signed HTTP exchange of a real payment is in the corpus to measure a cl
 bundles of the author's corpus carries `exchange`, 2026-11-21). Measured numbers for the reader's own policy: every
 label of the report carries `block_time_minus_created` (T − `created`) and `expires_minus_block_time`
 (`expires` − T), integers when T is proven and the parameter is an integer, null otherwise, whatever the label's
-result; the report member
-`exchange` carries `block_time` (T or null) and `clock_skew` (N). A label outside the window is not shown valid at
-the instant the bundle proves; its signature is not shown wrong either: it is `not_evaluated`, X7 takes it as any
-`not_evaluated` label (section 10) and a verdict that would be `chain_verified` is `chain_incomplete`; the label
+result; the report member `exchange` carries `block_time` (T or null) and `clock_skew` (N). A label out of order is
+not shown to belong to this exchange; its signature is not shown wrong either: it is `not_evaluated`, X7 takes it as
+any `not_evaluated` label (section 10) and a verdict that would be `chain_verified` is `chain_incomplete`; the label
 alone never makes it `chain_failed`.
-
-What the comparison does not show (measured 2026-11-21, margin 0). A request whose `expires` is less than T may have
-reached the server, and been verified there, before it expired: the block follows the request, and the bundle does
-not prove when the request arrived; such a label is `not_evaluated:expired_before_block_time` all the same (created
-T-70, expires T-10 on a real apc-0.3 bundle: `chain_incomplete`). The `created` of a response is compared with
-nothing: a response signed before T, or before the `created` of the request it answers, stays `verified`.
 
 Without a proven block time (B1 not `verified`; apc-0.5, whose `chain_tx.blockTime` is declared; apc-0.12 and
 apc-0.15, which carry no block header; apc-0.16, whose ledger header holds a `close_time` rounded to its
-`close_time_resolution` that no check reads as a time) the window is not compared: a note names each `verified` label
-that carries `created` or `expires`, and its result stays `verified`.
+`close_time_resolution` that no check reads as a time) nothing is compared with T: a note names each `verified` label
+that carries `created`, and only the comparison of a response with its request is made.
 
 (c) The keys given. When the reader gives http_keys, the keys document is read and checked for every bundle (until
 this revision only by the readers of the versions that can carry `exchange`: beside an apc-0.1, apc-0.2 or apc-0.13
