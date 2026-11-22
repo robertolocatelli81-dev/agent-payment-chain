@@ -1,4 +1,4 @@
-"""SPEC section 8 (Amendment 0.21.6, Unreleased): apc_mcp.py as a dual-era MCP server on its real stdio transport. A
+"""SPEC section 8 (Amendment 0.21.6): apc_mcp.py as a dual-era MCP server on its real stdio transport. A
 client per era, its messages written from the specification read 2026-11-21 (modelcontextprotocol/modelcontextprotocol
 main 2f3a950): 2026-07-28 (server/discover, version and capabilities in each request's _meta, resultType, ttlMs and
 cacheScope, -32022), 2025-11-25 (initialize; input validation errors are tool execution errors), 2025-06-18 and

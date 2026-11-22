@@ -1,4 +1,4 @@
-"""SPEC section 8 (Amendment 0.21.6, Unreleased): JSON-RPC batches, served only on a session whose initialize
+"""SPEC section 8 (Amendment 0.21.6): JSON-RPC batches, served only on a session whose initialize
 negotiated MCP 2025-03-26 (2025-03-26 basic: implementations "MUST support receiving JSON-RPC batches"; lifecycle:
 "The initialize request MUST NOT be part of a JSON-RPC batch"; 2025-06-18 removed batching). Replies as JSON-RPC 2.0
 section 6 says and the examples of its section 7 show ([] -> one -32600; [1] -> [-32600]; no reply for notifications,

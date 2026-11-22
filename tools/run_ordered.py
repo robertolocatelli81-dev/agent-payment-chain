@@ -55,7 +55,12 @@ MODS = ["test_apc03", "test_removed", "test_l1proof", "test_high_s", "test_faile
         # 03/11: SPEC 33.14, the report of tools/diff_mandate_sdk.py counts every pair once (`compared`; needs APC_AP2EV)
         "test_diff_mandate_sdk",
         # 03/11: SPEC 32.14 (0.21.5), a member of the PaymentRequired that x402 does not define: ignored and reported
-        "test_amend0214"]
+        "test_amend0214",
+        # 20/11-21/11: SPEC 8 and 10.1 (Amendment 0.21.6, 32.15): apc_mcp's lines, ids and batches by era, the X7 window
+        # at the block time, the keys given, --require-http-signature. Not test_bench_journal: it tests the bench's own
+        # tools (bench_journal, bench_cert, the journal of mutants03), which no mutant of the verifier changes.
+        "test_fix_20261120", "test_mcp_eras_20261121", "test_mcp_batch_20261121", "test_mcp_lines_20261121",
+        "test_window_20261121"]
 NEAR = {"apc_svm.py": ["test_amend0213", "test_mandate", "test_hostile", "test_svm", "test_wycheproof", "test_review070", "test_review071",
                        "test_integration"],
         "apc_solana.py": ["test_hostile", "test_wycheproof", "test_svm", "test_review070", "test_review071"],
@@ -64,8 +69,9 @@ NEAR = {"apc_svm.py": ["test_amend0213", "test_mandate", "test_hostile", "test_s
         "apc_block.py": ["test_hostile", "test_l1proof", "test_l1state"],
         "apc_report.py": ["test_report", "test_report_keys", "test_review070", "test_review071"],
         "apc_ap2.py": ["test_amend0213", "test_hostile", "test_ap2", "test_review070", "test_review071"],
-        "apc_mcp.py": ["test_hostile", "test_mcp", "test_review070", "test_review071"],
-        "apc_http.py": ["test_hostile", "test_http"], "apc_registry.py": ["test_registry"],
+        "apc_mcp.py": ["test_fix_20261120", "test_mcp_lines_20261121", "test_mcp_batch_20261121",
+                       "test_mcp_eras_20261121", "test_hostile", "test_mcp", "test_review070", "test_review071"],
+        "apc_http.py": ["test_window_20261121", "test_hostile", "test_http"], "apc_registry.py": ["test_registry"],
         "apc_permit2.py": ["test_amend0213", "test_permit2", "test_permit2_state", "test_integration"],
         "apc_offer.py": ["test_offer_receipt", "test_integration"], "apc_builder.py": ["test_builder_code"],
         "apc_payid.py": ["test_payid"], "apc_transport.py": ["test_transport"],

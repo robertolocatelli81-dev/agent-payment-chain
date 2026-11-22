@@ -1,4 +1,4 @@
-"""SPEC 10.1 (Unreleased, 2026-11-21): the window of an X7 signature read at the block time the bundle proves, the
+"""SPEC 10.1 (Amendment 0.21.6, 2026-11-22): the window of an X7 signature read at the block time the bundle proves, the
 keys given for a bundle without exchange, and --require-http-signature. Keys: RFC 9421 B.1.4 (test-key-ed25519);
 signatures are our own, the base written out by hand as RFC 9421 2.5 says. WindowRule, KeysGiven and Required need no
 real corpus; RealBlockTime reads two real bundles with B1 verified (bundles/real_v03, apc-0.3; bundles/real_permit2,

@@ -5,7 +5,7 @@ produced the bundle nor any service. It checks the authorization (an AP2 mandate
 (x402 schemes: EIP-3009, Permit2, ERC-7710, auth-capture, Solana, XRPL, Stellar), the acceptance record, and the links
 between them (amount, asset, payee, time windows, hashes), against the chain data carried in the bundle (headers,
 transactions, receipts, inclusion proofs, state proofs). The specification is `SPEC.md` (0.21); the verifier is
-`apc_verify.py` (0.21.5) with its modules `apc_*.py`; the tools that built and measured it are in `tools/`; the tests in
+`apc_verify.py` (0.21.6) with its modules `apc_*.py`; the tools that built and measured it are in `tools/`; the tests in
 `tests/`. Code identifiers and docstrings are in English.
 
 This tree is built from commit 27bf776 of the author's working tree by a publication tool; the earlier history is
@@ -40,7 +40,7 @@ python3 -m unittest discover -s tests -t .   # the suite; the modules that need 
 python3 tools/rebuild_corpus.py --check-manifest
 ```
 
-## Unreleased: apc_verify 0.21.6, SPEC 32.15 (`VERSION` changes at the release)
+## apc_verify 0.21.6, SPEC 32.15 (released 2026-11-22)
 
 - The RFC 9421 signatures of `exchange` (X7) and their window, SPEC 10.1: with `--http-keys`, a label whose `expires`
   is less than its `created` is `failed:expires_before_created` (it was `verified`); when the bundle proves the time

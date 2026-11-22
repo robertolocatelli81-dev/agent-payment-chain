@@ -576,7 +576,7 @@ repeated in one object of a message, or an id that is not a string or an integer
 integer), is an invalid request (-32600) answered with id null (JSON-RPC 2.0 section 5); until 2026-11-20 such an id
 (true, an object, an array, null, 1.5) was echoed. A number written with a fraction or an exponent (1.0, 1e2) is not
 read as an integer. A line that is both not JSON and carries a repeated member is a parse error, wherever the repeated
-member stands; the repeats are found in time linear in the line. (Amendment 0.21.6, Unreleased, 2026-11-21.) A line whose arrays and
+member stands; the repeats are found in time linear in the line. (Amendment 0.21.6, 2026-11-22.) A line whose arrays and
 objects nest deeper than 64 (counted on the text before it is read, outside strings; the bound of section 29.1) is
 -32600 with id null, not read; a line that is not JSON stays a parse error (-32700) however deep, checked without
 recursion: until then such a line got whatever the interpreter's recursion limit gave (a line of
@@ -589,7 +589,7 @@ and id null; until then a message without id whose `method` was not a string was
 answered, one with an id was answered as an unknown method (-32601, or -32600 before `initialize`), and `params` that
 were not structured (a string, a number) were read as no parameters. Tests: tests/test_fix_20261120.py (no real corpus
 needed).
-Revisions of MCP (Amendment 0.21.6, section 32.15, Unreleased; read 2026-11-21 at modelcontextprotocol.io and in the
+Revisions of MCP (Amendment 0.21.6, section 32.15, 2026-11-22; read 2026-11-21 at modelcontextprotocol.io and in the
 specification repository modelcontextprotocol/modelcontextprotocol, main at 2f3a950, docs/specification and
 schema/<revision>/schema.ts; its LICENSE: new specification contributions under Apache-2.0, earlier
 contributions not yet relicensed under MIT, documentation that is not specification under CC-BY-4.0). The current
@@ -757,7 +757,7 @@ request_body_sha256, response_body_sha256, signatures} (and, from Amendment 0.21
 absent exchange adds none of them (the null member says it is absent), except X7 when the reader gives http_keys
 (section 10.1 (c)).
 
-### 10.1 Amendment 0.21.6 (section 32.15; Unreleased, 2026-11-21) — the window of an X7 signature, the keys given, and the reader who requires a signature
+### 10.1 Amendment 0.21.6 (section 32.15; 2026-11-22) — the window of an X7 signature, the keys given, and the reader who requires a signature
 Read 2026-11-21 at rfc-editor.org: RFC 9421 is a Proposed Standard of February 2024, obsoleted by none and updated by
 none (sha256 of rfc9421.txt 612655786bf4293bfc486e4177571467fbb3de6e6f0eea90cb74c346a34fdf3c, the copy of
 sources/http_20261025). Section 2.3: `created` and `expires` are UNIX timestamps of type Integer. Section 3.2.1:
@@ -2651,7 +2651,7 @@ transaction as executed; MP4a not evaluated (a throwaway mint, not USDC); MP6 no
   `risk_data`, 9 on a pre-set payee and 0 disagree; 744 apc not_evaluated and 0 SDK errors outside the comparison (33.14:
   until 2026-11-03 "0 disagreements on 13 549 pairs"). apc-0.10 keeps M1 of section 9; apc-0.12, apc-0.15 and apc-0.16 refuse the member.
 
-## 32. SPEC 0.21 (draft, 2026-11-01, local; apc_verify 0.21.0, 0.21.1 by Amendment 32.10, 0.21.2 by Amendment 32.11, 0.21.3 by Amendment 32.12, 0.21.4 by Amendment 32.13, and 0.21.5 by Amendment 32.14, apc_msca.py, apc_siglib.py; bundle versions apc-0.2 and apc-0.3, apc-0.13 read as v2; 32.2 in every bundle version this file reads) — a 65-byte signature of a payer with code: USDC's (v,r,s) path, and the ERC-1271 of Circle_SingleOwnerMSCA 1.0.0 proven from state
+## 32. SPEC 0.21 (draft, 2026-11-01, local; apc_verify 0.21.0, 0.21.1 by Amendment 32.10, 0.21.2 by Amendment 32.11, 0.21.3 by Amendment 32.12, 0.21.4 by Amendment 32.13, 0.21.5 by Amendment 32.14, and 0.21.6 by Amendment 32.15, apc_msca.py, apc_siglib.py; bundle versions apc-0.2 and apc-0.3, apc-0.13 read as v2; 32.2 in every bundle version this file reads) — a 65-byte signature of a payer with code: USDC's (v,r,s) path, and the ERC-1271 of Circle_SingleOwnerMSCA 1.0.0 proven from state
 
 **Sources, read 2026-11-01.** Circle stablecoin-evm fc85788 (sources/circle_stablecoin-evm_fc85788): `EIP3009.sol` 84-104
 (`transferWithAuthorization(…, uint8 v, bytes32 r, bytes32 s)` forwards `abi.encodePacked(r, s, v)` to the `bytes` form),
@@ -3329,11 +3329,15 @@ reader reads the entry by its grammar: the `exact` entries on an EVM network (ap
 (apc_svm) and on a v1 EVM network (apc_v1); apc_xlm, apc_xrp and apc_authcap, and every other entry, read it only through
 K4 (as in 0.21.4).
 
-### 32.15 Amendment 0.21.6 (Unreleased, 2026-11-21; apc_verify 0.21.6 at release; every bundle version) — HTTP signatures read at the block time, the keys given, the reader who requires a signature, the MCP server's revisions
+### 32.15 Amendment 0.21.6 (2026-11-22; apc_verify 0.21.6; every bundle version) — HTTP signatures read at the block time, the keys given, the reader who requires a signature, the MCP server's revisions
 The rules are where the matter is: section 10.1 for the X7 signatures of `exchange` (their window read at the block time
 the bundle proves, the keys document read for every bundle, `--require-http-signature`), section 8 for the revisions of
-MCP that apc_mcp.py speaks. The constant `VERSION` of apc_verify.py stays `apc_verify 0.21.5` until the release that
-carries this amendment sets it to `apc_verify 0.21.6`; until then a report made under these rules names 0.21.5.
+MCP that apc_mcp.py speaks. The release of 2026-11-22 sets the constant `VERSION` of apc_verify.py to
+`apc_verify 0.21.6` (until then a report made under these rules named 0.21.5). Measured
+2026-11-22, with the bundles of the author's corpus: tools/regress.py check 1123 bundles, 0 differences (a verdict
+altered in a copy of the frozen file is found, exit 1), then refrozen under 0.21.6, the verifier string the only change;
+the list rewritten: verifier and date only; in the public tree, `unittest discover` on Python 3.9, 3.11 and 3.13, 377
+tests, OK (skipped=135), and `tests.test_amend0212` with `APC_REQUIRE_DEPS=1`, 29 tests, OK (skipped=3).
 
 ## 33. The real corpus as a LIST (2026-11-01, local; corpus/MANIFEST.json, format `apc-corpus-0.2`, `apc-corpus-0.3` by 33.10; tools/rebuild_corpus.py, tools/make_corpus_manifest.py) — what is distributed, what is rebuilt, what is accepted
 

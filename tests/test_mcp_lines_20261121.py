@@ -1,4 +1,4 @@
-"""SPEC section 8 (Amendment 0.21.6, Unreleased): a JSON line nested deeper than 64 is -32600 on every interpreter,
+"""SPEC section 8 (Amendment 0.21.6): a JSON line nested deeper than 64 is -32600 on every interpreter,
 counted before it is read, and a line that is not JSON stays -32700 however deep; a message that is not a JSON-RPC
 2.0 Request object (JSON-RPC 2.0 section 4: method "A String", params "a Structured value") is -32600 with id null,
 with or without an id, alone and in a 2025-03-26 batch. The server on its real stdio transport; no real corpus.
