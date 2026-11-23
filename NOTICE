@@ -66,6 +66,10 @@ ethereum/ERCs (8dd085d, 4891ba3, PR 1209 @457532f): erc6492_8dd085d, ercs_7710_7
 IETF: RFC 8941, 9421, 9530, 9651 (http_20261025) and four Internet-Drafts (ietf/), reproduced in full and without
   modification under the IETF Trust Legal Provisions, section 3.c.i. Copyright (c) IETF Trust and the persons identified
   as the document authors.
+  draft-ietf-webbotauth-httpsig-protocol-01 (webbotauth_c2sp_20261123), reproduced on the same terms.
+C2SP httpsig-pq v1.0.1 (C2SP/C2SP @63169cf, httpsig-pq.md; author Soatok Dreamseeker), CC BY 4.0
+  (https://creativecommons.org/licenses/by/4.0/, as the footer of c2sp.org states): webbotauth_c2sp_20261123, copied
+  without modification; its test vectors are read by tests/test_http9421_20261123.py.
 centralcity_20261022 holds only the provenance record (URL, date, sha256) of a documentation page read on 2026-10-22;
   the page itself is not redistributed.
 sources/labels_ours.json is the author's own note (Apache-2.0 with the project).

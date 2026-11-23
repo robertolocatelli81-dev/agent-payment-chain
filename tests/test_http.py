@@ -217,11 +217,17 @@ class RFC9421Vectors(unittest.TestCase):
         self.assertEqual(sigs(d)[0]["X7"], "failed:signature_input_malformed")
 
     def test_components_not_supported_or_missing(self):
-        for ident in ('"@query-param";name="Pet"', '"content-type";sf', '"content-digest";key="sha-512"',
-                      '"date";bs', '"date";tr', '"@unknown"'):
+        # "@query-param";name= and a field's key= are supported from SPEC 10.2
+        for ident in ('"content-type";sf', '"date";bs', '"date";tr'):
             d = rfc_doc()
             d["exchange"]["request"]["fields"][5][1] = 'sig-b26=(%s);keyid="test-key-ed25519"' % ident
             self.assertEqual(sigs(d)[0]["X7"], "not_evaluated:component_not_supported:%s" % ident, ident)
+        # SPEC 10.2 (b), RFC 9421 2.5: unknown derived names and parameters, or parameters that do not apply, fail
+        for ident in ('"@unknown"', '"@signature-params"', '"@method";key="a"', '"date";name="a"', '"date";foo',
+                      '"@method";sf'):
+            d = rfc_doc()
+            d["exchange"]["request"]["fields"][5][1] = 'sig-b26=(%s);keyid="test-key-ed25519"' % ident
+            self.assertEqual(sigs(d)[0]["X7"], "failed:component_not_valid:%s" % ident, ident)
         d = rfc_doc()
         d["exchange"]["request"]["fields"][5][1] = 'sig-b26=("x-absent");keyid="test-key-ed25519"'
         self.assertEqual(sigs(d)[0]["X7"], 'failed:component_not_in_message:"x-absent"')

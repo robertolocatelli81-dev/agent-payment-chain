@@ -734,22 +734,25 @@ Field values are read by name with case ignored; a field that occurs on several 
   reader supplies keys (`http_keys`, below; otherwise `not_evaluated:absent:no_http_keys` for each): the label has one
   Signature member (RFC 9421 3.2 step 1.2), the signature base is rebuilt (2.5) and verified under the key named by
   `keyid` with the key's algorithm (3.2 step 6; an `alg` parameter naming another algorithm fails). Algorithms:
-  `ed25519` (3.3.6) and `ecdsa-p256-sha256` (3.3.4); others `not_evaluated:algorithm_not_supported`. Components: the
+  `ed25519` (3.3.6) and `ecdsa-p256-sha256` (3.3.4), and from 10.2 `ml-dsa-44`, `ml-dsa-65`, `ml-dsa-87`; others
+  `not_evaluated:algorithm_not_supported` (10.2 a). Components (`key` and @query-param from 10.2 b): the
   derived @method, @target-uri, @authority, @scheme, @request-target, @path, @query, @status, and fields without
   parameters; the `req` parameter on a response signature reads the request of the exchange. Other parameters (sf,
-  key, bs, tr) and @query-param: `not_evaluated:component_not_supported:<identifier>`. `failed:signature_invalid`,
+  bs, tr; until 10.2 also key and @query-param): `not_evaluated:component_not_supported:<identifier>`; an identifier
+  outside the IANA registry, `failed:component_not_valid:<identifier>` (10.2 b). `failed:signature_invalid`,
   `failed:unknown_keyid`, `failed:alg_not_the_key_algorithm`, `failed:signature_input_malformed`,
   `failed:signature_missing`, `failed:component_not_in_message:<identifier>`; a label of a Signature field with no
   Signature-Input is an entry of its own, `failed:signature_without_input` (3.2 step 1.2). Reported per label: where (request or
   response), keyid, algorithm, the covered components, created and expires (never compared with a clock; with the
-  block time the bundle proves, section 10.1), and the
+  block time the bundle proves, section 10.1), from 10.2 the tag and the profile it names, and the
   result. No coverage is required; the report shows what each signature covers. X7 itself: the first `failed` of
   the labels (request labels first, then response, each in field order), else the first `not_evaluated`, else
   `verified`; `not_evaluated:absent:no_signature` when neither message has a Signature-Input or a Signature field.
 
 `http_keys` (the reader's trust, like --l1-checkpoint; never read from the bundle):
-`{"apc_http_keys": 1, "keys": {keyid: {"alg": "ed25519" | "ecdsa-p256-sha256", "public_key": hex}}}`, closed; an
-Ed25519 key is 32 bytes, a P-256 key 65 bytes (0x04 || x || y) on the curve.
+`{"apc_http_keys": 1, "keys": {keyid: {"alg": "ed25519" | "ecdsa-p256-sha256" | "ml-dsa-44" | "ml-dsa-65" |
+"ml-dsa-87", "public_key": hex}}}`, closed; an Ed25519 key is 32 bytes, a P-256 key 65 bytes (0x04 || x || y) on the
+curve, an ML-DSA key 1312, 1952 or 2592 bytes (10.2 a).
 
 Report member `exchange` of an apc-0.3 or apc-0.5 bundle: null without one (as `provenance`), else {status,
 request_body_sha256, response_body_sha256, signatures} (and, from Amendment 0.21.6, block_time and clock_skew, section
@@ -799,7 +802,9 @@ The margin N is the reader's: `--http-clock-skew N` (apc_verify, only with `--ht
 `verify_bundle(..., http_clock_skew=N)`), an integer from 0 to 300 written in decimal without a sign or leading
 zeros; anything else, or the option given twice, is usage (exit 64; `verify_bundle` refuses it). The default is 0
 seconds, the closest reading: RFC 9421 3.2.1 says a verifier can always reject ahead of `expires` and does not speak
-of accepting after it, and no number is set by RFC 9421 or by draft-meunier-webbotauth-httpsig-protocol-02.
+of accepting after it, and no number is set by RFC 9421 or by draft-meunier-webbotauth-httpsig-protocol-02 (nor by
+draft-ietf-webbotauth-httpsig-protocol-01, which replaced it: its Appendix C.6 leaves freshness to the verifier's risk
+model; 10.2).
 Implementations read 2026-11-21 (`SCELTE_FUTURO_20261121.md` of the author's notes, section 3a): Cloudflare
 web-bot-auth `ce5e54f` defaults to 0 (`policy.clockSkew ?? 0`), pyauth http-message-signatures 3.0.0 to 5 s,
 remitly-oss httpsig-go 1.2.2 to 60 s, the AP2 `verify_chain` (JWT) to 300 s, the largest default seen and the bound
@@ -836,10 +841,10 @@ identifiers (Section 2) and signature parameters (Section 2.3) that are expected
 covered components list"; 7.2.1: "The verifier should only trust message components that have been signed." Without
 this option section 10 requires no coverage, and that stays. Profile `apc-http-coverage/1` (2026-11-21):
 - every request label (a request carries the payment): covers `"@authority"` or `"@target-uri"`, carries `created`
-  and `expires`: from the minimum of draft-meunier-webbotauth-httpsig-protocol-02 section 5.2 ("Agents MUST include
+  and `expires`: from the minimum of draft-ietf-webbotauth-httpsig-protocol-01 section 5.2 ("Agents MUST include
   at least one of the following components: @authority ... @target-uri"; `created`, `expires`; its `keyid` as a JWK
-  thumbprint and its `tag` are not required here; datatracker, revision 02 of 2026-08-18, sha256
-  e85e295f0b2bba21...), the profile x402's `http-message-signatures` extension points requests
+  thumbprint and its `tag` are not required here; the same text as in draft-meunier-webbotauth-httpsig-protocol-02,
+  which it replaced, 10.2), the profile x402's `http-message-signatures` extension points requests
   to (x402-foundation/x402 main e35bf88, `specs/extensions/http-message-signatures.md`, sha256 bfafa606fa955549...;
   Apache-2.0); and covers `"payment-signature"`;
 - every response label: covers `"@status"` and `"payment-response"`, the components that extension says servers
@@ -862,6 +867,113 @@ Measured on this revision (2026-11-21): tests/test_window_20261121.py. The 1123 
 verdict, exit or check changes (and 0f19843 gives the frozen verdict and exit of all 1123); with --http-keys (the RFC
 9421 B.1.4 key) no verdict or exit changes, and the 1113 reports that are not refusals gain X7
 `not_evaluated:absent:no_exchange` (none of the 1123 carries `exchange`), the only check that changes.
+
+### 10.2 Amendment of section 32.16 (Unreleased, 2026-11-23) — X7 under the sources in force: the Web Bot Auth working-group draft, ML-DSA, the `key` parameter and @query-param, the profiles named by `tag`
+Read 2026-11-23. RFC 9421 unchanged (10.1). The IETF datatracker: draft-meunier-webbotauth-httpsig-protocol is
+"Replaced" (revision 02, 2026-08-18, sha256 e85e295f0b2bba21fb45215ea828ebb2765994723790609143741d9622f13b9e), by
+draft-ietf-webbotauth-httpsig-protocol, a WG Document of the IETF webbotauth group, revision 01 of 2026-10-29 (expires
+2027-05-02; sha256 of draft-ietf-webbotauth-httpsig-protocol-01.txt
+28d85996810063563cd3fd65611275b2b118d7dbc68d380bc51c24b180ba1193). It is cited from this revision in place of the
+-02 of 10.1 (b) and (d). The IANA registry "HTTP Message Signature" (iana.org/assignments/http-message-signature,
+updated 2026-10-23, sha256 of its XML 7311fb3d38d8f5d93b32fdfbb38ec6103c512b71380ef4f9545ffddeba862e22): algorithms
+rsa-pss-sha512, rsa-v1_5-sha256, hmac-sha256, ecdsa-p256-sha256, ecdsa-p384-sha384, ed25519, ml-dsa-44, ml-dsa-65,
+ml-dsa-87 (the last three: c2sp.org/httpsig-pq@v1.0.1); derived components @signature-params (reserved), @method,
+@authority, @scheme, @target-uri, @request-target, @path, @query, @query-param, @status; component parameters sf, key,
+bs, tr, req, name (the registry is not copied here). c2sp.org/httpsig-pq v1.0.1 (C2SP/C2SP, httpsig-pq.md at 63169cf of
+2026-10-22, its last change, sha256
+363ed0952d224a4f4ab1276eb1aa1fe88a046f35e046265eaa4c37dc362027e2; specifications CC BY 4.0, code BSD-1-Clause, the
+footer of c2sp.org read 2026-11-23). The draft and the C2SP text are copied in sources/webbotauth_c2sp_20261123.
+
+What changes from -02 to -01, and what this verifier does with it:
+- 5.2 (components and parameters an agent signs): the same in both (one of @authority, @target-uri; created, expires,
+  keyid a JWK SHA-256 thumbprint, tag "web-bot-auth"); -01 moves "RECOMMENDED that expires be no more than 24 hours
+  after created" into the item of expires. Profile `apc-http-coverage/1` (10.1 d) keeps its rules and its name; the
+  24 hours are a recommendation and are not checked.
+- 5.2.1 Signature-Agent: in -01 a member value is an absolute URI whose scheme is https, members "MUST NOT carry
+  parameters" and a verifier "MUST ignore a member that carries parameters"; the `type` parameter and its three types
+  (directory, jwks_uri, cimd) of -02 are removed: the value is fetched "directly as a JWK Set" (5.5, 5.5.1; the JWK
+  `alg` separate from the signature's `alg`, which follows the IANA registry). This verifier fetches nothing: the keys
+  are the reader's (`http_keys`, section 10), never the bundle's or a directory's, and stay so. What -01 asks of the
+  member is read by profile (d) below.
+- 5.3 (Accept-Signature, 403), 6.11, 7, Appendix C.9: what an origin does, not what a verifier of a recorded exchange
+  checks. Nothing changes here.
+- Appendix E: E.1.1 and E.2.1 are signed again, the Signature-Agent member and its `key` now "sig2" (was "agent2");
+  the vectors of -01 are the test oracles (tests/test_http9421_20261123.py).
+
+(a) Algorithms. X7 verifies `ed25519`, `ecdsa-p256-sha256`, and from this revision `ml-dsa-44`, `ml-dsa-65`,
+`ml-dsa-87` as c2sp.org/httpsig-pq v1.0.1 HTTP_VERIFY defines them: the pure ML-DSA.Verify of FIPS 204 (Algorithm 3),
+context empty, message the signature base bytes unchanged; a signature whose length is not that of the parameter set
+(2420, 3309, 4627 bytes) fails. http_keys takes `"alg": "ml-dsa-44" | "ml-dsa-65" | "ml-dsa-87"` with `public_key`
+the pkEncode bytes in hex, 1312, 1952 or 2592 bytes (FIPS 204 Table 2; another length is refused). ML-DSA is run by
+the `cryptography` package (measured with 50.0.1), the one dependency outside the standard library the README already
+names; without it, with a version without ML-DSA, or with a build whose backend has none (the package raises
+UnsupportedAlgorithm), the label is `not_evaluated:ml_dsa_needs_cryptography`.
+An `alg` parameter that is not in the IANA registry is `failed:algorithm_not_registered`: identifiers are compared
+whole and none is inferred (c2sp.org/httpsig-pq "MUST compare the complete identifier and MUST NOT construct or infer
+other algorithm identifiers"; RFC 9421 2.3: `alg` is "The HTTP message signature algorithm from the "HTTP Signature
+Algorithms" registry"); no alias is
+kept. A label whose `keyid` is not among the reader's keys and whose `alg` is a registered algorithm X7 does not
+verify (rsa-pss-sha512, rsa-v1_5-sha256, hmac-sha256, ecdsa-p384-sha384) is `not_evaluated:algorithm_not_supported`,
+the reason section 10 names; until this revision no label reached it (such a label was `failed:unknown_keyid`,
+measured 2026-11-23 on 111de70 with the -01 vector E.1.1).
+
+(b) Components (RFC 9421 2.5). From this revision X7 builds, besides those of section 10:
+- the `key` parameter on a field (2.1.2): the field lines combined, parsed as a Dictionary (RFC 9651; a field that is
+  not one is `failed:component_not_a_dictionary:<identifier>`), the member serialized as an Item or an Inner List with
+  its parameters; a member that is absent is `failed:component_not_in_message:<identifier>`;
+- `@query-param` with its `name` (2.2.8), on a request or with `req`: the query split at "&", each name and value
+  decoded by WHATWG URL 5.1 ("+" a space, percent-decoding, UTF-8) and encoded again by 5.2 with every byte outside
+  A-Z a-z 0-9 * - . _ percent-encoded, a space as %20 (the RFC's example "with+plus+whitespace" ->
+  "with%20plus%20whitespace"); the one name equal to `name` gives the value; none is
+  `failed:component_not_in_message:<identifier>`, more than one `failed:query_param_repeated:<identifier>` (2.2.8: "the
+  named query parameter MUST NOT be included").
+A derived name that is not in the IANA registry, `@signature-params` in the covered list (3.1 "MUST NOT be present"),
+a parameter that is not in the registry, or one that does not apply to its component (`name` other than on
+@query-param, `key`, `sf`, `bs`, `tr` on a derived component) is `failed:component_not_valid:<identifier>` (2.5:
+"produce an error"; until this revision `not_evaluated:component_not_supported`). `sf`, `bs` and `tr` on a field stay
+`not_evaluated:component_not_supported:<identifier>`.
+
+(c) Visa Trusted Agent Protocol. Read 2026-11-23, only what is public and documentation: the READMEs of
+github.com/visa/trusted-agent-protocol at 16d59bd (2025-10-28); its code is under the Visa Developer Terms (its
+LICENSE.md) and was not downloaded nor run, nothing of it is in this tree. The READMEs describe an RFC 9421 profile:
+components @authority and @path, parameters created, expires, nonce, keyid, tag `agent-browser-auth` (browsing) or
+`agent-payer-auth` (checkout), algorithms Ed25519 and "RSA-PSS-SHA256". X7 reads such a signature as any other:
+- `alg="ed25519"`: verified under the reader's key, as section 10;
+- `alg="rsa-pss-sha256"` is not in the IANA registry (which has rsa-pss-sha512): `failed:algorithm_not_registered`,
+  as (a); not an alias;
+- the README's own example writes the parameter `keyId`: an RFC 9651 key is lowercase (3.1.2), the Signature-Input
+  field does not parse, and X7 reports `failed:signature_input_malformed` for it.
+
+(d) Profiles named by `tag` (reported, never a result: RFC 9421 1.4 leaves requirements to the application). Every
+label carries `tag` (the String or null) and `profile`: null, or `{"name": N, "missing": [...]}` when the tag is one
+of the closed list:
+- `web-bot-auth` -> N `draft-ietf-webbotauth-httpsig-protocol-01`; `missing` from `@authority|@target-uri`,
+  `created`, `expires`, `keyid`, `keyid_jwk_thumbprint` (the keyid is not the RFC 7638 thumbprint of the reader's key,
+  computed for an Ed25519 key, RFC 8037 A.3, and a P-256 key, RFC 7638 3.2; -01 defines none for ML-DSA, not
+  compared), `signature-agent` (the label covers neither `"signature-agent";key=<label>` with that member an https
+  absolute URI String without parameters, 5.2.1, nor the legacy `"signature-agent"` whose whole value is such a
+  String, which 5.2.1 lets a verifier accept; an https absolute URI is read here as `https://`, a host, then a path
+  or a query, brackets only around the host as an IP literal (RFC 3986 3.2.2: an IPv6 address or an IPvFuture, no zone
+  identifier), none of space < > " \ ^ ` { | } #, the same on every
+  Python: Python's urlsplit is not used, it raises on a bracketed host);
+- `agent-browser-auth`, `agent-payer-auth` -> N `visa-tap-16d59bd`; `missing` from `@authority`, `@path`, `created`,
+  `expires`, `nonce`, `keyid`.
+Another tag, or none, is profile null. `--require-http-signature` stays profile `apc-http-coverage/1` (10.1 d).
+
+Measured on this revision (2026-11-23): tests/test_http9421_20261123.py (the -01 vectors E.1.1 to E.2.3, the three C2SP
+vectors and its negative list, the examples of RFC 9421 2.1.2 and 2.2.8, generated identifiers against the registry,
+generated queries against Python's urllib, generated fields that must always give a result, Signature-Agent values
+with brackets and with each excluded character; on 111de70 the 23 of its 24 tests that run with `cryptography`
+installed fail, the 24th being the one for its absence). A corpus of 105 RFC 9421
+cases built the same day, outside this tree (RFC 9421 Appendix B.2 and B.4, the four -01 request vectors, the three C2SP
+vectors, 86 of our own), each through X7 with the case's key under the label's keyid: the verdict the RFC expects on 89
+(on 111de70: 70; no case went from agreeing to not). The 16 others: 7 RSA or HMAC signatures without `alg` are
+`failed:unknown_keyid`, since http_keys cannot hold such a key; the two RSA vectors E.1.1 and E.1.2 are
+`not_evaluated:algorithm_not_supported`; 4 labels with `sf` or `bs` are `not_evaluated:component_not_supported`; a label
+without `keyid` is `failed:unknown_keyid` (keys are chosen by keyid, section 10); a label whose `expires` is in the past
+is `verified` (no clock is read, 10.1); a Signature field repeating a label is `failed:signature_input_malformed`
+(labels are unique, section 10). No signature the RFC rejects is `verified` except the expired one. The 1123 bundles of
+the regress list: none carries `exchange`; no verdict, exit or check changes (32.16).
 
 ## 11. SPEC 0.9.1 (draft, 2026-10-26, local) — register of checks on an external device (apc_registry.py, apc-reg-0.2)
 An append-only register, kept on a device the user names (a USB drive, an SD card), of the checks apc_verify made:
@@ -3338,6 +3450,19 @@ MCP that apc_mcp.py speaks. The release of 2026-11-22 sets the constant `VERSION
 altered in a copy of the frozen file is found, exit 1), then refrozen under 0.21.6, the verifier string the only change;
 the list rewritten: verifier and date only; in the public tree, `unittest discover` on Python 3.9, 3.11 and 3.13, 377
 tests, OK (skipped=135), and `tests.test_amend0212` with `APC_REQUIRE_DEPS=1`, 29 tests, OK (skipped=3).
+
+### 32.16 Amendment (Unreleased, 2026-11-23; every bundle version) — X7 under the sources in force: the Web Bot Auth working-group draft, ML-DSA, `key` and @query-param, the profiles named by `tag`
+The rules are in section 10.2. The constant `VERSION` of apc_verify.py stays `apc_verify 0.21.6` until a release that
+carries this amendment sets another; until then a report made under these rules names 0.21.6. Measured 2026-11-23,
+with the bundles of the author's corpus (ap2-evidence-pack at v1.7.1): tools/regress.py check, 1123 bundles, 0
+differences; with --http-keys (the RFC 9421 B.1.4 key, and an ML-DSA-65 key on this revision) the 1123 reports equal
+those of 111de70 in verdict and every check (none of the 1123 carries `exchange`); in the public tree, `unittest
+discover` on Python 3.9, 3.11 and 3.13, 401 tests, OK (skipped=148, 144, 148: `cryptography` is installed for 3.11
+only here), and `tests.test_amend0212` with `tests.test_http9421_20261123` under `APC_REQUIRE_DEPS=1`, 53 tests, OK
+(skipped=4). Mutants on the lines of apc_http.py this amendment adds or changes: 200, 184 killed, 16 equivalent (8 in
+docstrings and comments, 2 texts of an error never reported, the ML-DSA signature length checked again by the library,
+`sort_keys` on a JWK already in order, 2 initial values a later line overwrites, and 2 on an absent Signature-Agent
+field, which the parser refuses as the guard does).
 
 ## 33. The real corpus as a LIST (2026-11-01, local; corpus/MANIFEST.json, format `apc-corpus-0.2`, `apc-corpus-0.3` by 33.10; tools/rebuild_corpus.py, tools/make_corpus_manifest.py) — what is distributed, what is rebuilt, what is accepted
 

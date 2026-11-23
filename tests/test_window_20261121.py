@@ -164,13 +164,13 @@ class WindowRule(unittest.TestCase):
         self.assertEqual(m["signatures"][0]["result"], "failed:signature_invalid")
 
     def test_a_label_not_evaluated_keeps_its_reason(self):
-        # @query-param is not supported (SPEC 10): the label is not judged, so its window is not read either
-        p = '("@query-param";name="a");created=%d;expires=%d;keyid="k"' % (T0 + 100, T0 + 200)
+        # sf is not supported (SPEC 10; @query-param is, from SPEC 10.2): the label is not judged, nor its window
+        p = '("content-type";sf);created=%d;expires=%d;keyid="k"' % (T0 + 100, T0 + 200)
         ex = {"request": request(sign=False)}
         ex["request"]["fields"] += [["Signature-Input", "sig1=" + p], ["Signature", "sig1=:AAAA:"]]
         for t in (None, T0):
             res, notes, m = h.check({"payment_payload": {}, "exchange": ex}, h.parse_keys(KEYS), t)
-            self.assertEqual(m["signatures"][0]["result"], 'not_evaluated:component_not_supported:"@query-param";name="a"')
+            self.assertEqual(m["signatures"][0]["result"], 'not_evaluated:component_not_supported:"content-type";sf')
             self.assertEqual([n for n in notes if "not compared" in n], [])
 
     def test_a_malformed_field_with_keys_and_block_time(self):
@@ -620,7 +620,7 @@ class TextOf101(unittest.TestCase):
 
     def test_a_label_not_judged_with_an_empty_window_fails(self):
         # (a): "whether its signature verifies or the label is not judged (a component that is not supported)"
-        p = '("@query-param";name="a");created=%d;expires=%d;keyid="k"' % (T0 + 5, T0 + 4)
+        p = '("content-type";sf);created=%d;expires=%d;keyid="k"' % (T0 + 5, T0 + 4)
         ex = {"request": request(sign=False)}
         ex["request"]["fields"] += [["Signature-Input", "sig1=" + p], ["Signature", "sig1=:AAAA:"]]
         for t in (None, T0):

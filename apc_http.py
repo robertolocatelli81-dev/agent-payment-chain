@@ -2,11 +2,15 @@
 
 Sources (sources/http_20261025): x402 specs/transports-v2/http.md @0aee759, RFC 9421 (HTTP Message Signatures), RFC 9530
 (Digest Fields), RFC 9651 (Structured Field Values). Signatures: Ed25519 of apc_solana.py (RFC 8032 5.1.7) and ECDSA
-P-256 of apc_ap2.py (FIPS 186-5); RFC 8785 equality of apc_ap2.py."""
+P-256 of apc_ap2.py (FIPS 186-5); RFC 8785 equality of apc_ap2.py. SPEC 10.2: ML-DSA-44/65/87 (FIPS 204,
+c2sp.org/httpsig-pq v1.0.1) through the `cryptography` package when it is installed (the one dependency outside the
+standard library, README), else not_evaluated:ml_dsa_needs_cryptography; the `key` parameter and @query-param; the
+profiles named by `tag`."""
 import base64
 import hashlib
+import json
 import re
-from urllib.parse import urlsplit
+from urllib.parse import unquote_to_bytes, urlsplit
 
 import apc_verify as av
 from apc_verify import Refusal, _obj, _str
@@ -18,7 +22,12 @@ TOKEN = re.compile(r"[!#$%&'*+\-.^_`|~0-9A-Za-z]+\Z")                       # RF
 FIELD_VALUE = re.compile(r"(?:[\x21-\x7e](?:[\x20-\x7e\t]*[\x21-\x7e])?)?\Z")  # RFC 9110 5.5, ASCII, no obs-fold
 B64 = re.compile(r"(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?\Z")
 DEFAULT_PORT = {"http": "80", "https": "443"}
-ALGS = ("ed25519", "ecdsa-p256-sha256")
+ALGS = ("ed25519", "ecdsa-p256-sha256", "ml-dsa-44", "ml-dsa-65", "ml-dsa-87")
+IANA_ALGS = ALGS + ("rsa-pss-sha512", "rsa-v1_5-sha256", "hmac-sha256", "ecdsa-p384-sha384")   # registry, 2026-10-23
+MLDSA = {"ml-dsa-44": (1312, 2420), "ml-dsa-65": (1952, 3309), "ml-dsa-87": (2592, 4627)}  # FIPS 204 Table 2: pk, sig
+FORM_SAFE = frozenset(b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789*-._")  # WHATWG URL 5.2
+PROFILES = {"web-bot-auth": "draft-ietf-webbotauth-httpsig-protocol-01",        # SPEC 10.2 (d): tag -> profile, closed
+            "agent-browser-auth": "visa-tap-16d59bd", "agent-payer-auth": "visa-tap-16d59bd"}
 WINDOW_SKEW = 0             # SPEC 10.1 (b): the reader's margin in seconds, set by verify_bundle (0: the signer's window)
 SKEW_MAX = 300              # SPEC 10.1 (b): the largest margin accepted (--http-clock-skew 0..300)
 
@@ -367,6 +376,11 @@ def parse_keys(doc):
             if len(b) != 32:
                 raise Refusal("%s.public_key: an Ed25519 key is 32 bytes" % q)
             keys[kid] = ("ed25519", b)
+        elif k["alg"] in MLDSA:
+            if len(b) != MLDSA[k["alg"]][0]:
+                raise Refusal("%s.public_key: an %s key is %d bytes (FIPS 204 pkEncode)" % (q, k["alg"].upper(),
+                                                                                            MLDSA[k["alg"]][0]))
+            keys[kid] = (k["alg"], b)
         else:
             pt = (int.from_bytes(b[1:33], "big"), int.from_bytes(b[33:], "big"))
             if len(b) != 65 or b[0] != 4 or not apc_ap2.p256_on_curve(pt):
@@ -408,6 +422,7 @@ def _derived(name, msg, ex, is_request):
 
 
 SUPPORTED_DERIVED = ("@method", "@target-uri", "@authority", "@scheme", "@request-target", "@path", "@query", "@status")
+DERIVED = SUPPORTED_DERIVED + ("@query-param",)          # the IANA registry of derived components, 2026-10-23
 
 
 class NotSupported(Exception):
@@ -418,8 +433,45 @@ class Missing(Exception):
     pass
 
 
+class Failed(Exception):
+    """a signature base that cannot be built for a reason of its own (SPEC 10.2 b): the X7 result is its argument"""
+
+
+def _item(s):
+    """RFC 9651 4.2 (an Item: bare item and parameters), or SFError"""
+    p = _P(s)
+    p.sp()
+    v = (_bare(p), _params(p))
+    p.sp()
+    if p.peek():
+        raise SFError("not an item")
+    return v
+
+
+def _form(s):
+    """RFC 9421 2.2.8: WHATWG URL 5.1 (application/x-www-form-urlencoded parsing) of one name or value, then 5.2
+    percent-encode after encoding, a space as %20 (the RFC's own example: with+plus+whitespace gives
+    with%20plus%20whitespace)"""
+    b = unquote_to_bytes(s.replace("+", " ")).decode("utf-8", "replace").encode("utf-8")
+    return "".join(chr(c) if c in FORM_SAFE else "%%%02X" % c for c in b)
+
+
+def _query_param(query, want, ident):
+    vals = []
+    for part in query.split("&"):
+        if part:
+            n, _, v = part.partition("=")
+            if _form(n) == want:
+                vals.append(_form(v))
+    if not vals:
+        raise Missing(ident)
+    if len(vals) > 1:                                   # 2.2.8: "the named query parameter MUST NOT be included"
+        raise Failed("failed:query_param_repeated:%s" % ident)
+    return vals[0]
+
+
 def signature_base(components, params_ser, msg, ex, is_request):
-    """RFC 9421 2.5 for the supported components. Raises NotSupported, Missing or SFError."""
+    """RFC 9421 2.5 for the supported components. Raises NotSupported, Missing, Failed or SFError."""
     lines, seen = [], set()
     for name, ps in components:
         if not isinstance(name, str) or isinstance(name, Token):
@@ -428,19 +480,31 @@ def signature_base(components, params_ser, msg, ex, is_request):
         if ident in seen:
             raise SFError("component repeated")
         seen.add(ident)
-        pk = [k for k, _ in ps]
-        if any(k != "req" for k in pk) or name == "@query-param":
+        pd = dict(ps)
+        # SPEC 10.2 (b), RFC 9421 2.5: a derived name or a parameter not in the IANA registry, or a parameter that does
+        # not apply to the component, is an error; sf, bs and tr apply to a field and are not implemented here
+        applies = {"req"} | ({"name"} if name == "@query-param" else set() if name.startswith("@") else
+                            {"key", "sf", "bs", "tr"})
+        if name == "@signature-params" or (name.startswith("@") and name not in DERIVED) or \
+                any(k not in applies for k in pd):
+            raise Failed("failed:component_not_valid:%s" % ident)
+        if any(k in pd for k in ("sf", "bs", "tr")):
             raise NotSupported(ident)
-        if any(v is not True for k, v in ps):
+        if pd.get("req", True) is not True:
             raise SFError("req is a Boolean flag")
+        if any(not _is_string(pd[k]) for k in ("name", "key") if k in pd) or \
+                (name == "@query-param" and "name" not in pd):
+            raise SFError("name and key are Strings; @query-param needs name")
         target, target_req = msg, is_request
-        if pk:                                              # req (2.4)
+        if "req" in pd:                                 # req (2.4)
             if is_request:
                 raise SFError("req in a request signature")
             target, target_req = ex["request"], True
-        if name.startswith("@"):
-            if name not in SUPPORTED_DERIVED:
-                raise NotSupported(ident)
+        if name == "@query-param":
+            if not target_req:
+                raise SFError("@query-param targets a request")
+            val = _query_param(ex["split"].query, pd["name"], ident)
+        elif name.startswith("@"):
             val = _derived(name, target, ex, target_req)
         else:
             if name != name.lower() or not TOKEN.match(name):
@@ -448,6 +512,15 @@ def signature_base(components, params_ser, msg, ex, is_request):
             val = combined(target["fields"], name)
             if val is None:
                 raise Missing(ident)
+            if "key" in pd:                             # 2.1.2: one member of a Dictionary field, lines combined
+                try:
+                    d = dict(parse_dictionary(val))
+                except SFError:
+                    raise Failed("failed:component_not_a_dictionary:%s" % ident)
+                if pd["key"] not in d:
+                    raise Missing(ident)
+                v, q = d[pd["key"]]
+                val = ser_inner(v, q) if isinstance(v, list) else ser_bare(v) + ser_params(q)
         lines.append("%s: %s" % (ident, val))
     lines.append('"@signature-params": ' + params_ser)
     base = "\n".join(lines)
@@ -456,12 +529,124 @@ def signature_base(components, params_ser, msg, ex, is_request):
     return base.encode("ascii")
 
 
+class NoLibrary(Exception):
+    pass
+
+
 def _verify_sig(alg, key, base, sig):
     if alg == "ed25519":
         import apc_solana
         return apc_solana.ed25519_verify(key, base, sig)
+    if alg in MLDSA:                                    # SPEC 10.2 (a): c2sp.org/httpsig-pq v1.0.1 HTTP_VERIFY
+        try:
+            from cryptography.exceptions import InvalidSignature, UnsupportedAlgorithm
+            from cryptography.hazmat.primitives.asymmetric import mldsa
+        except ImportError:
+            raise NoLibrary()
+        if len(sig) != MLDSA[alg][1]:
+            return False
+        cls = {"ml-dsa-44": mldsa.MLDSA44PublicKey, "ml-dsa-65": mldsa.MLDSA65PublicKey,
+               "ml-dsa-87": mldsa.MLDSA87PublicKey}[alg]
+        try:
+            cls.from_public_bytes(key).verify(sig, base)   # pure ML-DSA.Verify (FIPS 204 Alg. 3), ctx empty, M = base
+        except InvalidSignature:
+            return False
+        except UnsupportedAlgorithm:                    # the package is there, its backend has no ML-DSA
+            raise NoLibrary()
+        return True
     import apc_ap2
     return apc_ap2.es256_verify(key, base, sig)
+
+
+def _b64u(b):
+    return base64.urlsafe_b64encode(b).rstrip(b"=").decode()
+
+
+def thumbprint(alg, key):
+    """the base64url JWK SHA-256 thumbprint (RFC 7638 3) of a key of http_keys: RFC 8037 A.3 (Ed25519), RFC 7638 3.2
+    (P-256); None for ML-DSA, for which draft-ietf-webbotauth-httpsig-protocol-01 5.2 defines none"""
+    if alg == "ed25519":
+        jwk = {"crv": "Ed25519", "kty": "OKP", "x": _b64u(key)}
+    elif alg == "ecdsa-p256-sha256":
+        jwk = {"crv": "P-256", "kty": "EC", "x": _b64u(key[0].to_bytes(32, "big")),
+               "y": _b64u(key[1].to_bytes(32, "big"))}
+    else:
+        return None
+    return _b64u(hashlib.sha256(json.dumps(jwk, sort_keys=True, separators=(",", ":")).encode()).digest())
+
+
+HTTPS_URI = re.compile(r"(?i)https://(?:\[[^\[\]/?#]+\](?::[0-9]*)?|[^\[\]/?#]+)(?:[/?][^\[\]#]*)?\Z")
+
+
+_IP_LITERAL = re.compile(r"(?i)https://\[([^\]]*)\]")
+_IPV_FUTURE = re.compile(r"(?i)v[0-9a-f]+\.[A-Za-z0-9\-._~!$&'()*+,;=:]+\Z")
+
+
+def _ip_literal_ok(v):
+    """RFC 3986 3.2.2: between brackets, an IPv6address or an IPvFuture, nothing else (no zone identifier: RFC 3986
+    has none; Python's ipaddress accepts "%scope", so it is refused before)"""
+    import ipaddress
+    m = _IP_LITERAL.match(v)
+    if m is None:
+        return True
+    s = m.group(1)
+    if _IPV_FUTURE.match(s):
+        return True
+    if "%" in s:
+        return False
+    try:
+        ipaddress.IPv6Address(s)
+    except ValueError:
+        return False
+    return True
+
+
+def _https_uri(v):
+    # no urlsplit here: it raises ValueError on a bracketed host, and not on the same ones in every Python
+    return (_is_string(v) and HTTPS_URI.match(v) is not None and not any(c in v for c in " <>\"\\^`{|}")
+            and _ip_literal_ok(v))
+
+
+def _signature_agent(msg, label, covered):
+    """draft-ietf-webbotauth-httpsig-protocol-01 5.2.1: the member keyed to the label, an https absolute URI String
+    without parameters, covered as "signature-agent";key=<label>; or the legacy form it lets a verifier accept, the
+    whole field one String covered as "signature-agent" (Appendix E.1.2)"""
+    raw = combined(msg["fields"], "signature-agent")
+    if raw is None:
+        return False
+    try:
+        if '"signature-agent";key=' + ser_bare(label) in covered:
+            m = dict(parse_dictionary(raw)).get(label)
+            return m is not None and not m[1] and _https_uri(m[0])
+        if '"signature-agent"' in covered:
+            v, q = _item(raw)
+            return not q and _https_uri(v)
+    except SFError:
+        return False
+    return False
+
+
+def profile(e, pd, msg, keys):
+    """SPEC 10.2 (d): the profile the label's tag names (closed list PROFILES), and what of it the label lacks;
+    reported, never a result"""
+    tag = pd.get("tag")
+    name = PROFILES.get(tag) if _is_string(tag) else None
+    if name is None or not isinstance(e["covered"], list):
+        return None
+    cov, miss = e["covered"], []
+    if tag == "web-bot-auth":
+        if '"@authority"' not in cov and '"@target-uri"' not in cov:
+            miss.append("@authority|@target-uri")
+        miss += [p for p in ("created", "expires", "keyid") if p not in pd]
+        k = keys.get(pd.get("keyid")) if keys is not None and _is_string(pd.get("keyid")) else None
+        if k is not None and thumbprint(*k) not in (None, pd["keyid"]):
+            miss.append("keyid_jwk_thumbprint")
+        if not _signature_agent(msg, e["label"], cov):
+            miss.append("signature-agent")
+    else:
+        miss += [c for c in ("@authority", "@path") if '"%s"' % c not in cov]
+        miss += [p for p in ("created", "expires", "nonce", "keyid") if p not in pd]
+    return {"name": name, "missing": miss}
 
 
 def _is_string(v):
@@ -480,14 +665,15 @@ def signatures(msg, ex, is_request, keys):
         si = parse_dictionary(si_raw, unique=True) if si_raw is not None else []
         sg = dict(parse_dictionary(s_raw, unique=True)) if s_raw is not None else {}
     except SFError as e:
-        return [{"where": where, "label": None, "result": "not_evaluated:absent:no_http_keys" if keys is None
+        return [{"where": where, "label": None, "tag": None, "profile": None,
+                 "result": "not_evaluated:absent:no_http_keys" if keys is None
                  else "failed:signature_input_malformed", "why": str(e)}]
     if len(si) > MAX_LABELS or len(sg) > MAX_LABELS:
         raise av.Refusal("exchange.%s: more than %d signature labels (SPEC 29.2)" % (where, MAX_LABELS))
     out = []
     for label, (val, ps) in si:
         e = {"where": where, "label": label, "keyid": None, "alg": None, "covered": None, "created": None,
-             "expires": None}
+             "expires": None, "tag": None, "profile": None}
         out.append(e)
         pd = dict(ps)
         if isinstance(val, list):
@@ -495,6 +681,8 @@ def signatures(msg, ex, is_request, keys):
         for k in ("keyid", "alg", "created", "expires"):
             if k in pd:
                 e[k] = ser_bare(pd[k]) if isinstance(pd[k], (bytes, tuple)) else pd[k]
+        e["tag"] = pd["tag"] if _is_string(pd.get("tag")) else None
+        e["profile"] = profile(e, pd, msg, keys)
         if keys is None:
             e["result"] = "not_evaluated:absent:no_http_keys"
             continue
@@ -506,9 +694,14 @@ def signatures(msg, ex, is_request, keys):
         if label not in sg or not isinstance(sg[label][0], bytes):
             e["result"] = "failed:signature_missing"
             continue
+        a = pd.get("alg")
+        if a is not None and a not in IANA_ALGS:        # SPEC 10.2 (a): no alias (rsa-pss-sha256 is not registered)
+            e["result"] = "failed:algorithm_not_registered"
+            continue
         kid = pd.get("keyid")
-        if kid not in keys:
-            e["result"] = "failed:unknown_keyid"
+        if kid not in keys:                             # SPEC 10: a registered algorithm X7 cannot verify is not judged
+            e["result"] = ("not_evaluated:algorithm_not_supported" if a in IANA_ALGS and a not in ALGS
+                           else "failed:unknown_keyid")
             continue
         alg, key = keys[kid]
         if "alg" in pd and pd["alg"] != alg:
@@ -522,15 +715,22 @@ def signatures(msg, ex, is_request, keys):
         except Missing as x:
             e["result"] = "failed:component_not_in_message:%s" % x
             continue
+        except Failed as x:
+            e["result"] = str(x)
+            continue
         except SFError:
             e["result"] = "failed:signature_input_malformed"
             continue
-        e["result"] = "verified" if _verify_sig(alg, key, base, sg[label][0]) else "failed:signature_invalid"
+        try:
+            e["result"] = "verified" if _verify_sig(alg, key, base, sg[label][0]) else "failed:signature_invalid"
+        except NoLibrary:
+            e["result"] = "not_evaluated:ml_dsa_needs_cryptography"
     inputs = {label for label, _ in si}
     for label in sg:
         if label not in inputs:
             out.append({"where": where, "label": label, "keyid": None, "alg": None, "covered": None, "created": None,
-                        "expires": None, "result": "not_evaluated:absent:no_http_keys" if keys is None
+                        "expires": None, "tag": None, "profile": None,
+                        "result": "not_evaluated:absent:no_http_keys" if keys is None
                         else "failed:signature_without_input"})
     return out
 

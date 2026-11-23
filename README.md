@@ -40,6 +40,19 @@ python3 -m unittest discover -s tests -t .   # the suite; the modules that need 
 python3 tools/rebuild_corpus.py --check-manifest
 ```
 
+## Unreleased (SPEC 32.16, section 10.2)
+
+- X7 under the sources in force on 2026-11-23: the Web Bot Auth working-group draft
+  (draft-ietf-webbotauth-httpsig-protocol-01, which replaced draft-meunier-...-02) is cited in place of -02; its
+  vectors E.2.1, E.2.2 and E.2.3 verify (E.1, RSA, is `not_evaluated:algorithm_not_supported`).
+- ML-DSA-44/65/87 (IANA registry of 2026-10-23, c2sp.org/httpsig-pq v1.0.1): `--http-keys` takes `ml-dsa-*` keys, and
+  their signatures are verified with the `cryptography` package (without it: `not_evaluated:ml_dsa_needs_cryptography`).
+- Components: the `key` parameter of a Dictionary field and `@query-param` are built; a derived name or a parameter
+  outside the IANA registry, or one that does not apply, is `failed:component_not_valid` (it was not judged); an `alg`
+  outside the registry (Visa TAP's `rsa-pss-sha256`) is `failed:algorithm_not_registered`, no alias.
+- Each label reports its `tag` and the profile it names (`web-bot-auth`; Visa TAP's `agent-browser-auth`,
+  `agent-payer-auth`) with what it lacks; reported only, never a result.
+
 ## apc_verify 0.21.6, SPEC 32.15 (released 2026-11-22)
 
 - The RFC 9421 signatures of `exchange` (X7) and their window, SPEC 10.1: with `--http-keys`, a label whose `expires`
