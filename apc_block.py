@@ -396,7 +396,8 @@ def check_block(block, receipts):
                     or r.get("transactionIndex") != hex(i)):
                 b3 = "failed:receipt_not_in_this_block_position:%d" % i
                 break
-            if isinstance(txs, list) and isinstance(txs[i], str) and str(r.get("transactionHash", "")).lower() != txs[i].lower():
+            if isinstance(txs, list) and i < len(txs) and isinstance(txs[i], str) and \
+                    str(r.get("transactionHash", "")).lower() != txs[i].lower():
                 b3 = "failed:receipt_tx_hash_not_block_tx:%d" % i
                 break
         res["B3"] = b3
@@ -412,12 +413,12 @@ def main(argv):
     if len(argv) != 3:
         print(__doc__.strip().splitlines()[-1].strip(), file=sys.stderr)
         return 64
+    import apc_verify           # SPEC 29.2: a regular file of at most 64 MiB, never read without end (a FIFO, /dev/zero)
     try:
-        with open(argv[1]) as fb, open(argv[2]) as fr:
-            b, r = json.load(fb), json.load(fr)
+        b, r = (json.loads(apc_verify.read_bundle_bytes(p)) for p in argv[1:3])
         b = b.get("result", b) if isinstance(b, dict) and "jsonrpc" in b else b
         r = r.get("result", r) if isinstance(r, dict) and "jsonrpc" in r else r
-    except (OSError, ValueError) as e:
+    except (OSError, ValueError, RecursionError, apc_verify.Refusal) as e:   # RecursionError: nested past the parser
         print(json.dumps({"verdict": "refused", "reason": "unreadable:%s" % type(e).__name__}))
         return 3
     out = check_block(b, r)

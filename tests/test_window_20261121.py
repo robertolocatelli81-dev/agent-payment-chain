@@ -770,5 +770,28 @@ class RequiredAndCoverage(unittest.TestCase):
             self.assertEqual(r["exchange"]["signatures"][0]["covered"], [])
 
 
+class BatchKeyUnreadable(unittest.TestCase):
+    """apc_batch (independent hunt 2026-11-23): a bundle verify_bundle reads (chain_failed) whose authorization key
+    _key cannot read ended the program with a traceback, exit 1, which its docstring gives to a D1, D3 or D4 failure
+    (measured on 30b0ac0: a real XRPL bundle, bundles/xrp_real_20261026/132d26ccea52.json, whose signedTxBlob lost its
+    head, KeyError 'Sequence'). It is listed under `refused` with the reason and kept out of D1-D4, as a refused one."""
+
+    def test_unreadable_key_is_kept_out_with_its_reason(self):
+        import apc_batch
+        from unittest import mock
+        real, docs = apc_batch._key, [("a", md_bundle()), ("b", md_bundle())]
+
+        def key(doc):
+            if doc is docs[1][1]:
+                raise KeyError("Sequence")
+            return real(doc)
+        with mock.patch.object(apc_batch, "_key", key):
+            rep = apc_batch.check_set(docs)
+        self.assertEqual((rep["verdict"], rep["authorizations"], [r["bundle"] for r in rep["refused"]]),
+                         ("set_consistent", 1, ["b"]))
+        self.assertIn("kept out of D1-D4: no authorization key can be read (KeyError", rep["refused"][0]["reason"])
+        self.assertEqual(apc_batch.check_set([docs[0], ("a2", md_bundle())])["D2"][0]["check"], "duplicate_bundle")
+
+
 if __name__ == "__main__":
     unittest.main()

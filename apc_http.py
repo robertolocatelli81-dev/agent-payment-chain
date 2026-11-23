@@ -7,6 +7,7 @@ c2sp.org/httpsig-pq v1.0.1) through the `cryptography` package when it is instal
 standard library, README), else not_evaluated:ml_dsa_needs_cryptography; the `key` parameter and @query-param; the
 profiles named by `tag`."""
 import base64
+import functools
 import hashlib
 import json
 import re
@@ -324,7 +325,10 @@ def parse_exchange(ex):
     uri = _str(rq["target_uri"], "exchange.request.target_uri")
     if not re.fullmatch(r"https?://[\x21-\x7e]+", uri) or "#" in uri:
         raise Refusal("exchange.request.target_uri: not an http or https URI of visible ASCII without a fragment")
-    u = urlsplit(uri)
+    try:                                                # urlsplit raises on a "[" or "]" it cannot read as an IPv6 host
+        u = urlsplit(uri)
+    except ValueError:
+        raise Refusal("exchange.request.target_uri: host not readable (RFC 3986 3.2.2)")
     if not u.netloc or "@" in u.netloc or not u.hostname:
         raise Refusal("exchange.request.target_uri: no host, or user information present")
     try:
@@ -353,6 +357,15 @@ def field(fields, name):
 def combined(fields, name):
     vs = field(fields, name)
     return None if not vs else ", ".join(vs)          # RFC 9421 2.1, RFC 9110 5.2
+
+
+def _combined_once(msg, name):
+    """combined() of a message of check(), joined once per name: each `key` component and each label reads the same
+    string (SPEC 29: a join per component cost the field's length per component)"""
+    c = msg.setdefault("combined", {})
+    if name not in c:
+        c[name] = combined(msg["fields"], name)
+    return c[name]
 
 
 def parse_keys(doc):
@@ -456,13 +469,37 @@ def _form(s):
     return "".join(chr(c) if c in FORM_SAFE else "%%%02X" % c for c in b)
 
 
-def _query_param(query, want, ident):
-    vals = []
+# SPEC 29: a field value or a query is parsed once per check, not once per component or label that reads it (n `key`
+# components over a field of n members, or n @query-param over a query of n names, cost n parses: quadratic, 32 s of CPU
+# for n = 2000 measured on 30b0ac0); a value that does not parse is None, remembered too
+@functools.lru_cache(maxsize=16)
+def _dict_once(raw):
+    try:
+        return dict(parse_dictionary(raw))
+    except SFError:
+        return None
+
+
+@functools.lru_cache(maxsize=16)
+def _item_once(raw):
+    try:
+        return _item(raw)
+    except SFError:
+        return None
+
+
+@functools.lru_cache(maxsize=4)
+def _query_index(query):
+    idx = {}
     for part in query.split("&"):
         if part:
             n, _, v = part.partition("=")
-            if _form(n) == want:
-                vals.append(_form(v))
+            idx.setdefault(_form(n), []).append(_form(v))
+    return idx
+
+
+def _query_param(query, want, ident):
+    vals = _query_index(query).get(want, [])
     if not vals:
         raise Missing(ident)
     if len(vals) > 1:                                   # 2.2.8: "the named query parameter MUST NOT be included"
@@ -509,13 +546,12 @@ def signature_base(components, params_ser, msg, ex, is_request):
         else:
             if name != name.lower() or not TOKEN.match(name):
                 raise SFError("a field component name must be a lowercase field name")
-            val = combined(target["fields"], name)
+            val = _combined_once(target, name)
             if val is None:
                 raise Missing(ident)
             if "key" in pd:                             # 2.1.2: one member of a Dictionary field, lines combined
-                try:
-                    d = dict(parse_dictionary(val))
-                except SFError:
+                d = _dict_once(val)
+                if d is None:
                     raise Failed("failed:component_not_a_dictionary:%s" % ident)
                 if pd["key"] not in d:
                     raise Missing(ident)
@@ -524,7 +560,7 @@ def signature_base(components, params_ser, msg, ex, is_request):
         lines.append("%s: %s" % (ident, val))
     lines.append('"@signature-params": ' + params_ser)
     base = "\n".join(lines)
-    if any(ord(c) > 0x7e for c in base):
+    if not base.isascii() or "\x7f" in base:          # C passes (a Python loop cost 0.3 s per label and 4 MB)
         raise SFError("signature base not ASCII")
     return base.encode("ascii")
 
@@ -611,18 +647,15 @@ def _signature_agent(msg, label, covered):
     """draft-ietf-webbotauth-httpsig-protocol-01 5.2.1: the member keyed to the label, an https absolute URI String
     without parameters, covered as "signature-agent";key=<label>; or the legacy form it lets a verifier accept, the
     whole field one String covered as "signature-agent" (Appendix E.1.2)"""
-    raw = combined(msg["fields"], "signature-agent")
+    raw = _combined_once(msg, "signature-agent")
     if raw is None:
         return False
-    try:
-        if '"signature-agent";key=' + ser_bare(label) in covered:
-            m = dict(parse_dictionary(raw)).get(label)
-            return m is not None and not m[1] and _https_uri(m[0])
-        if '"signature-agent"' in covered:
-            v, q = _item(raw)
-            return not q and _https_uri(v)
-    except SFError:
-        return False
+    if '"signature-agent";key=' + ser_bare(label) in covered:
+        m = (_dict_once(raw) or {}).get(label)
+        return m is not None and not m[1] and _https_uri(m[0])
+    if '"signature-agent"' in covered:
+        it = _item_once(raw)
+        return it is not None and not it[1] and _https_uri(it[0])
     return False
 
 
@@ -831,6 +864,8 @@ def check(doc, keys=None, block_time=None):
     or None."""
     if "exchange" not in doc:
         return None, [], None
+    for c in (_dict_once, _item_once, _query_index):     # the parses of SPEC 29 kept for this exchange only
+        c.cache_clear()
     ex = parse_exchange(doc["exchange"])
     rq, rs = {"fields": ex["fields"], "body": ex["body"]}, ex["response"]
     ex["request"] = rq

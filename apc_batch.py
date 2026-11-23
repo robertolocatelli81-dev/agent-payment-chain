@@ -106,9 +106,19 @@ def check_set(docs):
     for name, doc in docs:
         try:
             rep = av.verify_bundle(doc)
+        except av.Refusal as e:
+            refused.append({"bundle": name, "reason": str(e)})
+            continue
+        try:
             k, pp = _key(doc)
         except av.Refusal as e:
             refused.append({"bundle": name, "reason": str(e)})
+            continue
+        except (KeyError, IndexError, TypeError, ValueError, AttributeError) as e:
+            # _key reads members verify_bundle does not require of a chain_failed bundle (an XRPL blob without
+            # Sequence): the bundle is kept out of D1-D4 with the reason, never a traceback (exit 1 = a failure)
+            refused.append({"bundle": name, "reason": "kept out of D1-D4: no authorization key can be read (%s: %s)"
+                            % (type(e).__name__, str(e)[:120])})
             continue
         tx = None
         if rep["checks"].get("T1") == "verified":           # a 32-byte transaction hash (SPEC T1), or base58 (0.5)

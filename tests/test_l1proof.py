@@ -188,5 +188,59 @@ class L1Proof(unittest.TestCase):
             lp.header_chain(ab.header_hash(skip[0]), skip)
 
 
+class BlockProgram(unittest.TestCase):
+    """SPEC 29 for the program apc_block.py BLOCK.json RECEIPTS.json (exit 0 block_bound, 1 block_failed, 3 refused;
+    independent hunt 2026-11-23). On 30b0ac0: a block reply whose `transactions` list is shorter than the receipts ended
+    with an IndexError traceback (exit 1, read as block_failed); a file nested past the parser with a RecursionError
+    traceback (exit 1); /dev/zero with a MemoryError (exit 1) and a FIFO never returned. Now B3 fails with its reason,
+    and the files are read as apc_verify reads a bundle (a regular file of at most 64 MiB), else refused, exit 3."""
+
+    def header(self, receipts, txs):
+        b = {k: "0x0" if k in ab.HEADER_QTY else "0x" if k == "extraData" else "0x" + "00" * ab.HEADER_SIZES[k]
+             for k in ab.HEADER_BASE}
+        b["receiptsRoot"] = ab.receipts_root(receipts)
+        b["hash"] = ab.header_hash(b)
+        b["transactions"] = txs
+        return b
+
+    def receipt(self, b):
+        return {"blockHash": b, "blockNumber": "0x0", "transactionIndex": "0x0", "transactionHash": "0x" + "11" * 32,
+                "status": "0x1", "cumulativeGasUsed": "0x5208", "logsBloom": "0x" + "00" * 256, "logs": [], "type": "0x2"}
+
+    def test_fewer_transactions_than_receipts_is_b3_failed(self):
+        rc = [self.receipt("0x" + "00" * 32)]          # the consensus encoding of a receipt leaves blockHash out
+        b = self.header(rc, ["0x" + "11" * 32])
+        self.assertEqual(ab.check_block(b, [self.receipt(b["hash"])])["verdict"], "block_bound")     # control
+        b = self.header(rc, [])
+        r = ab.check_block(b, [self.receipt(b["hash"])])
+        self.assertEqual((r["verdict"], r["B1"], r["B2"], r["B3"]),
+                         ("block_failed", "verified", "verified", "failed:receipt_count_not_transaction_count"))
+
+    def run_program(self, block, receipts):
+        import subprocess
+        return subprocess.run([sys.executable, "-B", os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(
+            __file__))), "apc_block.py"), block, receipts], capture_output=True, timeout=60, stdin=subprocess.DEVNULL)
+
+    def test_files_past_the_bounds_are_refused(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            deep, lst = os.path.join(d, "deep.json"), os.path.join(d, "list.json")
+            with open(deep, "w") as fh:
+                fh.write("[" * 100000 + "]" * 100000)
+            with open(lst, "w") as fh:
+                fh.write("[]")
+            cases = [deep]
+            if hasattr(os, "mkfifo"):
+                os.mkfifo(os.path.join(d, "fifo"))
+                cases.append(os.path.join(d, "fifo"))
+            if os.path.exists("/dev/zero"):
+                cases.append("/dev/zero")
+            for f in cases:
+                r = self.run_program(f, lst)
+                self.assertEqual((r.returncode, json.loads(r.stdout)["verdict"], r.stderr), (3, "refused", b""), f)
+            r = self.run_program(lst, lst)                                  # control: read, then refused by the rule
+            self.assertEqual((r.returncode, json.loads(r.stdout)["reason"]), (3, "block_not_object"))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -580,5 +580,74 @@ class Algorithms(unittest.TestCase):
             self.assertIsNone(check(ex, ks)[0]["profile"], tag)
 
 
+class HostileInput20261123(unittest.TestCase):
+    """SPEC 29 (the bundle as hostile input) on the code of 10.2 (independent hunt 2026-11-23). D1: a field read by n
+    `key` components, a query read by n @query-param components, or a Signature-Agent read by the profile of each of 64
+    labels was parsed once per component or label (quadratic: 32 s of CPU for n = 2000 `key` components, 5 s for 2000
+    @query-param, measured on 30b0ac0); it is parsed once. D2: a target_uri whose host urlsplit cannot read ("[" outside
+    an IPv6 literal) raised ValueError, verdict `error` (SPEC 29.3); it is refused."""
+    N = 300
+
+    def request(self, uri, fields, comps):
+        return {"request": {"method": "GET", "target_uri": uri, "fields": [["Host", "api.example.com"]] + fields + [
+            ["Signature-Input", 'sig1=(%s);keyid="k"' % " ".join(comps)], ["Signature", "sig1=:" + "A" * 86 + "==:"]]}}
+
+    def counted(self, ex, name, ks):
+        calls = []
+        real = getattr(h, name)
+        with mock.patch.object(h, name, side_effect=lambda *a, **k: calls.append(a[-1] if name == "combined" else a[0]) or real(*a, **k)):
+            s = check(ex, ks)
+        return s, calls
+
+    def test_key_components_parse_the_field_once(self):
+        val = ", ".join("a%d=1" % i for i in range(self.N))
+        ex = self.request("https://api.example.com/p", [["X", val]], ['"x";key="a%d"' % i for i in range(self.N)])
+        s, calls = self.counted(ex, "parse_dictionary", keys(k=("ed25519", ED_PUB)))
+        self.assertEqual(s[0]["result"], "failed:signature_invalid")
+        self.assertEqual(calls.count(val), 1)
+
+    def test_query_param_components_split_the_query_once(self):
+        q = "&".join("a%d=1" % i for i in range(self.N))
+        ex = self.request("https://api.example.com/p?" + q, [], ['"@query-param";name="a%d"' % i for i in range(self.N)])
+        s, calls = self.counted(ex, "_form", keys(k=("ed25519", ED_PUB)))
+        self.assertEqual(s[0]["result"], "failed:signature_invalid")
+        self.assertLessEqual(len(calls), 2 * self.N)
+
+    def test_signature_agent_parsed_once_for_64_labels(self):
+        for cov, tail in (('"signature-agent";key="sig%d"', 'sig0="https://a.example/x"'), ('"signature-agent"', '"https://a.example/x"')):
+            ex = {"request": {"method": "GET", "target_uri": "https://api.example.com/p", "fields": [
+                ["Host", "api.example.com"], ["Signature-Agent", tail],
+                ["Signature-Input", ", ".join(('sig%d=("@authority" ' + cov + ');tag="web-bot-auth"') % ((i, i) if "%d" in cov else (i,))
+                                              for i in range(64))]]}}
+            s, c1 = self.counted(ex, "parse_dictionary", None)
+            _, c2 = self.counted(ex, "_item", None)
+            self.assertEqual(len(s), 64)
+            self.assertEqual(c1.count(tail) + c2.count(tail), 1, cov)
+            self.assertNotIn("signature-agent", s[0]["profile"]["missing"])
+
+    def test_a_field_is_joined_once_for_its_components_and_labels(self):
+        val = ", ".join("a%d=1" % i for i in range(self.N))
+        comps = " ".join('"x";key="a%d"' % i for i in range(self.N))
+        ex = {"request": {"method": "GET", "target_uri": "https://api.example.com/p", "fields": [
+            ["Host", "api.example.com"], ["X", val], ["X", "z=2"],
+            ["Signature-Input", ", ".join('s%d=(%s);keyid="k"' % (i, comps) for i in range(64))],
+            ["Signature", ", ".join("s%d=:%s==:" % (i, "A" * 86) for i in range(64))]]}}
+        s, calls = self.counted(ex, "combined", keys(k=("ed25519", ED_PUB)))
+        self.assertEqual({x["result"] for x in s}, {"failed:signature_invalid"})
+        self.assertEqual(calls.count("x"), 1)      # 2 lines, 300 components, 64 labels: joined once
+
+    def test_a_field_that_is_not_a_dictionary_stays_one_failure_per_label(self):
+        ex = self.request("https://api.example.com/p", [["X", "(("]], ['"x";key="a"'])
+        self.assertEqual(check(ex, keys(k=("ed25519", ED_PUB)))[0]["result"], 'failed:component_not_a_dictionary:"x";key="a"')
+
+    def test_unreadable_host_is_refused(self):
+        for uri in ("https://A[pi.example.com/p", "https://api.example.com]/p", "https://[::1/p"):
+            with self.assertRaises(av.Refusal, msg=uri):
+                h.check({"payment_payload": {}, "exchange": {"request": {"method": "GET", "target_uri": uri,
+                                                                         "fields": [["Host", "x"]]}}})
+        self.assertEqual(check({"request": {"method": "GET", "target_uri": "https://[::1]/p", "fields": [["Host", "x"]]}},
+                               None), [])                                  # control: an IPv6 literal is read
+
+
 if __name__ == "__main__":
     unittest.main()
