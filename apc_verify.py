@@ -7,7 +7,8 @@ hashes, apc_siglib, SPEC 32.12).
       [--require-http-signature] [--http-clock-skew SECONDS]
       (the report is always JSON; --json is accepted and changes nothing; --l1-checkpoint: the hash of an L1 block the
       reader trusts, from which canonical.l1_state is proven, SPEC 0.4; --http-keys: the keys the reader trusts for
-      the RFC 9421 signatures of exchange, SPEC 0.8; --signer-trust: the signers the reader trusts for x402
+      the RFC 9421 signatures of exchange, SPEC 0.8 and 10.2 (ed25519, ecdsa-p256-sha256; ml-dsa-44/65/87 only with the
+      cryptography package); --signer-trust: the signers the reader trusts for x402
       signed offers and receipts, SPEC 0.11; --drafts: also the draft profiles of proposed x402 rules, SPEC section 17,
       reported apart in `drafts`, the verdict unchanged; --require-level: signature, settlement_record,
       inclusion_proof or finality_proven, a chain_verified whose evidence_level is lower becomes chain_incomplete, SPEC

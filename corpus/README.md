@@ -35,7 +35,8 @@ Two directories of raw replies the tests read are rebuilt the same way, written 
 --rpc xrpl:0=...`. The tests that read `bundles/` or `oracle/` skip with the reason when they are absent; a module that
 skips whole names the rebuild command when one exists; the regression corpus (`tools/regress.py`) refuses to run without them. Sets declared
 `local_only` (52 bundles) and the other `oracle/` directories are not rebuilt: after a complete rebuild (bundles and
-the two directories) 31 of the 50 test modules that read the corpus load and 19 skip (11 for a `local_only` set, 6
+the two directories) 29 of the 49 test modules that read the corpus load and 20 skip (11 for a `local_only` set, 7
 for a `local_only` directory, 2 for reference vectors and saved replies kept with the corpus), and say so; without
-the `cryptography` package tests/test_mandate.py skips too (30 and 20). `tests/test_corpus_manifest.py` runs on the list
+the `cryptography` package tests/test_mandate.py skips too (28 and 21; measured 2026-11-23 at import, the rebuilt
+sets and the two directories present, the rest absent). `tests/test_corpus_manifest.py` runs on the list
 alone, without network.

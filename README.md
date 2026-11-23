@@ -8,14 +8,16 @@ transactions, receipts, inclusion proofs, state proofs). The specification is `S
 `apc_verify.py` (0.21.6) with its modules `apc_*.py`; the tools that built and measured it are in `tools/`; the tests in
 `tests/`. Code identifiers and docstrings are in English.
 
-This tree is built from commit 27bf776 of the author's working tree by a publication tool; the earlier history is
-not carried over. `SPEC.md` is the author's working document: a measure stated "on this tree" means the author's
-working tree at the date given, with the real corpus, not this public tree; sections marked "local" were written before
-publication.
+The first commit of this repository (37a506f, 2026-11-02) was built from the author's working tree by a publication
+tool, and so were later trees up to 0.21.5 (edec562, from 27bf776); the earlier history is not carried over. The
+commits since edec562 are made in this repository. `SPEC.md` is the author's working document: a measure stated "on
+this tree" means the author's working tree at the date given, with the real corpus, not this public tree; sections
+marked "local" were written before publication.
 
 ## Running it
 
-Python 3.9 or later, standard library only (the mandate checks of SPEC 31 apart: below). Two sibling checkouts by the
+Python 3.9 or later, standard library only (the mandate checks of SPEC 31 and the ML-DSA signatures of X7, SPEC 10.2,
+apart: below). Two sibling checkouts by the
 same author are read, both public:
 
 - [x402-signature-vectors](https://github.com/robertolocatelli81-dev/x402-signature-vectors) at tag `v1.4.0`
@@ -53,7 +55,7 @@ python3 tools/rebuild_corpus.py --check-manifest
 - Each label reports its `tag` and the profile it names (`web-bot-auth`; Visa TAP's `agent-browser-auth`,
   `agent-payer-auth`) with what it lacks; reported only, never a result.
 
-## apc_verify 0.21.6, SPEC 32.15 (released 2026-11-22)
+## apc_verify 0.21.6, SPEC 32.15 (on main since 2026-11-22, commit 111de70; no tag and no GitHub release yet)
 
 - The RFC 9421 signatures of `exchange` (X7) and their window, SPEC 10.1: with `--http-keys`, a label whose `expires`
   is less than its `created` is `failed:expires_before_created` (it was `verified`); when the bundle proves the time

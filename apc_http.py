@@ -1,4 +1,4 @@
-"""SPEC 0.8 (section 10): the HTTP exchange that carried the payment, checks X1-X7. Offline, standard library only.
+"""SPEC 0.8 (section 10): the HTTP exchange that carried the payment, checks X1-X7. Offline; stdlib only but ML-DSA.
 
 Sources (sources/http_20261025): x402 specs/transports-v2/http.md @0aee759, RFC 9421 (HTTP Message Signatures), RFC 9530
 (Digest Fields), RFC 9651 (Structured Field Values). Signatures: Ed25519 of apc_solana.py (RFC 8032 5.1.7) and ECDSA
@@ -17,7 +17,7 @@ from apc_verify import Refusal, _obj, _str
 
 MAX_BODY = 8 * 1024 * 1024
 MAX_FIELDS = 256
-MAX_LABELS = 64             # SPEC 29.2: signature labels per message (each one an ECDSA or Ed25519 verification)
+MAX_LABELS = 64             # SPEC 29.2: signature labels per message (each one an ECDSA, Ed25519 or ML-DSA verification)
 TOKEN = re.compile(r"[!#$%&'*+\-.^_`|~0-9A-Za-z]+\Z")                       # RFC 9110 5.6.2
 FIELD_VALUE = re.compile(r"(?:[\x21-\x7e](?:[\x20-\x7e\t]*[\x21-\x7e])?)?\Z")  # RFC 9110 5.5, ASCII, no obs-fold
 B64 = re.compile(r"(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?\Z")

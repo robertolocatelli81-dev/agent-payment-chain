@@ -3444,8 +3444,8 @@ K4 (as in 0.21.4).
 ### 32.15 Amendment 0.21.6 (2026-11-22; apc_verify 0.21.6; every bundle version) — HTTP signatures read at the block time, the keys given, the reader who requires a signature, the MCP server's revisions
 The rules are where the matter is: section 10.1 for the X7 signatures of `exchange` (their window read at the block time
 the bundle proves, the keys document read for every bundle, `--require-http-signature`), section 8 for the revisions of
-MCP that apc_mcp.py speaks. The release of 2026-11-22 sets the constant `VERSION` of apc_verify.py to
-`apc_verify 0.21.6` (until then a report made under these rules named 0.21.5). Measured
+MCP that apc_mcp.py speaks. Commit 111de70 of 2026-11-22 (on main; no tag, no GitHub release) sets the constant
+`VERSION` of apc_verify.py to `apc_verify 0.21.6` (until then a report made under these rules named 0.21.5). Measured
 2026-11-22, with the bundles of the author's corpus: tools/regress.py check 1123 bundles, 0 differences (a verdict
 altered in a copy of the frozen file is found, exit 1), then refrozen under 0.21.6, the verifier string the only change;
 the list rewritten: verifier and date only; in the public tree, `unittest discover` on Python 3.9, 3.11 and 3.13, 377
@@ -3457,8 +3457,9 @@ carries this amendment sets another; until then a report made under these rules 
 with the bundles of the author's corpus (ap2-evidence-pack at v1.7.1): tools/regress.py check, 1123 bundles, 0
 differences; with --http-keys (the RFC 9421 B.1.4 key, and an ML-DSA-65 key on this revision) the 1123 reports equal
 those of 111de70 in verdict and every check (none of the 1123 carries `exchange`); in the public tree, `unittest
-discover` on Python 3.9, 3.11 and 3.13, 401 tests, OK (skipped=148, 144, 148: `cryptography` is installed for 3.11
-only here), and `tests.test_amend0212` with `tests.test_http9421_20261123` under `APC_REQUIRE_DEPS=1`, 53 tests, OK
+discover` on Python 3.9, 3.11 and 3.13, 401 tests, OK (skipped=148, 136, 148, with APC_SIGLIB and APC_AP2EV naming
+the two siblings at their tags as the CI does; `cryptography` 50.0.1 is installed for 3.11 only here),
+and `tests.test_amend0212` with `tests.test_http9421_20261123` under `APC_REQUIRE_DEPS=1`, 53 tests, OK
 (skipped=4). Mutants on the lines of apc_http.py this amendment adds or changes: 200, 184 killed, 16 equivalent (8 in
 docstrings and comments, 2 texts of an error never reported, the ML-DSA signature length checked again by the library,
 `sort_keys` on a JWK already in order, 2 initial values a later line overwrites, and 2 on an absent Signature-Agent

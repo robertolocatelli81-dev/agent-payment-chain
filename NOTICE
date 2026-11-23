@@ -64,8 +64,12 @@ ethereum/ERCs (8dd085d, 4891ba3, PR 1209 @457532f): erc6492_8dd085d, ercs_7710_7
   (a draft under review), x402_prs_20261026/erc-8004_4891ba3.md; ethereum-optimism/specs @21d1ff5: optimism_specs_21d1ff5.
   All CC0-1.0.
 IETF: RFC 8941, 9421, 9530, 9651 (http_20261025) and four Internet-Drafts (ietf/), reproduced in full and without
-  modification under the IETF Trust Legal Provisions, section 3.c.i. Copyright (c) IETF Trust and the persons identified
-  as the document authors.
+  modification under the IETF Trust Legal Provisions 5.0 (effective 2015-03-25, the version in force on 2026-11-23),
+  section 3.c.i, each with its own copyright notice and legend. Copyright (c) IETF Trust and the persons identified
+  as the document authors. The four drafts of ietf/ (draft-hopley-x402-payment-evidence-frame-00,
+  draft-stone-vcap-02, draft-stone-vcap-ap2-binding-01, draft-vauban-x402-consolidated-00) are cited by no section of
+  SPEC.md and read by no test; on 2026-11-23 the datatracker lists draft-hopley-x402-payment-evidence-frame at revision
+  01 and draft-vauban-x402-consolidated as "No Longer In Independent Submission Stream".
   draft-ietf-webbotauth-httpsig-protocol-01 (webbotauth_c2sp_20261123), reproduced on the same terms.
 C2SP httpsig-pq v1.0.1 (C2SP/C2SP @63169cf, httpsig-pq.md; author Soatok Dreamseeker), CC BY 4.0
   (https://creativecommons.org/licenses/by/4.0/, as the footer of c2sp.org states): webbotauth_c2sp_20261123, copied
