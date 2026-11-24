@@ -16,9 +16,11 @@ regexes = [
   '''^0x4c0883a69102937d6231471b5dbb6204fe5129617082792ae468d01a3f362318$''',  # go-ethereum documentation example key
   '''^9f3b1c2d-4e5f-6a7b-8c9d-0e1f2a3b4c5d$''',                                # a UUID used as idempotency key in examples
   '''^40b0560cd3637678eef1ff13743dfbac97ed6f153dcabebc536e3bc5e1e9e4a6$''',    # sha256 of a key directory in x402 PR 3783 (a digest)
+  '''^visa-tap-16d59bd$''',                                                    # name of a profile in apc_http.PROFILES (source at commit 16d59bd)
 ]
 paths = [
   '''sources/l1proof_20261024/.*\.json''',          # eth_getProof replies: storage keys and node hashes, 32-byte hex values
   '''sources/http_20261025/rfc9421\.txt''',          # RFC 9421 appendix B: the RFC's own published example keys
   '''sources/x402_prs_20261026/delivery-receipt.*''',  # sha256 digests in the vectors of a pull request
+  '''sources/webbotauth_c2sp_20261123/c2sp_httpsig-pq_v1\.0\.1_63169cf\.md''',  # C2SP httpsig-pq v1.0.1: the spec's own published test seeds
 ]
