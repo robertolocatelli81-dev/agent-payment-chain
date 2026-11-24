@@ -1211,12 +1211,34 @@ def tsa_stamp(url, ca_path, digest_hex):
 
 
 # ------------------------------------------------------------------ writing (SPEC 11.3)
+WIN_LOCK_OFFSET = 1 << 40      # Windows: the byte locked, past any register, so that readers are never blocked
+
+
 def _lock(fh):
+    """One writer at a time (SPEC 11.3), until fh is closed: flock on POSIX; on Windows, which has no flock, its
+    equivalent msvcrt.locking on one byte past the end of any register (a Windows lock is mandatory: on a byte the
+    register holds it would block the readers too), waited for as flock waits."""
+    if os.name == "nt":
+        import errno
+        import msvcrt
+        pos = fh.tell()
+        fh.seek(WIN_LOCK_OFFSET)
+        try:
+            while True:
+                try:
+                    msvcrt.locking(fh.fileno(), msvcrt.LK_LOCK, 1)      # LK_LOCK tries for 10 s, then EDEADLOCK
+                    break
+                except OSError as e:
+                    if e.errno != errno.EDEADLOCK:
+                        raise
+        finally:
+            fh.seek(pos)
+        return
     try:
         import fcntl
         fcntl.flock(fh.fileno(), fcntl.LOCK_EX)
-    except (ImportError, OSError):
-        pass                    # no POSIX lock on this system: one writer at a time is the user's duty (SPEC 11.3)
+    except OSError:
+        pass                    # a file system without locks: one writer at a time is the user's duty (SPEC 11.3)
 
 
 def _entry(entries, kind, body):

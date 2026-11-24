@@ -185,5 +185,88 @@ class CrlfCheckout(unittest.TestCase):
             self.assertIn(b"\n* -text\n", fh.read())
 
 
+class FuzzChildOnThisPlatform(unittest.TestCase):
+    """tools/fuzz_bundles.run_child runs apc_verify in a limited child on every platform: a fork with setrlimit on
+    POSIX, a process in its own Job Object on Windows (no fork, no setrlimit there; CI run 45334985210 ended the module
+    at `import resource`). The peak memory is read in MiB on each (macOS reports ru_maxrss in bytes, Linux in KiB)."""
+
+    def test_a_case_runs_and_is_measured(self):
+        library()
+        import fuzz_bundles as fb
+        with tempfile.TemporaryDirectory() as d:
+            case = os.path.join(d, "case.json")
+            with open(case, "wb") as fh:
+                fh.write(b"{}")
+            before = fb.CHILDREN_CPU[0]
+            res, out, err = fb.run_child(case, [], 5, 2048, d)
+        self.assertEqual(res.get("exit"), 3, (res, err))
+        rep = json.loads(out)
+        self.assertEqual(rep["verdict"], "refused")
+        self.assertEqual(fb.classify(res, out, err, "refused", rep.get("checks", {}), False, 5, 2048)[0], None)
+        self.assertTrue(5 <= res["maxrss_mib"] <= 2048, res)        # an interpreter with apc_verify: tens of MiB
+        self.assertTrue(0 < res["cpu"] < 20 and fb.CHILDREN_CPU[0] > before, res)
+
+
+class NoPosixOnlyImport(unittest.TestCase):
+    """Every program and tool of the tree imports on a Python without the POSIX-only modules (Windows has no resource,
+    fcntl, termios, pwd or grp): those are imported where they are used, on the platform that has them (CI run
+    45334985210: tools/fuzz_bundles.py ended at `import resource` on Windows)."""
+
+    def test_no_module_imports_them_at_its_top(self):
+        """read on the sources (ast): an import of the five at module level, outside a def or a class, ends the
+        program on Windows before its first line runs"""
+        import ast
+        blocked = {"resource", "fcntl", "termios", "pwd", "grp"}
+        files = [os.path.join(ROOT, n) for n in sorted(os.listdir(ROOT)) if n.endswith(".py")]
+        for sub in ("tools", "tests"):
+            files += [os.path.join(ROOT, sub, n) for n in sorted(os.listdir(os.path.join(ROOT, sub))) if n.endswith(".py")]
+        found = []
+        for f in files:
+            with open(f, "rb") as fh:
+                tree = ast.parse(fh.read(), f)
+            stack = list(tree.body)
+            while stack:
+                n = stack.pop()
+                if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                    continue
+                if isinstance(n, ast.Import):
+                    found += ["%s: %s" % (os.path.relpath(f, ROOT), a.name) for a in n.names if a.name in blocked]
+                elif isinstance(n, ast.ImportFrom) and n.module in blocked:
+                    found.append("%s: %s" % (os.path.relpath(f, ROOT), n.module))
+                else:
+                    stack.extend(ast.iter_child_nodes(n))
+        self.assertGreater(len(files), 150)
+        self.assertEqual(found, [])
+
+class RegisterLock(unittest.TestCase):
+    """apc_registry._lock (SPEC 11.3, one writer at a time) on this platform: flock on POSIX, msvcrt.locking on Windows
+    (until 2026-11-24 no lock at all there: fcntl was missing and the error was passed over). A second writer waits."""
+
+    def test_a_second_writer_waits(self):
+        import subprocess
+        import time
+        import apc_registry as rg
+        with tempfile.TemporaryDirectory() as d:
+            reg = os.path.join(d, "reg.jsonl")
+            with open(reg, "wb") as fh:
+                fh.write(b"x\n")
+            code = ("import sys, time; sys.path.insert(0, sys.argv[1]); import apc_registry as rg\n"
+                    "fh = open(sys.argv[2], 'r+b'); rg._lock(fh); print('locked', flush=True); time.sleep(3)\n")
+            p = subprocess.Popen([sys.executable, "-B", "-c", code, ROOT, reg], stdout=subprocess.PIPE)
+            try:
+                self.assertEqual(p.stdout.readline().strip(), b"locked")
+                t0 = time.monotonic()
+                with open(reg, "r+b") as fh:
+                    rg._lock(fh)
+                    waited = time.monotonic() - t0
+                    self.assertEqual(fh.tell(), 0)                   # the position is kept
+                    fh.seek(0)
+                    self.assertEqual(fh.read(), b"x\n")             # readers are not blocked by the lock's byte
+            finally:
+                p.stdout.close()
+                p.wait()
+            self.assertGreater(waited, 1.5)
+
+
 if __name__ == "__main__":
     unittest.main()

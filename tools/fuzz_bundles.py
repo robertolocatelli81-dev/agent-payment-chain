@@ -1,5 +1,8 @@
 """The bundle as hostile input (SPEC section 29): structural fuzzing of apc_verify from the real bundles of the frozen
-corpus (regress/VERDICTS.json). Standard library only; Linux (fork, wait4, resource limits).
+corpus (regress/VERDICTS.json). Standard library only. POSIX: a forked child with resource limits (fork, wait4,
+setrlimit; macOS reports ru_maxrss in bytes, Linux in KiB; where RLIMIT_AS is refused the peak resident set is checked
+after the run only); Windows, which has neither fork nor setrlimit: the child is a new process that puts itself
+in a Job Object with the same memory and CPU limits, and the parent reads its CPU time and peak working set.
 
   python3 tools/fuzz_bundles.py run SEED N [--families F01,F02,...] [--out DIR] [--cpu-cap S] [--mem-cap MiB]
   python3 tools/fuzz_bundles.py replay CASE.json          (one saved case again: its outcome as JSON)
@@ -38,7 +41,6 @@ import json
 import os
 import random
 import re
-import resource
 import signal
 import sys
 import tempfile
@@ -318,15 +320,53 @@ def dump(doc, sentinel=None):
     return json.dumps(doc).encode()
 
 
-# ------------------------------------------------------------------ one case in a forked child
+# ------------------------------------------------------------------ one case in a child process
+def _verify_in_child(path, opts, raw):
+    """the child's work, the same on every platform: apc_verify on the case; exit 70 traceback, 71 MemoryError, 72 an
+    exit code outside 0-69, else the verifier's own"""
+    import apc_verify
+    try:
+        if raw:                         # the same bundle through verify_bundle, for the traceback of an `error`
+            cp = opts[opts.index("--l1-checkpoint") + 1] if "--l1-checkpoint" in opts else None
+            try:
+                with open(path, "rb") as fh:
+                    apc_verify.verify_bundle(apc_verify.strict_json(fh.read().decode("utf-8")),
+                                             cp, None, None, "--drafts" in opts)
+            except (apc_verify.Refusal, UnicodeDecodeError):
+                pass
+            os._exit(0)
+        code = apc_verify.main(["apc_verify.py"] + opts + [path])
+    except BaseException:
+        traceback.print_exc()
+        sys.stderr.flush()
+        os._exit(70 if not isinstance(sys.exc_info()[1], MemoryError) else 71)
+    sys.stdout.flush()
+    os._exit(code if isinstance(code, int) and 0 <= code < 70 else 72)
+
+
+CHILDREN_CPU = [0.0]            # the CPU seconds of every child run (getrusage(RUSAGE_CHILDREN) on every platform)
+
+
 def run_child(path, opts, cpu_cap, mem_cap_mib, scratch, raw=False):
+    """-> (resources, stdout bytes or None, stderr tail) of apc_verify run on path in a limited child process"""
+    run = _run_child_windows if os.name == "nt" else _run_child_posix
+    res, out, err = run(path, opts, cpu_cap, mem_cap_mib, scratch, raw)
+    CHILDREN_CPU[0] += res["cpu"]
+    return res, out, err
+
+
+def _run_child_posix(path, opts, cpu_cap, mem_cap_mib, scratch, raw):
+    import resource
     out_p, err_p = os.path.join(scratch, "stdout"), os.path.join(scratch, "stderr")
     t0 = time.monotonic()
     pid = os.fork()
     if pid == 0:                                                   # child
         try:
             mem = mem_cap_mib << 20
-            resource.setrlimit(resource.RLIMIT_AS, (mem, mem))
+            try:
+                resource.setrlimit(resource.RLIMIT_AS, (mem, mem))
+            except (ValueError, OSError):           # a system that refuses it: classify still reads the peak
+                pass                                # resident set after the run
             hard = int(cpu_cap * 4) + 1
             resource.setrlimit(resource.RLIMIT_CPU, (hard, hard + 1))
             signal.alarm(hard * 2)
@@ -335,30 +375,15 @@ def run_child(path, opts, cpu_cap, mem_cap_mib, scratch, raw=False):
             os.dup2(fo, 1)
             os.dup2(fe, 2)
             sys.stdout = io.TextIOWrapper(os.fdopen(1, "wb", closefd=False), encoding="utf-8")
-            import apc_verify
-            try:
-                if raw:                         # the same bundle through verify_bundle, for the traceback of an `error`
-                    cp = opts[opts.index("--l1-checkpoint") + 1] if "--l1-checkpoint" in opts else None
-                    try:
-                        apc_verify.verify_bundle(apc_verify.strict_json(open(path, "rb").read().decode("utf-8")),
-                                                 cp, None, None, "--drafts" in opts)
-                    except (apc_verify.Refusal, UnicodeDecodeError):
-                        pass
-                    os._exit(0)
-                code = apc_verify.main(["apc_verify.py"] + opts + [path])
-            except BaseException:
-                traceback.print_exc()
-                sys.stderr.flush()
-                os._exit(70 if not isinstance(sys.exc_info()[1], MemoryError) else 71)
-            sys.stdout.flush()
-            os._exit(code if isinstance(code, int) and 0 <= code < 70 else 72)
+            _verify_in_child(path, opts, raw)
         except BaseException:
             os._exit(73)
     _, status, ru = os.wait4(pid, 0)
     wall = time.monotonic() - t0
-    out = open(out_p, "rb").read()
-    err = open(err_p, "rb").read()[-4000:].decode("utf-8", "replace")
-    res = {"cpu": round(ru.ru_utime + ru.ru_stime, 3), "wall": round(wall, 3), "maxrss_mib": round(ru.ru_maxrss / 1024, 1)}
+    out, err = _read_outputs(out_p, err_p)
+    rss_unit = 1 << 20 if sys.platform == "darwin" else 1 << 10        # getrusage(2): bytes on macOS, KiB on Linux
+    res = {"cpu": round(ru.ru_utime + ru.ru_stime, 3), "wall": round(wall, 3),
+           "maxrss_mib": round(ru.ru_maxrss / rss_unit, 1)}
     if os.WIFSIGNALED(status):
         res.update(kind="signal", signal=os.WTERMSIG(status))
         return res, None, err
@@ -367,10 +392,110 @@ def run_child(path, opts, cpu_cap, mem_cap_mib, scratch, raw=False):
     return res, out, err
 
 
+def _read_outputs(out_p, err_p):
+    with open(out_p, "rb") as fh:
+        out = fh.read()
+    with open(err_p, "rb") as fh:
+        err = fh.read()[-4000:].decode("utf-8", "replace")
+    return out, err
+
+
+# Windows: the child runs this, then _verify_in_child; JOB_OBJECT_LIMIT_PROCESS_MEMORY makes an allocation past the
+# cap fail (MemoryError, exit 71) as RLIMIT_AS does, JOB_OBJECT_LIMIT_PROCESS_TIME ends the process past the CPU cap
+_WIN_CHILD = """import sys, json
+sys.path.insert(0, sys.argv[1])
+import fuzz_bundles as fb
+fb._enter_job(int(sys.argv[2]), float(sys.argv[3]))
+fb._verify_in_child(sys.argv[4], json.loads(sys.argv[5]), sys.argv[6] == "1")
+"""
+_TIMEOUT_EXIT = 0x7F0                    # what the parent gives a child it ended at the wall-clock hard stop
+
+
+def _enter_job(mem_cap_mib, cpu_cap):
+    """Windows: put this process in a new Job Object limited to mem_cap_mib of committed memory and the hard CPU time
+    of the POSIX branch (4 * cpu_cap + 1 seconds of user time)"""
+    import ctypes
+    from ctypes import wintypes
+
+    class BASIC(ctypes.Structure):
+        _fields_ = [("PerProcessUserTimeLimit", ctypes.c_int64), ("PerJobUserTimeLimit", ctypes.c_int64),
+                    ("LimitFlags", wintypes.DWORD), ("MinimumWorkingSetSize", ctypes.c_size_t),
+                    ("MaximumWorkingSetSize", ctypes.c_size_t), ("ActiveProcessLimit", wintypes.DWORD),
+                    ("Affinity", ctypes.c_size_t), ("PriorityClass", wintypes.DWORD),
+                    ("SchedulingClass", wintypes.DWORD)]
+
+    class IO(ctypes.Structure):
+        _fields_ = [(n, ctypes.c_uint64) for n in ("Read", "Write", "Other", "ReadT", "WriteT", "OtherT")]
+
+    class EXTENDED(ctypes.Structure):
+        _fields_ = [("Basic", BASIC), ("Io", IO), ("ProcessMemoryLimit", ctypes.c_size_t),
+                    ("JobMemoryLimit", ctypes.c_size_t), ("PeakProcessMemoryUsed", ctypes.c_size_t),
+                    ("PeakJobMemoryUsed", ctypes.c_size_t)]
+    k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    k32.CreateJobObjectW.restype = wintypes.HANDLE
+    k32.GetCurrentProcess.restype = wintypes.HANDLE
+    job = k32.CreateJobObjectW(None, None)
+    info = EXTENDED()
+    info.Basic.LimitFlags = 0x100 | 0x2          # JOB_OBJECT_LIMIT_PROCESS_MEMORY | JOB_OBJECT_LIMIT_PROCESS_TIME
+    info.Basic.PerProcessUserTimeLimit = int((int(cpu_cap * 4) + 1) * 10 ** 7)       # 100 ns units
+    info.ProcessMemoryLimit = mem_cap_mib << 20
+    if not job or not k32.SetInformationJobObject(wintypes.HANDLE(job), 9, ctypes.byref(info), ctypes.sizeof(info)) \
+            or not k32.AssignProcessToJobObject(wintypes.HANDLE(job), wintypes.HANDLE(k32.GetCurrentProcess())):
+        raise OSError(ctypes.get_last_error(), "the Job Object of the fuzz child could not be set")   # exit 70
+
+
+def _run_child_windows(path, opts, cpu_cap, mem_cap_mib, scratch, raw):
+    """Windows: the child is `python -c _WIN_CHILD`, its own Job Object set before apc_verify is imported; the parent
+    stops it at the wall-clock hard stop of the POSIX branch (2 * (4 * cpu_cap + 1) s) and reads its CPU time
+    (GetProcessTimes) and peak working set (K32GetProcessMemoryInfo) from the process handle."""
+    import ctypes
+    import subprocess
+    from ctypes import wintypes
+    out_p, err_p = os.path.join(scratch, "stdout"), os.path.join(scratch, "stderr")
+    hard = int(cpu_cap * 4) + 1
+    cmd = [sys.executable, "-B", "-c", _WIN_CHILD, os.path.dirname(os.path.abspath(__file__)), str(mem_cap_mib),
+           str(cpu_cap), path, json.dumps(opts), "1" if raw else "0"]
+    t0 = time.monotonic()
+    with open(out_p, "wb") as fo, open(err_p, "wb") as fe:
+        p = subprocess.Popen(cmd, stdin=subprocess.DEVNULL, stdout=fo, stderr=fe)
+        try:
+            p.wait(timeout=hard * 2)
+        except subprocess.TimeoutExpired:
+            p.kill()
+            p.wait()
+            p.returncode = _TIMEOUT_EXIT
+        wall = time.monotonic() - t0
+
+        class COUNTERS(ctypes.Structure):
+            _fields_ = [("cb", wintypes.DWORD), ("PageFaultCount", wintypes.DWORD)] + \
+                       [(n, ctypes.c_size_t) for n in ("PeakWorkingSetSize", "WorkingSetSize", "QuotaPeakPagedPoolUsage",
+                                                       "QuotaPagedPoolUsage", "QuotaPeakNonPagedPoolUsage",
+                                                       "QuotaNonPagedPoolUsage", "PagefileUsage", "PeakPagefileUsage")]
+        k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        h = wintypes.HANDLE(int(p._handle))
+        times = [wintypes.FILETIME() for _ in range(4)]
+        mem = COUNTERS()
+        mem.cb = ctypes.sizeof(mem)
+        if not k32.GetProcessTimes(h, *[ctypes.byref(t) for t in times]) or \
+                not k32.K32GetProcessMemoryInfo(h, ctypes.byref(mem), mem.cb):
+            raise OSError(ctypes.get_last_error(), "the fuzz child's CPU time or memory could not be read")
+    cpu = sum((t.dwHighDateTime << 32 | t.dwLowDateTime) for t in times[2:]) / 1e7     # kernel + user, 100 ns units
+    out, err = _read_outputs(out_p, err_p)
+    res = {"cpu": round(cpu, 3), "wall": round(wall, 3), "maxrss_mib": round(mem.PeakWorkingSetSize / (1 << 20), 1)}
+    if p.returncode == _TIMEOUT_EXIT or cpu > hard:     # stopped at the hard stop, or ended by the job's CPU limit
+        res.update(kind="timeout")
+        return res, None, err
+    res["exit"] = p.returncode
+    return res, out, err
+
+
 def classify(res, out, err, base_verdict, base_checks, equivalence, cpu_cap, mem_cap):
     """-> (defect kind or None, verdict, checks)"""
+    if res.get("kind") == "timeout":                     # Windows: the hard stop (no signal there)
+        return "time", None, None
     if res.get("kind") == "signal":
-        return ("time" if res["signal"] in (signal.SIGXCPU, signal.SIGALRM, signal.SIGKILL) else "crash"), None, None
+        stops = {getattr(signal, n) for n in ("SIGXCPU", "SIGALRM", "SIGKILL") if hasattr(signal, n)}
+        return ("time" if res["signal"] in stops else "crash"), None, None
     code = res["exit"]
     if code == 71 or "MemoryError" in err:
         return "memory", None, None
@@ -625,10 +750,7 @@ def main(argv):
                "worst": {k: {"value": v[0], "case": v[1]} for k, v in worst.items()},
                "defect_signatures": dict(sigs), "saved": defects,
                "survivors": dict(survivors.most_common()),
-               "children_cpu_s": round(resource.getrusage(resource.RUSAGE_CHILDREN).ru_utime
-                                       + resource.getrusage(resource.RUSAGE_CHILDREN).ru_stime, 1),
-               "self_cpu_s": round(resource.getrusage(resource.RUSAGE_SELF).ru_utime
-                                   + resource.getrusage(resource.RUSAGE_SELF).ru_stime, 1),
+               "children_cpu_s": round(CHILDREN_CPU[0], 1), "self_cpu_s": round(time.process_time(), 1),
                "wall_s": round(time.monotonic() - t_start, 1)}
     print(json.dumps(summary, indent=1, sort_keys=True))
     return 1 if stats["defects"] else 0

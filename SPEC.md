@@ -1060,8 +1060,9 @@ standard time, so a "dst != 0 means summer time" rule would be wrong; the record
 
 ### 11.3 Register file
 Append-only. A write is one line, then flush and fsync (and the directory is fsynced when the register is created);
-`init` never writes over an existing file; a writer takes an exclusive POSIX lock (where the system has none, one
-writer at a time is the user's duty). A record writes its entries (torn_tail, check, timestamp, seal) only after all
+`init` never writes over an existing file; a writer takes an exclusive lock: flock on POSIX, on Windows its equivalent
+msvcrt.locking on one byte past the end of any register, so that readers are never blocked (until 2026-11-24 Windows
+took no lock: fcntl is absent there); on a file system without locks one writer at a time is the user's duty. A record writes its entries (torn_tail, check, timestamp, seal) only after all
 of them are built and checked: a refusal at any step, the time-stamping authority included, writes nothing.
 Reading (verify, show, and record before it writes):
 - every complete line must be the canonical form of an entry of 11.2, in chain (seq, prev, hash), else damage;
@@ -2206,7 +2207,10 @@ InternalError.test_report_and_stderr_not_written_is_74).
 
 29.5 Fuzzing (tools/fuzz_bundles.py, standard library). From the real bundles of regress/VERDICTS.json (and, with
 `seeds`, bundles the test helpers build for the members no corpus bundle carries), case i of seed S is drawn by
-random.Random("S:i") alone and run as the command line runs it in a forked child with RLIMIT_AS, RLIMIT_CPU and an alarm.
+random.Random("S:i") alone and run as the command line runs it in a forked child with RLIMIT_AS, RLIMIT_CPU and an alarm
+(POSIX; the peak resident set read in bytes on macOS, in KiB on Linux, as getrusage(2) of each reports it; where the system
+refuses the RLIMIT_AS, the peak is checked after the run only), or, on Windows (no fork, no setrlimit), in a new process that puts itself in a Job Object with the same memory and
+CPU limits, stopped at the same wall-clock hard stop, its CPU time and peak working set read from its handle (2026-11-24).
 Families F01-F14 (new members at every level, wrong types, duplicate members, numbers, long strings, hex forms, unicode
 and invalid UTF-8, deep nesting, lists past their bound, binary blobs truncated or with false lengths, inflated proofs,
 the declared equivalence of member order and whitespace, deleted members, file level). A case is a defect when the

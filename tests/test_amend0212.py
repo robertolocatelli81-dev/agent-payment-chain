@@ -17,6 +17,7 @@ import hashlib
 import importlib.util
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -32,6 +33,10 @@ FIX = os.path.join(ROOT, "tests", "fixtures_mandate", "base.json")       # made 
 SIGLIB = os.environ.get("APC_SIGLIB", os.path.join(os.path.dirname(os.path.abspath(__file__)), os.pardir, os.pardir, "x402-signature-vectors"))
 PACK = os.environ.get("APC_AP2EV", os.path.join(os.path.dirname(os.path.abspath(__file__)), os.pardir, os.pardir, "ap2-evidence-pack"))
 UNAVAILABLE = "not_evaluated:ap2_evidence_pack_unavailable"
+# a POSIX sh closes or redirects standard error before the program starts (2>&-, 2>/dev/full); on Windows the one of Git
+# for Windows, on PATH on the CI runners (no /bin/sh there: CI run 45334985210, WinError 2)
+SH = shutil.which("sh")
+NO_SH = "no POSIX sh on PATH (on Windows: install Git for Windows, whose sh the CI runners have)"
 NOT_171 = "not_evaluated:ap2_evidence_pack_not_1.7.1"
 
 
@@ -331,11 +336,14 @@ class PackCodeIsTheHashedBytes(unittest.TestCase):
             self.assertEqual(rep["checks"]["MP1"], UNAVAILABLE)
             self.assertIn("APC_AP2EV is unset (or empty)", notes[0])
 
+    @unittest.skipUnless(SH, NO_SH)
     def test_exit_64_with_standard_error_closed_or_full(self):
-        cases = [("closed", "2>&-")] + ([("full", "2>/dev/full")] if os.path.exists("/dev/full") else [])
-        for name, redir in cases:
+        for name, redir in (("closed", "2>&-"), ("full", "2>/dev/full")):
             with self.subTest(name), tempfile.TemporaryDirectory() as tmp:
-                r = subprocess.run(["/bin/sh", "-c", 'exec "$0" -B "$1" "$2" ' + redir, sys.executable, VERIFY, FIX],
+                if name == "full" and not os.path.exists("/dev/full"):
+                    self.skipTest("this system has no full device (/dev/full: Linux, FreeBSD); Windows and macOS have "
+                                  "no equivalent device")
+                r = subprocess.run([SH, "-c", 'exec "$0" -B "$1" "$2" ' + redir, sys.executable, VERIFY, FIX],
                                    capture_output=False, stdout=subprocess.PIPE, cwd=ROOT,
                                    env=env(APC_SIGLIB=os.path.join(tmp, "nowhere")))
                 self.assertEqual(r.returncode, 64, name)
@@ -490,8 +498,10 @@ class OtherProgramsWithoutTheLibrary(unittest.TestCase):
         cmd = [sys.executable, "-B", os.path.join(ROOT, prog)] + args
         if redir is None:
             return subprocess.run(cmd, capture_output=True, env=e, cwd=ROOT, stdin=subprocess.DEVNULL)
+        if SH is None:
+            self.skipTest(NO_SH)
         sh = 'exec "$0" ' + " ".join('"$%d"' % i for i in range(1, len(cmd))) + " " + redir
-        return subprocess.run(["/bin/sh", "-c", sh] + cmd, stdout=subprocess.PIPE, cwd=ROOT, env=e, stdin=subprocess.DEVNULL)
+        return subprocess.run([SH, "-c", sh] + cmd, stdout=subprocess.PIPE, cwd=ROOT, env=e, stdin=subprocess.DEVNULL)
 
     def test_one_line_exit_64_no_report(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -514,8 +524,11 @@ class OtherProgramsWithoutTheLibrary(unittest.TestCase):
                         self.assertTrue(err.startswith(prog[:-3] + ": the signature library"), err)
                         self.assertIn(d, err)
                         self.assertIn(said, err)
-                for name, redir in [("closed", "2>&-")] + ([("full", "2>/dev/full")] if os.path.exists("/dev/full") else []):
+                for name, redir in (("closed", "2>&-"), ("full", "2>/dev/full")):
                     with self.subTest(prog, stderr=name):
+                        if name == "full" and not os.path.exists("/dev/full"):
+                            self.skipTest("this system has no full device (/dev/full: Linux, FreeBSD); Windows and "
+                                          "macOS have no equivalent device")
                         r = self.run_program(prog, args, env(APC_SIGLIB=os.path.join(tmp, "nowhere")), redir)
                         self.assertEqual(r.returncode, 64)
                         self.assertEqual(r.stdout, b"")

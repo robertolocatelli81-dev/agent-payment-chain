@@ -160,7 +160,8 @@ class Journal:
             fh.write(canonical(line) + b"\n")
             fh.flush()
             os.fsync(fh.fileno())
-        if new:                                    # the directory entry of a new file must reach the disk too
+        if new and os.name != "nt":                # the directory entry of a new file must reach the disk too (Windows:
+            # os.open cannot open a directory and there is no directory fsync; NTFS journals the entry with its metadata)
             fd = os.open(os.path.dirname(os.path.abspath(self.path)), os.O_RDONLY)
             try:
                 os.fsync(fd)

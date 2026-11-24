@@ -325,7 +325,7 @@ class Refusals(Base):
 
     def test_job_without_journal(self):
         r = subprocess.run([sys.executable, os.path.join(ROOT, "tools", "bench_journal.py"), "job",
-                            os.path.join(self.d, "none.jsonl"), "x", os.path.join(self.d, "x.log"), "--", "true"],
+                            os.path.join(self.d, "none.jsonl"), "x", os.path.join(self.d, "x.log"), "--", sys.executable, "-c", "pass"],
                            capture_output=True, text=True)
         self.assertEqual((r.returncode, r.stderr), (3, ""))
         self.assertIn("open it first", r.stdout)
@@ -623,7 +623,8 @@ class Jobs(Base):
         tool = os.path.join(ROOT, "tools", "bench_journal.py")
         self.assertEqual(subprocess.run([sys.executable, tool, "open", jj, self.tree, "bench=b"]).returncode, 0)
         log = os.path.join(self.d, "suite.log")
-        cmd = [sys.executable, tool, "job", jj, "suite", log, "--", "sh", "-c", "echo run >> %s.count; echo ok" % log]
+        job = "import sys; open(sys.argv[1], 'ab').write(b'run\\n'); print('ok')"      # Python: the same job on every platform
+        cmd = [sys.executable, tool, "job", jj, "suite", log, "--", sys.executable, "-c", job, log + ".count"]
         for _ in range(3):
             subprocess.run(cmd, capture_output=True)
         self.assertEqual(read(log + ".count"), b"run\n")          # run once, recorded twice as done
@@ -641,7 +642,7 @@ class Jobs(Base):
         jj = os.path.join(self.d, "jobs.jsonl")
         tool = os.path.join(ROOT, "tools", "bench_journal.py")
         subprocess.run([sys.executable, tool, "open", jj, self.tree])
-        r = subprocess.run([sys.executable, tool, "job", jj, "x", os.path.join(self.tree, "x.log"), "--", "true"],
+        r = subprocess.run([sys.executable, tool, "job", jj, "x", os.path.join(self.tree, "x.log"), "--", sys.executable, "-c", "pass"],
                            capture_output=True, text=True)
         self.assertEqual(r.returncode, 3)
         self.assertNotIn("x.log", os.listdir(self.tree))

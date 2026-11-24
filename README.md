@@ -39,6 +39,8 @@ same author are read, both public:
 On Windows (Git for Windows sets `core.autocrlf=true`), or wherever that setting is on, clone the two siblings with
 `git -c core.autocrlf=false clone ...`: a checkout that turns LF into CRLF changes the hashed bytes, and the refusal
 then says that the line ends are the cause. This repository keeps its own bytes through `.gitattributes` (`* -text`).
+The CI workflow (.github/workflows/ci.yml) runs the suite on Linux with Python 3.9 to 3.14 and on macOS and Windows
+with Python 3.13, each with and without `cryptography`; a test that needs what a platform lacks skips with the reason.
 
 ```
 python3 apc_verify.py BUNDLE.json            # verdict on standard output, exit code by SPEC section 5
@@ -67,6 +69,12 @@ python3 tools/rebuild_corpus.py --check-manifest
 - Line ends (SPEC 32.12): a library or pack file that is the tag's file with CRLF line ends (a checkout with
   `core.autocrlf=true`) is still refused, and the refusal now names that cause; `.gitattributes` keeps this
   repository's bytes as committed on every platform.
+- Windows and macOS: where Windows lacks a POSIX facility the code uses its equivalent: the register's writer lock is
+  msvcrt.locking (it took no lock there before, SPEC 11.3); tools/fuzz_bundles.py runs each case in a process inside
+  a Job Object with the same memory and CPU limits (no fork or setrlimit; the tool did not import before, SPEC 29.5);
+  tools/bench_journal.py does not open a directory to fsync it. macOS: the fuzz child's peak memory is read in bytes
+  (it was read as KiB). The tests that close standard error use the `sh` on PATH (Git for Windows' on Windows); the
+  case of a full standard error skips where there is no /dev/full (Windows, macOS), with that reason.
 
 ## apc_verify 0.21.6, SPEC 32.15 (on main since 2026-11-22, commit 111de70; no tag and no GitHub release yet)
 
