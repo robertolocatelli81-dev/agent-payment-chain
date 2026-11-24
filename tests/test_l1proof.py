@@ -248,7 +248,8 @@ class BlockProgram(unittest.TestCase):
                 pipe = None
                 if f.startswith("\\\\.\\pipe\\"):             # the server end, open while the program reads it
                     import _winapi
-                    pipe = _winapi.CreateNamedPipe(f, _winapi.PIPE_ACCESS_DUPLEX, _winapi.PIPE_TYPE_BYTE | _winapi.PIPE_WAIT,
+                    # PIPE_TYPE_BYTE is 0x00000000 (Microsoft, CreateNamedPipeW); _winapi does not define it
+                    pipe = _winapi.CreateNamedPipe(f, _winapi.PIPE_ACCESS_DUPLEX, 0x00000000 | _winapi.PIPE_WAIT,
                                                    1, 65536, 65536, 0, _winapi.NULL)
                 try:
                     r = self.run_program(f, lst)

@@ -1737,7 +1737,7 @@ class RebuildImportsItsRecipes(unittest.TestCase):
                 "import rebuild_corpus as rc\n"
                 "for name in ('make_bundles_l1state', 'make_bundles_svm'):\n"
                 "    m = rc._tool_module(name)\n"
-                "    assert m.ROOT == rc.ROOT and m.SRC.startswith(rc.ROOT + '/'), (name, m.ROOT, m.SRC)\n"
+                "    assert m.ROOT == rc.ROOT and m.SRC.startswith(rc.ROOT + rc.os.sep), (name, m.ROOT, m.SRC)\n"
                 "    assert sys.argv[1] == '--rpc', sys.argv\n"
                 "    assert rc._tool_module(name) is m\n")
         e = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}
