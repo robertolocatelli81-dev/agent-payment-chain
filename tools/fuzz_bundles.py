@@ -348,15 +348,17 @@ def _verify_in_child(path, opts, raw):
 CHILDREN_CPU = [0.0]            # the CPU seconds of every child run (getrusage(RUSAGE_CHILDREN) on every platform)
 
 
-def run_child(path, opts, cpu_cap, mem_cap_mib, scratch, raw=False):
-    """-> (resources, stdout bytes or None, stderr tail) of apc_verify run on path in a limited child process"""
+def run_child(path, opts, cpu_cap, mem_cap_mib, scratch, raw=False, work=None):
+    """-> (resources, stdout bytes or None, stderr tail) of apc_verify run on path in a limited child process. `work`,
+    Python source run in the child instead of the verifier, lets the tests drive the limits themselves (a child past
+    the memory cap, a CPU loop, a child that never ends) through the same mechanism on every platform."""
     run = _run_child_windows if os.name == "nt" else _run_child_posix
-    res, out, err = run(path, opts, cpu_cap, mem_cap_mib, scratch, raw)
+    res, out, err = run(path, opts, cpu_cap, mem_cap_mib, scratch, raw, work)
     CHILDREN_CPU[0] += res["cpu"]
     return res, out, err
 
 
-def _run_child_posix(path, opts, cpu_cap, mem_cap_mib, scratch, raw):
+def _run_child_posix(path, opts, cpu_cap, mem_cap_mib, scratch, raw, work):
     import resource
     out_p, err_p = os.path.join(scratch, "stdout"), os.path.join(scratch, "stderr")
     t0 = time.monotonic()
@@ -376,7 +378,10 @@ def _run_child_posix(path, opts, cpu_cap, mem_cap_mib, scratch, raw):
             os.dup2(fo, 1)
             os.dup2(fe, 2)
             sys.stdout = io.TextIOWrapper(os.fdopen(1, "wb", closefd=False), encoding="utf-8")
-            _verify_in_child(path, opts, raw)
+            if work is None:
+                _verify_in_child(path, opts, raw)
+            exec(compile(work, "<fuzz child>", "exec"), {"__name__": "__fuzz_child__"})
+            os._exit(0)
         except BaseException:
             os._exit(73)
     _, status, ru = os.wait4(pid, 0)
@@ -413,7 +418,21 @@ fb._verify_in_child(sys.argv[2], json.loads(sys.argv[3]), sys.argv[4] == "1")
 _TIMEOUT_EXIT = 0x7F0                    # the exit the parent gives the job it ended at the wall-clock hard stop
 
 
-def _run_child_windows(path, opts, cpu_cap, mem_cap_mib, scratch, raw):
+def _windows_stopped(returncode, user_s, hard):
+    """Windows: the child was stopped at a hard stop: the wall-clock one (the job ended by the parent), or the job's
+    per-process limit of `hard` seconds of USER time (Microsoft, JOBOBJECT_BASIC_LIMIT_INFORMATION: a process past it
+    is terminated). User time only, as the limit counts: kernel time past it is not a stop."""
+    return returncode == _TIMEOUT_EXIT or user_s >= hard
+
+
+def _valid_handle(h):
+    """A HANDLE a Windows function returned is usable: not NULL and not INVALID_HANDLE_VALUE (-1), which
+    CreateToolhelp32Snapshot returns on failure (Microsoft) and a truth test would take for success."""
+    import ctypes
+    return h not in (None, 0, ctypes.c_void_p(-1).value)
+
+
+def _run_child_windows(path, opts, cpu_cap, mem_cap_mib, scratch, raw, work):
     """Windows (no fork, no setrlimit): the child is `python -c _WIN_CHILD`, started suspended, put in a new Job Object,
     then resumed. JOB_OBJECT_LIMIT_PROCESS_MEMORY makes an allocation past the cap fail (MemoryError, exit 71) as
     RLIMIT_AS does; JOB_OBJECT_LIMIT_PROCESS_TIME ends a process past the hard CPU time of the POSIX branch
@@ -460,8 +479,8 @@ def _run_child_windows(path, opts, cpu_cap, mem_cap_mib, scratch, raw):
         return ok
     out_p, err_p = os.path.join(scratch, "stdout"), os.path.join(scratch, "stderr")
     hard = int(cpu_cap * 4) + 1
-    cmd = [sys.executable, "-B", "-c", _WIN_CHILD, os.path.dirname(os.path.abspath(__file__)), path, json.dumps(opts),
-           "1" if raw else "0"]
+    cmd = [sys.executable, "-B", "-c", _WIN_CHILD if work is None else work, os.path.dirname(os.path.abspath(__file__)),
+           path, json.dumps(opts), "1" if raw else "0"]
     job = wintypes.HANDLE(check(k32.CreateJobObjectW(None, None), "CreateJobObjectW"))
     try:
         ext = EXTENDED()
@@ -475,7 +494,8 @@ def _run_child_windows(path, opts, cpu_cap, mem_cap_mib, scratch, raw):
             p = subprocess.Popen(cmd, stdin=subprocess.DEVNULL, stdout=fo, stderr=fe, creationflags=0x4)   # SUSPENDED
             try:
                 check(k32.AssignProcessToJobObject(job, wintypes.HANDLE(int(p._handle))), "AssignProcessToJobObject")
-                snap = wintypes.HANDLE(check(k32.CreateToolhelp32Snapshot(0x4, 0), "CreateToolhelp32Snapshot"))
+                h = k32.CreateToolhelp32Snapshot(0x4, 0)
+                snap = wintypes.HANDLE(check(_valid_handle(h) and h, "CreateToolhelp32Snapshot"))
                 resumed = 0
                 try:                           # TH32CS_SNAPTHREAD: resume the threads of the child (its one thread)
                     te = THREADENTRY32()
@@ -510,10 +530,11 @@ def _run_child_windows(path, opts, cpu_cap, mem_cap_mib, scratch, raw):
     finally:
         k32.CloseHandle(job)
     cpu = (acct.TotalUserTime + acct.TotalKernelTime) / 1e7
+    user = acct.TotalUserTime / 1e7
     out, err = _read_outputs(out_p, err_p)
     res = {"cpu": round(cpu, 3), "wall": round(wall, 3), "maxrss_mib": round(ext.PeakProcessMemoryUsed / (1 << 20), 1),
            "processes": acct.TotalProcesses}
-    if p.returncode == _TIMEOUT_EXIT or cpu > hard:     # stopped at the hard stop, or ended by the job's CPU limit
+    if _windows_stopped(p.returncode, user, hard):     # stopped at the hard stop, or ended by the job's CPU limit
         res.update(kind="timeout")
         return res, None, err
     res["exit"] = p.returncode

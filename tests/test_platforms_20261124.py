@@ -248,6 +248,64 @@ class FuzzChildOnThisPlatform(unittest.TestCase):
         self.assertTrue(0 < res["cpu"] < 20 and fb.CHILDREN_CPU[0] > before, res)
 
 
+class FuzzChildLimits(unittest.TestCase):
+    """The limits of tools/fuzz_bundles.run_child, driven by real children on this platform (NEMESIS apc3: on Windows none
+    was measured): past the memory cap, a CPU loop, a child that never ends. POSIX: RLIMIT_AS, RLIMIT_CPU and the alarm;
+    Windows: the Job Object's process memory and user time limits and TerminateJobObject at the wall-clock stop."""
+    REPORT = 'import sys\nsys.stdout.write(\'{"verdict": "refused", "checks": {}}\')\nsys.stdout.flush()\n'
+
+    def run_work(self, work, cpu_cap=0.25, mem_cap=256):
+        import fuzz_bundles as fb
+        with tempfile.TemporaryDirectory() as d:
+            case = os.path.join(d, "case.json")
+            with open(case, "wb") as fh:
+                fh.write(b"{}")
+            res, out, err = fb.run_child(case, [], cpu_cap, mem_cap, d, work=work)
+        return res, fb.classify(res, out, err, "refused", {}, False, cpu_cap, mem_cap)[0]
+
+    def test_past_the_memory_cap(self):
+        # 1 GiB written with a cap of 256 MiB: MemoryError (exit 71) where the cap is enforced, else the peak after
+        # the run (a system that refuses RLIMIT_AS); either way the case is a memory defect
+        work = ("import os\ntry:\n    b = bytearray(b'x') * (1 << 30)\nexcept MemoryError:\n    os._exit(71)\n"
+                + self.REPORT + "os._exit(3)\n")
+        res, kind = self.run_work(work, cpu_cap=5)          # CPU cap wide: writing 1 GiB takes about a second
+        self.assertEqual(kind, "memory", res)
+        res, kind = self.run_work(self.REPORT + "import os\nos._exit(3)\n")       # control: the same child, no allocation
+        self.assertEqual(kind, None, res)
+        res, kind = self.run_work(work, cpu_cap=5, mem_cap=2048)            # control: the same allocation under the cap
+        self.assertEqual(kind, None, res)
+
+    def test_a_cpu_loop_is_stopped(self):
+        import time
+        t0 = time.monotonic()
+        res, kind = self.run_work("while True:\n    pass\n")          # cpu_cap 0.25: hard stop at 2 s of CPU
+        self.assertEqual(kind, "time", res)
+        self.assertGreater(res["cpu"], 1.5, res)                          # it ran until the CPU limit,
+        self.assertLess(res["wall"], 3.9, res)                            # not until the wall-clock stop at 4 s
+        self.assertLess(time.monotonic() - t0, 60, res)
+
+    def test_a_child_that_never_ends_is_stopped(self):
+        import time
+        t0 = time.monotonic()
+        res, kind = self.run_work("import time\ntime.sleep(600)\n")    # wall-clock stop at 2 * 2 s
+        self.assertEqual(kind, "time", res)
+        self.assertLess(res["cpu"], 1.5, res)                             # stopped by the wall clock, not the CPU
+        self.assertTrue(3.5 < time.monotonic() - t0 < 60, res)
+
+    def test_windows_stop_reads_user_time_only(self):
+        import fuzz_bundles as fb
+        # the job's limit is on user time: kernel time past it is no stop (NEMESIS apc3, note on `cpu > hard`)
+        self.assertEqual([fb._windows_stopped(0, u, 2) for u in (0.0, 1.99, 2.0)], [False, False, True])
+        self.assertTrue(fb._windows_stopped(fb._TIMEOUT_EXIT, 0.0, 2))
+
+    def test_windows_invalid_handle_is_a_failure(self):
+        import ctypes
+        import fuzz_bundles as fb
+        # CreateToolhelp32Snapshot fails with INVALID_HANDLE_VALUE (-1), true for a truth test (NEMESIS apc3)
+        self.assertEqual([fb._valid_handle(h) for h in (None, 0, ctypes.c_void_p(-1).value, 1234)],
+                         [False, False, False, True])
+
+
 class NoPosixOnlyImport(unittest.TestCase):
     """Every program and tool of the tree imports on a Python without the POSIX-only modules (Windows has no resource,
     fcntl, termios, pwd or grp): those are imported where they are used, on the platform that has them (CI run
@@ -307,6 +365,78 @@ class RegisterLock(unittest.TestCase):
                 p.stdout.close()
                 p.wait()
             self.assertGreater(waited, 1.5)
+
+
+    def holder(self, reg, seconds):
+        import subprocess
+        code = ("import sys, time; sys.path.insert(0, sys.argv[1]); import apc_registry as rg\n"
+                "fh = open(sys.argv[2], 'r+b'); rg._lock(fh); print('locked', flush=True); time.sleep(%s)\n" % seconds)
+        p = subprocess.Popen([sys.executable, "-B", "-c", code, ROOT, reg], stdout=subprocess.PIPE)
+        self.assertEqual(p.stdout.readline().strip(), b"locked")
+        return p
+
+    def test_a_reader_of_another_process_is_not_blocked(self):
+        import time
+        with tempfile.TemporaryDirectory() as d:
+            reg = os.path.join(d, "reg.jsonl")
+            with open(reg, "wb") as fh:
+                fh.write(b"x\n")
+            p = self.holder(reg, 5)
+            try:
+                t0 = time.monotonic()
+                with open(reg, "rb") as fh:                   # this process, while the other holds the lock
+                    self.assertEqual(fh.read(), b"x\n")
+                self.assertLess(time.monotonic() - t0, 2)
+                self.assertIsNone(p.poll())                     # the lock was still held
+            finally:
+                p.stdout.close()
+                p.wait()
+
+    def test_a_writer_waits_past_ten_seconds(self):
+        # Windows: msvcrt.locking LK_LOCK gives up after 10 tries of 1 s (EDEADLOCK); _lock tries again, as flock waits
+        import time
+        import apc_registry as rg
+        with tempfile.TemporaryDirectory() as d:
+            reg = os.path.join(d, "reg.jsonl")
+            with open(reg, "wb") as fh:
+                fh.write(b"x\n")
+            p = self.holder(reg, 13)
+            try:
+                t0 = time.monotonic()
+                with open(reg, "r+b") as fh:
+                    rg._lock(fh)
+                    waited = time.monotonic() - t0
+                p.wait(timeout=10)                              # the lock came with the holder's end
+            finally:
+                p.stdout.close()
+                p.wait()
+            self.assertGreater(waited, 11)
+
+    def test_a_torn_tail_is_cut_under_the_lock(self):
+        import subprocess
+        e = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}
+
+        def cli(*a):
+            r = subprocess.run([sys.executable, "-B", os.path.join(ROOT, "apc_registry.py")] + list(a), env=e,
+                               stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.DEVNULL)
+            return r.returncode, r.stdout.decode(), r.stderr
+        with tempfile.TemporaryDirectory() as d:
+            reg, rep = os.path.join(d, "reg.jsonl"), os.path.join(d, "rep.json")
+            with open(rep, "w") as fh:
+                json.dump({"verifier": "apc_verify 0", "verdict": "refused"}, fh)
+            self.assertEqual(cli("init", reg)[0], 0)
+            self.assertEqual(cli("record", reg, "--report", rep)[:1], (0,))
+            with open(reg, "ab") as fh:
+                fh.write(b'{"apc_register": "torn')               # a last line half written, no newline
+            size = os.path.getsize(reg)
+            code, out, err = cli("record", reg, "--report", rep)
+            self.assertEqual((code, err), (0, b""), out)
+            self.assertTrue(json.loads(out)["torn_tail_recorded"], out)
+            with open(reg, "rb") as fh:
+                data = fh.read()
+            self.assertNotIn(b'"torn{', data)
+            self.assertTrue(data.endswith(b"\n") and len(data) < size + 4096, len(data))   # cut, never grown to 1 TiB
+            self.assertEqual(cli("verify", reg)[0], 0)
 
 
 class RegisterWritesWhatItReads(unittest.TestCase):
