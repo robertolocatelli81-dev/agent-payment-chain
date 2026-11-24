@@ -9,13 +9,20 @@ permissions:
 
 jobs:
   tests:
-    name: tests without the real corpus (python ${{ matrix.python }})
-    runs-on: ubuntu-24.04
+    name: tests without the real corpus (python ${{ matrix.python }}, ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
     strategy:
       fail-fast: false
       matrix:
-        python: ["3.9", "3.11", "3.13"]
+        os: [ubuntu-24.04]
+        python: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
+        include:
+          - {os: macos-latest, python: "3.13"}
+          - {os: windows-latest, python: "3.13"}
     env:
       APC_SIGLIB: ${{ github.workspace }}/deps/x402-signature-vectors
       APC_AP2EV: ${{ github.workspace }}/deps/ap2-evidence-pack
@@ -48,6 +55,13 @@ jobs:
         env:
           APC_REQUIRE_DEPS: "1"
         run: python -m unittest -v tests.test_amend0212
+      - name: unit tests without cryptography (a clean venv; the cases that need it skip with their reason, none may fail)
+        working-directory: agent-payment-chain
+        run: |
+          python -m venv --without-pip "$RUNNER_TEMP/nocrypto"
+          py="$RUNNER_TEMP/nocrypto/bin/python"; [ -x "$py" ] || py="$RUNNER_TEMP/nocrypto/Scripts/python.exe"
+          if "$py" -c "import cryptography" 2>/dev/null; then echo "::error::the venv has cryptography"; exit 1; fi
+          "$py" -m unittest discover -s tests -t . -p 'test_*.py'
 
   gitleaks:
     name: gitleaks (pinned release, the tree's .gitleaks.toml)
