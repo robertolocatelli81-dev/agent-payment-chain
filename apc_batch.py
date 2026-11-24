@@ -13,7 +13,8 @@ same settled payment from being shown to unlock two different things. Across the
       resource URL's origin) with different request fingerprints (scheme, asset, amount, resource: PI "Request Binding") -> failed:payment_identifier_reused (PI: 409 Conflict); the same id and
       fingerprint with two different authorizations whose settlements (T1 verified) name transactions ->
       failed:payment_identifier_two_settled_payments (an idempotent operation paid twice)
-Each bundle is first checked alone by apc_verify; a bundle refused there is listed and kept out of D1-D4.
+Each bundle is first checked alone by apc_verify; a bundle refused there, or one whose authorization key cannot be
+read, is listed under `refused` with the reason and kept out of D1-D4.
 
   python3 apc_batch.py BUNDLE.json [BUNDLE.json ...]      exit 0 no failure, 1 a D1, D3 or D4 failure, 64 usage (or the
                                                           signature library absent: one line on standard error, SPEC 32.12 (f))

@@ -7,7 +7,6 @@ c2sp.org/httpsig-pq v1.0.1) through the `cryptography` package when it is instal
 standard library, README), else not_evaluated:ml_dsa_needs_cryptography; the `key` parameter and @query-param; the
 profiles named by `tag`."""
 import base64
-import functools
 import hashlib
 import json
 import re
@@ -317,6 +316,11 @@ def _body(m, path):
     return b
 
 
+_AUTHORITY = re.compile(r"(?i)https?://([^/?#]*)")                    # RFC 3986 3.2: up to the next "/", "?" or "#"
+_BRACKETED = re.compile(r"\[[^\[\]@]+\](?::[^\[\]@]*)?\Z")             # an IP literal, then at most a port
+_PORT = re.compile(r"(?:\[[^\]]*\]|[^:]*)(?::[0-9]*)?\Z")              # RFC 3986 3.2.3: port = *DIGIT
+
+
 def parse_exchange(ex):
     _obj(ex, "exchange", ("request",), ("response",))
     rq = _obj(ex["request"], "exchange.request", ("method", "target_uri", "fields"), ("body",))
@@ -325,13 +329,20 @@ def parse_exchange(ex):
     uri = _str(rq["target_uri"], "exchange.request.target_uri")
     if not re.fullmatch(r"https?://[\x21-\x7e]+", uri) or "#" in uri:
         raise Refusal("exchange.request.target_uri: not an http or https URI of visible ASCII without a fragment")
-    try:                                                # urlsplit raises on a "[" or "]" it cannot read as an IPv6 host
-        u = urlsplit(uri)
+    # SPEC 10: the authority is read by this grammar, the same on every Python, before urlsplit sees it (urlsplit
+    # raises on some bracketed hosts, takes "[::1%25x]" as a host, and on Python 3.9 and 3.11 refuses "[V1.x]")
+    auth = _AUTHORITY.match(uri).group(1)
+    if ("[" in auth or "]" in auth) and not (_BRACKETED.match(auth) and _ip_literal_ok(uri)):
+        raise Refusal("exchange.request.target_uri: host not readable (RFC 3986 3.2.2)")
+    try:                                                # the "v" of an IPvFuture in lower case: hostname has it so
+        u = urlsplit(uri.replace("[V", "[v", 1) if auth.startswith("[V") else uri)
     except ValueError:
         raise Refusal("exchange.request.target_uri: host not readable (RFC 3986 3.2.2)")
     if not u.netloc or "@" in u.netloc or not u.hostname:
         raise Refusal("exchange.request.target_uri: no host, or user information present")
     try:
+        if not _PORT.match(auth):                       # int() reads "+0" and "8_1" as a number on Python 3.9
+            raise ValueError
         u.port
     except ValueError:
         raise Refusal("exchange.request.target_uri: port not a number in range")
@@ -366,6 +377,20 @@ def _combined_once(msg, name):
     if name not in c:
         c[name] = combined(msg["fields"], name)
     return c[name]
+
+
+def _parsed_once(msg, name, as_item=False):
+    """the field `name` of a message of check(), lines combined, parsed once per check as a Dictionary (a dict) or as
+    an Item: None when the field is absent or does not parse, remembered too. Kept in the message like the join, one
+    entry per field name, so it ends with the check and no number of fields makes it parse again (SPEC 29.2)"""
+    c = msg.setdefault("parsed", {})
+    if (name, as_item) not in c:
+        raw = _combined_once(msg, name)
+        try:
+            c[name, as_item] = None if raw is None else _item(raw) if as_item else dict(parse_dictionary(raw))
+        except SFError:
+            c[name, as_item] = None
+    return c[name, as_item]
 
 
 def parse_keys(doc):
@@ -469,37 +494,21 @@ def _form(s):
     return "".join(chr(c) if c in FORM_SAFE else "%%%02X" % c for c in b)
 
 
-# SPEC 29: a field value or a query is parsed once per check, not once per component or label that reads it (n `key`
+# SPEC 29.2: a field value or a query is parsed once per check, not once per component or label that reads it (n `key`
 # components over a field of n members, or n @query-param over a query of n names, cost n parses: quadratic, 32 s of CPU
-# for n = 2000 measured on 30b0ac0); a value that does not parse is None, remembered too
-@functools.lru_cache(maxsize=16)
-def _dict_once(raw):
-    try:
-        return dict(parse_dictionary(raw))
-    except SFError:
-        return None
+# for n = 2000 measured on 30b0ac0); the parse is kept in the message (_parsed_once) or in the exchange (here)
+def _query_index(ex):
+    if "query_index" not in ex:
+        idx = ex["query_index"] = {}
+        for part in ex["split"].query.split("&"):
+            if part:
+                n, _, v = part.partition("=")
+                idx.setdefault(_form(n), []).append(_form(v))
+    return ex["query_index"]
 
 
-@functools.lru_cache(maxsize=16)
-def _item_once(raw):
-    try:
-        return _item(raw)
-    except SFError:
-        return None
-
-
-@functools.lru_cache(maxsize=4)
-def _query_index(query):
-    idx = {}
-    for part in query.split("&"):
-        if part:
-            n, _, v = part.partition("=")
-            idx.setdefault(_form(n), []).append(_form(v))
-    return idx
-
-
-def _query_param(query, want, ident):
-    vals = _query_index(query).get(want, [])
+def _query_param(ex, want, ident):
+    vals = _query_index(ex).get(want, [])
     if not vals:
         raise Missing(ident)
     if len(vals) > 1:                                   # 2.2.8: "the named query parameter MUST NOT be included"
@@ -540,7 +549,7 @@ def signature_base(components, params_ser, msg, ex, is_request):
         if name == "@query-param":
             if not target_req:
                 raise SFError("@query-param targets a request")
-            val = _query_param(ex["split"].query, pd["name"], ident)
+            val = _query_param(ex, pd["name"], ident)
         elif name.startswith("@"):
             val = _derived(name, target, ex, target_req)
         else:
@@ -550,7 +559,7 @@ def signature_base(components, params_ser, msg, ex, is_request):
             if val is None:
                 raise Missing(ident)
             if "key" in pd:                             # 2.1.2: one member of a Dictionary field, lines combined
-                d = _dict_once(val)
+                d = _parsed_once(target, name)
                 if d is None:
                     raise Failed("failed:component_not_a_dictionary:%s" % ident)
                 if pd["key"] not in d:
@@ -614,7 +623,7 @@ def thumbprint(alg, key):
 HTTPS_URI = re.compile(r"(?i)https://(?:\[[^\[\]/?#]+\](?::[0-9]*)?|[^\[\]/?#]+)(?:[/?][^\[\]#]*)?\Z")
 
 
-_IP_LITERAL = re.compile(r"(?i)https://\[([^\]]*)\]")
+_IP_LITERAL = re.compile(r"(?i)https?://\[([^\]]*)\]")
 _IPV_FUTURE = re.compile(r"(?i)v[0-9a-f]+\.[A-Za-z0-9\-._~!$&'()*+,;=:]+\Z")
 
 
@@ -647,14 +656,11 @@ def _signature_agent(msg, label, covered):
     """draft-ietf-webbotauth-httpsig-protocol-01 5.2.1: the member keyed to the label, an https absolute URI String
     without parameters, covered as "signature-agent";key=<label>; or the legacy form it lets a verifier accept, the
     whole field one String covered as "signature-agent" (Appendix E.1.2)"""
-    raw = _combined_once(msg, "signature-agent")
-    if raw is None:
-        return False
     if '"signature-agent";key=' + ser_bare(label) in covered:
-        m = (_dict_once(raw) or {}).get(label)
+        m = (_parsed_once(msg, "signature-agent") or {}).get(label)
         return m is not None and not m[1] and _https_uri(m[0])
     if '"signature-agent"' in covered:
-        it = _item_once(raw)
+        it = _parsed_once(msg, "signature-agent", True)
         return it is not None and not it[1] and _https_uri(it[0])
     return False
 
@@ -864,8 +870,6 @@ def check(doc, keys=None, block_time=None):
     or None."""
     if "exchange" not in doc:
         return None, [], None
-    for c in (_dict_once, _item_once, _query_index):     # the parses of SPEC 29 kept for this exchange only
-        c.cache_clear()
     ex = parse_exchange(doc["exchange"])
     rq, rs = {"fields": ex["fields"], "body": ex["body"]}, ex["response"]
     ex["request"] = rq

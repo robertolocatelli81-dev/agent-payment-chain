@@ -781,16 +781,29 @@ class BatchKeyUnreadable(unittest.TestCase):
         from unittest import mock
         real, docs = apc_batch._key, [("a", md_bundle()), ("b", md_bundle())]
 
-        def key(doc):
-            if doc is docs[1][1]:
-                raise KeyError("Sequence")
-            return real(doc)
-        with mock.patch.object(apc_batch, "_key", key):
-            rep = apc_batch.check_set(docs)
-        self.assertEqual((rep["verdict"], rep["authorizations"], [r["bundle"] for r in rep["refused"]]),
-                         ("set_consistent", 1, ["b"]))
-        self.assertIn("kept out of D1-D4: no authorization key can be read (KeyError", rep["refused"][0]["reason"])
+        for exc in (KeyError, IndexError, TypeError, ValueError, AttributeError):
+            def key(doc):
+                if doc is docs[1][1]:
+                    raise exc("Sequence" + "x" * 500)
+                return real(doc)
+            with mock.patch.object(apc_batch, "_key", key):
+                rep = apc_batch.check_set(docs)
+            self.assertEqual((rep["verdict"], rep["authorizations"], [r["bundle"] for r in rep["refused"]], rep["D2"]),
+                             ("set_consistent", 1, ["b"], "none"), exc)
+            self.assertIn("kept out of D1-D4: no authorization key can be read (%s" % exc.__name__,
+                          rep["refused"][0]["reason"])
+            self.assertLess(len(rep["refused"][0]["reason"]), 200)
         self.assertEqual(apc_batch.check_set([docs[0], ("a2", md_bundle())])["D2"][0]["check"], "duplicate_bundle")
+
+    def test_a_refusal_of_the_bundle_or_of_its_key_is_listed(self):
+        import apc_batch
+        from unittest import mock
+        rep = apc_batch.check_set([("u", {"unreadable": "OSError"})])            # what main() gives for a file not read
+        self.assertEqual((rep["verdict"], rep["authorizations"], [r["bundle"] for r in rep["refused"]]),
+                         ("set_consistent", 0, ["u"]))
+        with mock.patch.object(apc_batch, "_key", side_effect=apc_batch.av.Refusal("no key")):
+            rep = apc_batch.check_set([("a", md_bundle())])
+        self.assertEqual((rep["authorizations"], rep["refused"]), (0, [{"bundle": "a", "reason": "no key"}]))
 
 
 if __name__ == "__main__":

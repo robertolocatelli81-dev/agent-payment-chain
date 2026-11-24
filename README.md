@@ -54,6 +54,9 @@ python3 tools/rebuild_corpus.py --check-manifest
   outside the registry (Visa TAP's `rsa-pss-sha256`) is `failed:algorithm_not_registered`, no alias.
 - Each label reports its `tag` and the profile it names (`web-bot-auth`; Visa TAP's `agent-browser-auth`,
   `agent-payer-auth`) with what it lacks; reported only, never a result.
+- Hostile input (SPEC 29, hunt of 2026-11-23): X7 joins and parses a field or a query once per check; the authority
+  of `target_uri` is read by one grammar on every Python (SPEC 10: an IP literal without zone identifier, a port of
+  digits); `apc_block.py` and `apc_batch.py` answer `refused` where they ended with a traceback.
 
 ## apc_verify 0.21.6, SPEC 32.15 (on main since 2026-11-22, commit 111de70; no tag and no GitHub release yet)
 

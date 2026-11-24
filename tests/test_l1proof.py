@@ -229,7 +229,11 @@ class BlockProgram(unittest.TestCase):
                 fh.write("[" * 100000 + "]" * 100000)
             with open(lst, "w") as fh:
                 fh.write("[]")
-            cases = [deep]
+            cases = [deep, os.path.join(d, "absent.json")]
+            for name, data in (("bom.json", b"\xef\xbb\xbf[]"), ("utf16.json", "[]".encode("utf-16"))):
+                with open(os.path.join(d, name), "wb") as fh:              # UTF-8 only, as a bundle is read
+                    fh.write(data)
+                cases.append(os.path.join(d, name))
             if hasattr(os, "mkfifo"):
                 os.mkfifo(os.path.join(d, "fifo"))
                 cases.append(os.path.join(d, "fifo"))
@@ -238,6 +242,7 @@ class BlockProgram(unittest.TestCase):
             for f in cases:
                 r = self.run_program(f, lst)
                 self.assertEqual((r.returncode, json.loads(r.stdout)["verdict"], r.stderr), (3, "refused", b""), f)
+                self.assertTrue(json.loads(r.stdout)["reason"].startswith("unreadable:"), f)
             r = self.run_program(lst, lst)                                  # control: read, then refused by the rule
             self.assertEqual((r.returncode, json.loads(r.stdout)["reason"]), (3, "block_not_object"))
 

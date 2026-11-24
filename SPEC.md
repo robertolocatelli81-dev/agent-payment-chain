@@ -693,7 +693,10 @@ Closed at every level. `name` is an HTTP field name (RFC 9110 token), `value` a 
 and tab without leading or trailing whitespace (RFC 9110 5.5; no obs-fold, no CR or LF); one array entry per field
 line, in message order. `body` is standard base64 with padding (RFC 4648 4), at most 8 MiB decoded: the message
 content as transferred, after any content coding (RFC 9530 digests cover these bytes). `target_uri` has no fragment
-and no user information. Anything else is refused with its path.
+and no user information; its authority is read by one grammar on every Python: "[" and "]" only around the host as
+an IP literal (RFC 3986 3.2.2: an IPv6 address or an IPvFuture; no zone identifier, RFC 9844 obsoleted RFC 6874, which
+had added one), and a port of digits only (RFC 3986 3.2.3), at most 65535; a bracket in the path or in the query is
+left as it is. Anything else is refused with its path.
 
 DECLARED: the exchange is a recording. X1-X6 show that the recording agrees with the payment the bundle verifies;
 they do not show that the exchange happened. Only X7, an RFC 9421 signature under a key the reader trusts, binds
@@ -2171,7 +2174,11 @@ value 900 deep (an extra member of payment_required, independent review 0.3.1) w
   in this order.
 - RFC 9421 (apc_http.py): at most 64 signature labels in the Signature-Input and in the Signature of one message, with or
   without the reader's keys; more is refused (measured on 0bf2063: 1024 labels, each verified with the key, 3.5 and
-  3.8 s of CPU in two runs).
+  3.8 s of CPU in two runs). The lines of a field are joined, a Dictionary or Item field parsed and the query split
+  once per check, kept in the message until the check ends, not once per `key` or @query-param component or per
+  label (hunt of 2026-11-23; measured on 30b0ac0: 2000 `key` components over one field of 2000 members, 32 s of CPU;
+  measured 2026-11-23 on Python 3.11: 17 fields of 2000 members read in turn by 1020 components, 15.9 s with the parses
+  in a cache of 16 values, 0.3 s with them kept in the message).
 
 29.3 Internal errors. An exception that no rule of this SPEC names is reported as verdict `error` with the exception's
 type in `reason`, exit 3; never 0, 1 or 2. It is a defect of the verifier, not a judgement of the bundle.
@@ -3453,14 +3460,16 @@ tests, OK (skipped=135), and `tests.test_amend0212` with `APC_REQUIRE_DEPS=1`, 2
 
 ### 32.16 Amendment (Unreleased, 2026-11-23; every bundle version) — X7 under the sources in force: the Web Bot Auth working-group draft, ML-DSA, `key` and @query-param, the profiles named by `tag`
 The rules are in section 10.2. The constant `VERSION` of apc_verify.py stays `apc_verify 0.21.6` until a release that
-carries this amendment sets another; until then a report made under these rules names 0.21.6. Measured 2026-11-23,
-with the bundles of the author's corpus (ap2-evidence-pack at v1.7.1): tools/regress.py check, 1123 bundles, 0
+carries this amendment sets another; until then a report made under these rules names 0.21.6. Measured 2026-11-23
+and 24, with the bundles of the author's corpus (ap2-evidence-pack at v1.7.1): tools/regress.py check, 1123 bundles, 0
 differences; with --http-keys (the RFC 9421 B.1.4 key, and an ML-DSA-65 key on this revision) the 1123 reports equal
 those of 111de70 in verdict and every check (none of the 1123 carries `exchange`); in the public tree, `unittest
-discover` on Python 3.9, 3.11 and 3.13, 401 tests, OK (skipped=148, 136, 148, with APC_SIGLIB and APC_AP2EV naming
-the two siblings at their tags as the CI does; `cryptography` 50.0.1 is installed for 3.11 only here),
-and `tests.test_amend0212` with `tests.test_http9421_20261123` under `APC_REQUIRE_DEPS=1`, 53 tests, OK
-(skipped=4). Mutants on the lines of apc_http.py this amendment adds or changes: 200, 184 killed, 16 equivalent (8 in
+discover` on Python 3.9, 3.11 and 3.13, 415 tests, OK (skipped=136 on each with `cryptography` 50.0.2 installed, 148
+on Python 3.11 without it; APC_SIGLIB and APC_AP2EV naming the two siblings at their tags as the CI does),
+and `tests.test_amend0212` with `tests.test_http9421_20261123` under `APC_REQUIRE_DEPS=1`, 63 tests, OK
+(skipped=4). Mutants on the lines of apc_http.py this amendment added or changed as of commit 30b0ac0, before the
+hunt of 2026-11-23 (29.2 and section 10: the parses kept per check, the authority of `target_uri`; apc_block.py and
+apc_batch.py answer `refused` where they ended with a traceback): 200, 184 killed, 16 equivalent (8 in
 docstrings and comments, 2 texts of an error never reported, the ML-DSA signature length checked again by the library,
 `sort_keys` on a JWK already in order, 2 initial values a later line overwrites, and 2 on an absent Signature-Agent
 field, which the parser refuses as the guard does).

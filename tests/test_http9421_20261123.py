@@ -224,7 +224,8 @@ class WebBotAuth01(unittest.TestCase):
                         ("https://[::1]:8443/j", True), ("https://a.test:8443", True), ("https://a.test?x", True),
                         ("HTTPS://a.test/j", True), ("https://[a]/j", False), ("https://[1.2.3.4]/j", False),
                         ("https://[fe80::1%25eth0]/j", False), ("https://[2001:db8::1]/j", True),
-                        ("https://[v1.abc]/j", True)):
+                        ("https://[v1.abc]/j", True), ("https://[V1F.a:b]/j", True), ("https://[v1abc]/j", False),
+                        ("https://[v.abc]/j", False), ("https://[v1.]/j", False), ("https://[v1.a%41]/j", False)):
             for cov, field in (('"@authority" "signature-agent";key="s"', 's="%s"' % uri),
                                ('"@authority" "signature-agent"', '"%s"' % uri)):
                 for ks in (None, keys(**{ED_TP: ("ed25519", ED_PUB)})):
@@ -647,6 +648,60 @@ class HostileInput20261123(unittest.TestCase):
                                                                          "fields": [["Host", "x"]]}}})
         self.assertEqual(check({"request": {"method": "GET", "target_uri": "https://[::1]/p", "fields": [["Host", "x"]]}},
                                None), [])                                  # control: an IPv6 literal is read
+
+    def test_seventeen_dictionary_fields_are_each_parsed_once(self):
+        """review 2026-11-23: with the parses in a cache of 16 values, 17 fields read in turn were parsed again at every
+        component (15.9 s of CPU for 17 fields of 2000 members and 1020 components); they are kept in the message"""
+        vals = [", ".join("a%d=%d" % (i, f) for i in range(40)) for f in range(17)]
+        ex = self.request("https://api.example.com/p", [["X%d" % f, v] for f, v in enumerate(vals)],
+                          ['"x%d";key="a%d"' % (f, i) for i in range(40) for f in range(17)])
+        s, calls = self.counted(ex, "parse_dictionary", keys(k=("ed25519", ED_PUB)))
+        self.assertEqual(s[0]["result"], "failed:signature_invalid")
+        self.assertEqual([calls.count(v) for v in vals], [1] * 17)
+
+    def test_a_parse_is_of_its_own_check(self):
+        for val, want in (("a=1", "failed:signature_invalid"), ("((", 'failed:component_not_a_dictionary:"x";key="a"'),
+                          ("b=1", 'failed:component_not_in_message:"x";key="a"'), ("a=2", "failed:signature_invalid")):
+            ex = self.request("https://api.example.com/p?a=" + val[-1], [["X", val]], ['"x";key="a"'])
+            self.assertEqual(check(ex, keys(k=("ed25519", ED_PUB)))[0]["result"], want, val)
+        for q, want in (("a=1", "failed:signature_invalid"),
+                        ("b=1", 'failed:component_not_in_message:"@query-param";name="a"'),
+                        ("a=1&a=2", 'failed:query_param_repeated:"@query-param";name="a"')):
+            ex = self.request("https://api.example.com/p?" + q, [], ['"@query-param";name="a"'])
+            self.assertEqual(check(ex, keys(k=("ed25519", ED_PUB)))[0]["result"], want, q)
+
+    def test_signature_agent_read_as_a_dictionary_and_as_an_item_in_one_check(self):
+        ex = {"request": {"method": "GET", "target_uri": "https://api.example.com/p", "fields": [
+            ["Host", "api.example.com"], ["Signature-Agent", '"https://a.example/x"'],
+            ["Signature-Input", 'a=("@authority" "signature-agent";key="a");tag="web-bot-auth", '
+                                'b=("@authority" "signature-agent");tag="web-bot-auth"']]}}
+        s = check(ex, None)
+        self.assertEqual(["signature-agent" in x["profile"]["missing"] for x in s], [True, False])
+
+    def test_target_uri_authority_is_read_the_same_on_every_python(self):
+        """SPEC 10 (review 2026-11-23): urlsplit took "[::1%25eth0]" as a host, refused "[V1.x]" on Python 3.9 and 3.11
+        and read it on 3.13, and on 3.9 read the ports "+0" and "8_1"; the authority is read by one grammar first"""
+        def read(uri):
+            try:
+                u = h.parse_exchange({"request": {"method": "GET", "target_uri": uri, "fields": [["Host", "x"]]}})
+                return u["split"].hostname, u["split"].port
+            except av.Refusal as e:
+                return str(e)
+        for uri, want in (("https://[::1]/p", ("::1", None)), ("https://[V1.x]:8/p", ("v1.x", 8)),
+                          ("http://[v1.x]/", ("v1.x", None)), ("https://[::FFFF:1.2.3.4]:443", ("::ffff:1.2.3.4", 443)),
+                          ("https://a.example:/p?x=[1]", ("a.example", None)),
+                          ("https://a.example/[", ("a.example", None)),
+                          ("http://a.example?x=[1]", ("a.example", None))):
+            self.assertEqual(read(uri), want, uri)
+        for uri in ("https://[::1%25eth0]/", "https://[fe80::1%251]/", "https://[1.2.3.4]/", "https://[::1]x/",
+                    "https://[x]/", "https://[]/", "https://x@[::1]/", "https://[[::1]]/", "https://[v1.]/",
+                    "https://[::1]:8]/", "https://[::01.2.3.4]/", "https://[1::2::3]/", "http://[::1%25eth0]/",
+                    "https://a.example]/", "https://a[.example/", "https://[v1x]/", "https://[v.x]/",
+                    "https://[v1.a%41]/"):
+            self.assertEqual(read(uri), "exchange.request.target_uri: host not readable (RFC 3986 3.2.2)", uri)
+        for uri in ("https://a.example:+0/", "https://a.example:8_1/", "https://a.example:-0/", "https://[::1]:+8/",
+                    "https://a.example:65536/", "https://a.example:8:8/"):
+            self.assertEqual(read(uri), "exchange.request.target_uri: port not a number in range", uri)
 
 
 if __name__ == "__main__":
