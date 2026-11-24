@@ -2209,8 +2209,11 @@ InternalError.test_report_and_stderr_not_written_is_74).
 `seeds`, bundles the test helpers build for the members no corpus bundle carries), case i of seed S is drawn by
 random.Random("S:i") alone and run as the command line runs it in a forked child with RLIMIT_AS, RLIMIT_CPU and an alarm
 (POSIX; the peak resident set read in bytes on macOS, in KiB on Linux, as getrusage(2) of each reports it; where the system
-refuses the RLIMIT_AS, the peak is checked after the run only), or, on Windows (no fork, no setrlimit), in a new process that puts itself in a Job Object with the same memory and
-CPU limits, stopped at the same wall-clock hard stop, its CPU time and peak working set read from its handle (2026-11-24).
+refuses the RLIMIT_AS, the peak is checked after the run only), or, on Windows (no fork, no setrlimit), in a new process started suspended and put in a Job Object with the same memory
+and CPU limits before it runs, the whole job stopped at the same wall-clock hard stop; CPU time and peak memory are the
+job's (user + kernel time of all its processes; PeakProcessMemoryUsed, the committed memory the limit counts), since
+the python.exe of a venv is a redirector that runs the base interpreter as its child (CPython PC/venvlauncher.c; CI
+run 45346557960: the redirector's own handle read 0.0 s and 4.2 MiB) (2026-11-24).
 Families F01-F14 (new members at every level, wrong types, duplicate members, numbers, long strings, hex forms, unicode
 and invalid UTF-8, deep nesting, lists past their bound, binary blobs truncated or with false lengths, inflated proofs,
 the declared equivalence of member order and whitespace, deleted members, file level). A case is a defect when the

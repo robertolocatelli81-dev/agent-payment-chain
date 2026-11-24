@@ -1,8 +1,9 @@
 """The bundle as hostile input (SPEC section 29): structural fuzzing of apc_verify from the real bundles of the frozen
 corpus (regress/VERDICTS.json). Standard library only. POSIX: a forked child with resource limits (fork, wait4,
 setrlimit; macOS reports ru_maxrss in bytes, Linux in KiB; where RLIMIT_AS is refused the peak resident set is checked
-after the run only); Windows, which has neither fork nor setrlimit: the child is a new process that puts itself
-in a Job Object with the same memory and CPU limits, and the parent reads its CPU time and peak working set.
+after the run only); Windows, which has neither fork nor setrlimit: the child is a new process the parent puts
+in a Job Object (before it runs) with the same memory and CPU limits; the parent reads the job's CPU time and peak
+committed memory, which cover the base interpreter a venv's python.exe starts as its own child.
 
   python3 tools/fuzz_bundles.py run SEED N [--families F01,F02,...] [--out DIR] [--cpu-cap S] [--mem-cap MiB]
   python3 tools/fuzz_bundles.py replay CASE.json          (one saved case again: its outcome as JSON)
@@ -400,21 +401,27 @@ def _read_outputs(out_p, err_p):
     return out, err
 
 
-# Windows: the child runs this, then _verify_in_child; JOB_OBJECT_LIMIT_PROCESS_MEMORY makes an allocation past the
-# cap fail (MemoryError, exit 71) as RLIMIT_AS does, JOB_OBJECT_LIMIT_PROCESS_TIME ends the process past the CPU cap
+# Windows: the child runs this. The parent puts it in a Job Object before its first instruction (created suspended):
+# the limits and the accounting then cover every process of the case, which matters because the python.exe of a venv
+# is a redirector that starts the base interpreter as its own child (CPython PC/venvlauncher.c; CI run 45346557960:
+# the redirector's own handle read 0.0 s of CPU and 4.2 MiB while the interpreter ran in its child).
 _WIN_CHILD = """import sys, json
 sys.path.insert(0, sys.argv[1])
 import fuzz_bundles as fb
-fb._enter_job(int(sys.argv[2]), float(sys.argv[3]))
-fb._verify_in_child(sys.argv[4], json.loads(sys.argv[5]), sys.argv[6] == "1")
+fb._verify_in_child(sys.argv[2], json.loads(sys.argv[3]), sys.argv[4] == "1")
 """
-_TIMEOUT_EXIT = 0x7F0                    # what the parent gives a child it ended at the wall-clock hard stop
+_TIMEOUT_EXIT = 0x7F0                    # the exit the parent gives the job it ended at the wall-clock hard stop
 
 
-def _enter_job(mem_cap_mib, cpu_cap):
-    """Windows: put this process in a new Job Object limited to mem_cap_mib of committed memory and the hard CPU time
-    of the POSIX branch (4 * cpu_cap + 1 seconds of user time)"""
+def _run_child_windows(path, opts, cpu_cap, mem_cap_mib, scratch, raw):
+    """Windows (no fork, no setrlimit): the child is `python -c _WIN_CHILD`, started suspended, put in a new Job Object,
+    then resumed. JOB_OBJECT_LIMIT_PROCESS_MEMORY makes an allocation past the cap fail (MemoryError, exit 71) as
+    RLIMIT_AS does; JOB_OBJECT_LIMIT_PROCESS_TIME ends a process past the hard CPU time of the POSIX branch
+    (4 * cpu_cap + 1 s of user time); the wall-clock hard stop (twice that) ends the whole job. CPU time is the job's
+    total (user + kernel, every process); peak memory is the job's PeakProcessMemoryUsed (committed memory of its
+    largest process, what the limit counts)."""
     import ctypes
+    import subprocess
     from ctypes import wintypes
 
     class BASIC(ctypes.Structure):
@@ -427,61 +434,85 @@ def _enter_job(mem_cap_mib, cpu_cap):
     class IO(ctypes.Structure):
         _fields_ = [(n, ctypes.c_uint64) for n in ("Read", "Write", "Other", "ReadT", "WriteT", "OtherT")]
 
-    class EXTENDED(ctypes.Structure):
+    class EXTENDED(ctypes.Structure):          # JOBOBJECT_EXTENDED_LIMIT_INFORMATION, class 9
         _fields_ = [("Basic", BASIC), ("Io", IO), ("ProcessMemoryLimit", ctypes.c_size_t),
                     ("JobMemoryLimit", ctypes.c_size_t), ("PeakProcessMemoryUsed", ctypes.c_size_t),
                     ("PeakJobMemoryUsed", ctypes.c_size_t)]
+
+    class ACCOUNTING(ctypes.Structure):        # JOBOBJECT_BASIC_ACCOUNTING_INFORMATION, class 1
+        _fields_ = [("TotalUserTime", ctypes.c_int64), ("TotalKernelTime", ctypes.c_int64),
+                    ("ThisPeriodTotalUserTime", ctypes.c_int64), ("ThisPeriodTotalKernelTime", ctypes.c_int64),
+                    ("TotalPageFaultCount", wintypes.DWORD), ("TotalProcesses", wintypes.DWORD),
+                    ("ActiveProcesses", wintypes.DWORD), ("TotalTerminatedProcesses", wintypes.DWORD)]
+
+    class THREADENTRY32(ctypes.Structure):
+        _fields_ = [("dwSize", wintypes.DWORD), ("cntUsage", wintypes.DWORD), ("th32ThreadID", wintypes.DWORD),
+                    ("th32OwnerProcessID", wintypes.DWORD), ("tpBasePri", wintypes.LONG),
+                    ("tpDeltaPri", wintypes.LONG), ("dwFlags", wintypes.DWORD)]
     k32 = ctypes.WinDLL("kernel32", use_last_error=True)
-    k32.CreateJobObjectW.restype = wintypes.HANDLE
-    k32.GetCurrentProcess.restype = wintypes.HANDLE
-    job = k32.CreateJobObjectW(None, None)
-    info = EXTENDED()
-    info.Basic.LimitFlags = 0x100 | 0x2          # JOB_OBJECT_LIMIT_PROCESS_MEMORY | JOB_OBJECT_LIMIT_PROCESS_TIME
-    info.Basic.PerProcessUserTimeLimit = int((int(cpu_cap * 4) + 1) * 10 ** 7)       # 100 ns units
-    info.ProcessMemoryLimit = mem_cap_mib << 20
-    if not job or not k32.SetInformationJobObject(wintypes.HANDLE(job), 9, ctypes.byref(info), ctypes.sizeof(info)) \
-            or not k32.AssignProcessToJobObject(wintypes.HANDLE(job), wintypes.HANDLE(k32.GetCurrentProcess())):
-        raise OSError(ctypes.get_last_error(), "the Job Object of the fuzz child could not be set")   # exit 70
+    for f in ("CreateJobObjectW", "CreateToolhelp32Snapshot", "OpenThread"):
+        getattr(k32, f).restype = wintypes.HANDLE
+    k32.ResumeThread.restype = wintypes.DWORD          # (DWORD)-1 on failure, not the -1 of a C int
 
-
-def _run_child_windows(path, opts, cpu_cap, mem_cap_mib, scratch, raw):
-    """Windows: the child is `python -c _WIN_CHILD`, its own Job Object set before apc_verify is imported; the parent
-    stops it at the wall-clock hard stop of the POSIX branch (2 * (4 * cpu_cap + 1) s) and reads its CPU time
-    (GetProcessTimes) and peak working set (K32GetProcessMemoryInfo) from the process handle."""
-    import ctypes
-    import subprocess
-    from ctypes import wintypes
+    def check(ok, what):
+        if not ok:
+            raise OSError(ctypes.get_last_error(), "fuzz child on Windows: %s failed" % what)
+        return ok
     out_p, err_p = os.path.join(scratch, "stdout"), os.path.join(scratch, "stderr")
     hard = int(cpu_cap * 4) + 1
-    cmd = [sys.executable, "-B", "-c", _WIN_CHILD, os.path.dirname(os.path.abspath(__file__)), str(mem_cap_mib),
-           str(cpu_cap), path, json.dumps(opts), "1" if raw else "0"]
-    t0 = time.monotonic()
-    with open(out_p, "wb") as fo, open(err_p, "wb") as fe:
-        p = subprocess.Popen(cmd, stdin=subprocess.DEVNULL, stdout=fo, stderr=fe)
-        try:
-            p.wait(timeout=hard * 2)
-        except subprocess.TimeoutExpired:
-            p.kill()
-            p.wait()
-            p.returncode = _TIMEOUT_EXIT
-        wall = time.monotonic() - t0
-
-        class COUNTERS(ctypes.Structure):
-            _fields_ = [("cb", wintypes.DWORD), ("PageFaultCount", wintypes.DWORD)] + \
-                       [(n, ctypes.c_size_t) for n in ("PeakWorkingSetSize", "WorkingSetSize", "QuotaPeakPagedPoolUsage",
-                                                       "QuotaPagedPoolUsage", "QuotaPeakNonPagedPoolUsage",
-                                                       "QuotaNonPagedPoolUsage", "PagefileUsage", "PeakPagefileUsage")]
-        k32 = ctypes.WinDLL("kernel32", use_last_error=True)
-        h = wintypes.HANDLE(int(p._handle))
-        times = [wintypes.FILETIME() for _ in range(4)]
-        mem = COUNTERS()
-        mem.cb = ctypes.sizeof(mem)
-        if not k32.GetProcessTimes(h, *[ctypes.byref(t) for t in times]) or \
-                not k32.K32GetProcessMemoryInfo(h, ctypes.byref(mem), mem.cb):
-            raise OSError(ctypes.get_last_error(), "the fuzz child's CPU time or memory could not be read")
-    cpu = sum((t.dwHighDateTime << 32 | t.dwLowDateTime) for t in times[2:]) / 1e7     # kernel + user, 100 ns units
+    cmd = [sys.executable, "-B", "-c", _WIN_CHILD, os.path.dirname(os.path.abspath(__file__)), path, json.dumps(opts),
+           "1" if raw else "0"]
+    job = wintypes.HANDLE(check(k32.CreateJobObjectW(None, None), "CreateJobObjectW"))
+    try:
+        ext = EXTENDED()
+        # JOB_OBJECT_LIMIT_PROCESS_TIME | _PROCESS_MEMORY | _KILL_ON_JOB_CLOSE (no breakaway allowed)
+        ext.Basic.LimitFlags = 0x2 | 0x100 | 0x2000
+        ext.Basic.PerProcessUserTimeLimit = hard * 10 ** 7                  # 100 ns units
+        ext.ProcessMemoryLimit = mem_cap_mib << 20
+        check(k32.SetInformationJobObject(job, 9, ctypes.byref(ext), ctypes.sizeof(ext)), "SetInformationJobObject")
+        t0 = time.monotonic()
+        with open(out_p, "wb") as fo, open(err_p, "wb") as fe:
+            p = subprocess.Popen(cmd, stdin=subprocess.DEVNULL, stdout=fo, stderr=fe, creationflags=0x4)   # SUSPENDED
+            try:
+                check(k32.AssignProcessToJobObject(job, wintypes.HANDLE(int(p._handle))), "AssignProcessToJobObject")
+                snap = wintypes.HANDLE(check(k32.CreateToolhelp32Snapshot(0x4, 0), "CreateToolhelp32Snapshot"))
+                resumed = 0
+                try:                           # TH32CS_SNAPTHREAD: resume the threads of the child (its one thread)
+                    te = THREADENTRY32()
+                    te.dwSize = ctypes.sizeof(te)
+                    more = k32.Thread32First(snap, ctypes.byref(te))
+                    while more:
+                        if te.th32OwnerProcessID == p.pid:
+                            th = wintypes.HANDLE(check(k32.OpenThread(0x2, False, te.th32ThreadID), "OpenThread"))
+                            try:
+                                check(k32.ResumeThread(th) != 0xFFFFFFFF, "ResumeThread")
+                                resumed += 1
+                            finally:
+                                k32.CloseHandle(th)
+                        more = k32.Thread32Next(snap, ctypes.byref(te))
+                finally:
+                    k32.CloseHandle(snap)
+                check(resumed, "resuming the child")
+            except BaseException:
+                p.kill()
+                p.wait()
+                raise
+            try:
+                p.wait(timeout=hard * 2)
+            except subprocess.TimeoutExpired:
+                k32.TerminateJobObject(job, _TIMEOUT_EXIT)
+                p.wait()
+                p.returncode = _TIMEOUT_EXIT
+            wall = time.monotonic() - t0
+        acct = ACCOUNTING()
+        check(k32.QueryInformationJobObject(job, 1, ctypes.byref(acct), ctypes.sizeof(acct), None), "accounting")
+        check(k32.QueryInformationJobObject(job, 9, ctypes.byref(ext), ctypes.sizeof(ext), None), "peak memory")
+    finally:
+        k32.CloseHandle(job)
+    cpu = (acct.TotalUserTime + acct.TotalKernelTime) / 1e7
     out, err = _read_outputs(out_p, err_p)
-    res = {"cpu": round(cpu, 3), "wall": round(wall, 3), "maxrss_mib": round(mem.PeakWorkingSetSize / (1 << 20), 1)}
+    res = {"cpu": round(cpu, 3), "wall": round(wall, 3), "maxrss_mib": round(ext.PeakProcessMemoryUsed / (1 << 20), 1),
+           "processes": acct.TotalProcesses}
     if p.returncode == _TIMEOUT_EXIT or cpu > hard:     # stopped at the hard stop, or ended by the job's CPU limit
         res.update(kind="timeout")
         return res, None, err
