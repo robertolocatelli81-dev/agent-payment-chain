@@ -141,10 +141,10 @@ def _no_upper_x(doc):
 
 
 def strict_json(text):
+    if apc_siglib.json_too_deep(text, MAX_JSON_DEPTH):      # SPEC 29.1, counted before the parser: every Python alike
+        raise Refusal("JSON nested deeper than %d (SPEC 29.1)" % MAX_JSON_DEPTH)
     try:
         return _no_surrogates(json.loads(text, object_pairs_hook=_no_dups, parse_constant=_no_const))
-    except RecursionError:
-        raise Refusal("not JSON: nested too deep")
     except ValueError as e:
         if isinstance(e, Refusal):
             raise

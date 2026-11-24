@@ -646,20 +646,11 @@ MAX_JSON_DEPTH = 64         # SPEC 29.1 (apc_verify.MAX_JSON_DEPTH): every JSON 
 
 
 def _json(text):
-    """json.loads with the nesting bound of SPEC 29.1: deeper (or past the parser's own recursion) is a ValueError,
+    """json.loads with the nesting bound of SPEC 29.1, counted on the text first: deeper is a ValueError,
     which the callers turn into their failure code, never an exception out of the evaluator"""
-    try:
-        v = json.loads(text)
-    except RecursionError:
-        raise ValueError("JSON nested too deep")
-    stack = [(v, 0)]
-    while stack:
-        x, d = stack.pop()
-        if isinstance(x, (dict, list)):
-            if d >= MAX_JSON_DEPTH:
-                raise ValueError("JSON nested deeper than %d" % MAX_JSON_DEPTH)
-            stack.extend((y, d + 1) for y in (x.values() if isinstance(x, dict) else x))
-    return v
+    if apc_siglib.json_too_deep(text, MAX_JSON_DEPTH):      # counted before the parser: every Python alike
+        raise ValueError("JSON nested deeper than %d" % MAX_JSON_DEPTH)
+    return json.loads(text)
 
 
 def _verify_jws(jwt, key, stage):

@@ -2137,8 +2137,8 @@ refused with its reason (exit 3), or, inside an artifact that has its own failur
 JSON text a bundle carries inside a string and the verifier parses: JWS segments and SD-JWT disclosures of the AP2
 mandate and of signed offers and receipts, HTTP bodies, MCP and A2A texts, draft artifacts, the WebAuthn
 clientDataJSON of section 28.3 read for its notes) arrays and objects nest at
-most 64 deep (apc_verify.MAX_JSON_DEPTH, counted without recursion); deeper, or deeper than the standard library parser
-goes, is refused. In the AP2 evaluator (apc_ap2.py) such a text is SIGNATURE_INVALID (a JWS segment) or
+most 64 deep (apc_verify.MAX_JSON_DEPTH, counted without recursion, on the text before the parser since 2026-11-24:
+33.11); deeper is refused, with the same reason on every Python. In the AP2 evaluator (apc_ap2.py) such a text is SIGNATURE_INVALID (a JWS segment) or
 DISCLOSURE_INVALID (a disclosure), and the resolution of disclosures that name disclosures stops at the same depth
 (DISCLOSURE_INVALID); in the draft profile of x402 PR 3783 (the SSE terminal event and the receipt document) it is a
 `VERIFIER_INPUT_*` failure of the profile.
@@ -3769,13 +3769,14 @@ not the proof refuses the rebuild at the L1 side, before the L2 headers of `cano
 ### 33.11 A document nested beyond the interpreter's limit is refused with where it came from, never a traceback (2026-11-02, local)
 `json.loads` raises RecursionError on a document nested too deep (measured 2026-11-02, arrays at the top of the stack:
 994 levels parse on CPython 3.9 and 3.11, 9,998 on 3.13; the limit depends on the interpreter and on the stack already in
-use). tools/rebuild_corpus.py parses what it reads at five points and bounds each of them (the first two through
-`rebuild_corpus.loads`, the others catch RecursionError where they parse): an endpoint's reply
+use; on the Python 3.14 of the CI run of 2026-11-24, 100,000 levels parse, so since then no reader relies on it: see
+the amendment below). tools/rebuild_corpus.py parses what it reads at five points and bounds each of them through
+`rebuild_corpus.loads`: an endpoint's reply
 is `refused:json_too_nested:rpc:<host>:<method>`, a reply read from `--cache` `refused:json_too_nested:cache:<method>`
 (nothing written, the run goes on with the next bundle, exit 1 as any refusal); the body under an HTTP error status that
 is nested beyond the limit counts as no JSON-RPC error (the HTTP status stands, `rpc_unreachable:<host>:HTTP <code>` after
 the retries, as a body that is not JSON); a file already under `--out` that is nested beyond the limit is
-`unreadable:RecursionError` in the row's note (not overwritten, below the level, exit 1, as any unreadable file there), and
+`unreadable:json_too_nested` in the row's note (`unreadable:RecursionError` until 2026-11-24) (not overwritten, below the level, exit 1, as any unreadable file there), and
 one under `--out-oracle` is not ours (`existing_file_differs`, 33.8). A RecursionError raised while a recipe processes a
 reply that passed the parse (a document just under the limit that the recipe wraps deeper) is
 `refused:reply_shape:RecursionError:<message>`, as any reply outside the shape a recipe reads; the same list of errors
@@ -3791,6 +3792,16 @@ controls (tests/test_corpus_manifest.py, NestedInputPublic — no saved block, i
 NestedInput, offline): 100,000 nested arrays as the reply, as the cached reply, as
 the HTTP error body and as the file under `--out`; a RecursionError and an OverflowError raised inside a recipe; the same
 fixtures unaltered rebuild the bundle and the oracle files to the byte.
+Amendment (Unreleased, 2026-11-24): "nested beyond the limit" is now a count, not the interpreter's RecursionError.
+Every reader that parsed a JSON text and caught RecursionError (apc_verify.strict_json, apc_ap2, apc_registry,
+apc_block.py, tools/rebuild_corpus.py, tools/bench_journal.py) counts the arrays and objects on the text first, outside
+strings (apc_siglib.json_too_deep, the count apc_mcp.py already made, section 8), and refuses past 64 (section 29.1;
+tools/bench_journal.py past 8, its records nest 3) with the same reason on every Python: apc_verify `JSON nested deeper
+than 64 (SPEC 29.1)` (it was `not JSON: nested too deep` past the parser), apc_registry `not JSON: nested deeper than
+64 (SPEC 29.1)`, apc_block.py `unreadable:ValueError`, rebuild_corpus `json_too_nested:<where>`. Measured on 2026-11-24:
+the deepest of 1132 bundle files nests 12, of 843 oracle files 10, of corpus/MANIFEST.json 15. Tests:
+tests/test_platforms_20261124.py (65, 100 and 100,000 levels: 100 is read by json.loads on every Python, so it is the
+case of the 3.14 of the CI everywhere; fails on e18d024).
 
 ### 33.12 The public tree measured on its own (2026-11-02, local; the tree the publication tool builds from this commit)
 Until this commit the public tree could not rebuild the anchored bundles of 33.10 nor any bundle of the recipe svm_exact

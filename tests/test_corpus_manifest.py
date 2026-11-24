@@ -1492,9 +1492,16 @@ class NestedInputPublic(unittest.TestCase):
     def real_rpc(self, **kw):
         return rc.Rpc({self.e["network"]: "http://127.0.0.1:9/"}, rate=1000, **kw)
 
-    def test_nested_parses_to_a_recursion_error_here(self):      # the fixture is what it says: RecursionError, not ValueError
-        with self.assertRaises(RecursionError):
-            json.loads(self.NESTED)
+    def test_the_fixture_is_past_the_count(self):      # json.loads gives RecursionError or reads it, by interpreter
+        self.assertTrue(rc.apc_siglib.json_too_deep(self.NESTED, rc.av.MAX_JSON_DEPTH))
+
+    def test_reply_nested_past_64_but_read_by_the_parser_is_refused(self):     # 100 deep: what 3.14 did with 100,000
+        rpc = self.real_rpc()
+        rpc._post = lambda url, body: b"[" * 100 + b"]" * 100
+        with tempfile.TemporaryDirectory() as out:
+            rep = rc.rebuild(self.man(), rpc, out, log=lambda *a: None)
+            self.assertEqual([r["status"] for r in rep["results"]],
+                             ["refused:json_too_nested:rpc:127.0.0.1:eth_getBlockByNumber"])
 
     def test_reply_nested_beyond_the_limit_is_refused(self):
         rpc = self.real_rpc()
@@ -1646,7 +1653,7 @@ class NestedInput(OracleRebuild):
             rep = rc.rebuild(self.man(), self.rpc(), out, log=lambda *a: None)
             row = rep["results"][0]
             self.assertEqual((row["status"], row["ok"], row["written"]), ("bytes", False, False))
-            self.assertIn("unreadable:RecursionError", row["note"])
+            self.assertIn("unreadable:json_too_nested", row["note"])
             with open(p, "rb") as fh:
                 self.assertEqual(fh.read(), self.NESTED)                   # not overwritten
 

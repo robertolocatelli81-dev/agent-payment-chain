@@ -44,12 +44,14 @@ import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import apc_solana as sol  # noqa: E402  (Ed25519, RFC 8032, standard library)
+import apc_siglib  # noqa: E402  (json_too_deep only: nothing runs at import, the library is not loaded)
 
 VERSION = "apc_registry 0.2.0"
 FORMAT = "apc-reg-0.2"
 SEAL_DOMAIN = b"apc-register-seal-v1\n"
 ZERO = "0" * 64
 CONSENT = "place_recorded_as_personal_data"
+MAX_JSON_DEPTH = 64         # SPEC 29.1: every JSON text read, counted before the parser
 HEX64 = re.compile(r"[0-9a-f]{64}\Z")
 HEX16 = re.compile(r"[0-9a-f]{16}\Z")
 HEX128 = re.compile(r"[0-9a-f]{128}\Z")
@@ -103,10 +105,10 @@ def _no_const(c):
 
 
 def strict_json(text):
+    if apc_siglib.json_too_deep(text, MAX_JSON_DEPTH):      # SPEC 29.1, counted before the parser: every Python alike
+        raise Bad("not JSON: nested deeper than %d (SPEC 29.1)" % MAX_JSON_DEPTH)
     try:
         doc = json.loads(text, object_pairs_hook=_no_dups, parse_constant=_no_const)
-    except RecursionError:
-        raise Bad("not JSON: nested too deep")
     except json.JSONDecodeError as e:
         raise Bad("not JSON: %s" % e.msg)
     except ValueError as e:                 # e.g. an integer longer than int_max_str_digits

@@ -75,19 +75,19 @@ class Rejected(Exception):
 
 
 # a reply outside the shape a recipe reads (33.4, 33.8, 33.11): the recipe's row says so, the run goes on. One list for
-# the bundle recipes and the two oracle recipes; RecursionError is a document nested beyond the interpreter's limit that
-# passed the parse and a recipe wrapped deeper, ArithmeticError a reply word longer than 32 bytes, AttributeError a
+# the bundle recipes and the two oracle recipes; RecursionError is a recipe's own recursion run out (a document read is
+# at most 64 deep, `loads`), ArithmeticError a reply word longer than 32 bytes, AttributeError a
 # member of another JSON type where a recipe reads an object or a string (2026-11-02)
 SHAPE_ERRORS = (KeyError, TypeError, ValueError, IndexError, AttributeError, ArithmeticError, RecursionError)
 
 
 def loads(raw, where):
-    """json.loads bounded (33.11): a document nested beyond the interpreter's recursion limit is refused with where it
-    came from (`rpc:<host>:<method>`, `cache:<method>`), never a traceback. ValueError (not JSON) is the caller's."""
-    try:
-        return json.loads(raw)
-    except RecursionError:
+    """json.loads bounded (33.11): a document nested deeper than av.MAX_JSON_DEPTH (64, SPEC 29.1; counted on the text
+    before the parser, the same on every Python) is refused with where it came from (`rpc:<host>:<method>`,
+    `cache:<method>`, `out`, `oracle`), never a traceback. ValueError (not JSON) is the caller's."""
+    if apc_siglib.json_too_deep(raw, av.MAX_JSON_DEPTH):
         raise Rejected("json_too_nested:%s" % where)
+    return json.loads(raw)
 
 
 def _err_text(x, absent):
@@ -373,11 +373,11 @@ class Rpc:
             except urllib.error.HTTPError as e:
                 err = "HTTP %d" % e.code
                 try:                       # some endpoints answer a JSON-RPC error under an HTTP error status
-                    d = json.loads(e.read())
+                    d = loads(e.read(), "http_error_body")
                     if isinstance(d, dict) and "error" in d:
                         self.calls += 1
                         return json.dumps(d).encode()
-                except (ValueError, RecursionError):    # no JSON-RPC error body (not JSON, or nested beyond the limit,
+                except (ValueError, Rejected):          # no JSON-RPC error body (not JSON, or nested beyond the limit,
                     pass                                # 33.11): the HTTP status stands
                 if e.code not in (403, 429, 500, 502, 503, 504):     # public endpoints throttle with 403 too
                     break
@@ -1173,8 +1173,10 @@ def rebuild(man, rpc, out, only=None, sample=None, force=False, log=print):
                     with open(path, "rb") as fh:
                         old = fh.read()
                     try:
-                        old_level = compare(e, s, old, json.loads(old))
-                    except (ValueError, KeyError, TypeError, RecursionError, av.Refusal) as ex:    # 33.11: nested too
+                        old_level = compare(e, s, old, loads(old, "out"))
+                    except Rejected:                                                    # 33.11: nested too deep
+                        old_level = "unreadable:json_too_nested"
+                    except (ValueError, KeyError, TypeError, av.Refusal) as ex:
                         old_level = "unreadable:%s" % type(ex).__name__
                     row["note"] = "exists, not overwritten (--force); the file there: %s" % old_level
                     if old_level not in LEVELS or LEVELS.index(old_level) > LEVELS.index(s["rebuild"]):
@@ -1213,8 +1215,8 @@ def _existing_result(path):
     """The canonical `result` digest of a gzip raw file already under --out-oracle, or None when it cannot be read."""
     try:
         with gzip.open(path) as fh:
-            return hashlib.sha256(canon(json.loads(fh.read())["result"]).encode()).hexdigest()
-    except (OSError, ValueError, KeyError, TypeError, EOFError, RecursionError):      # 33.11: nested too deep = not ours
+            return hashlib.sha256(canon(loads(fh.read(), "oracle")["result"]).encode()).hexdigest()
+    except (OSError, ValueError, KeyError, TypeError, EOFError, Rejected):      # 33.11: nested too deep = not ours
         return None
 
 
@@ -1223,7 +1225,7 @@ def _existing_xrpl_is_ours(path, o):
     have the list's digest (other calls it holds, such as the `validated` one of the authors' file, are not read)."""
     try:
         with open(path, "rb") as fh:
-            calls = json.loads(fh.read())["calls"]
+            calls = loads(fh.read(), "oracle")["calls"]
         got = {}
         for c in calls:
             k = c["params"].get("ledger_index")
@@ -1232,7 +1234,7 @@ def _existing_xrpl_is_ours(path, o):
         return all(set(got.get(it["ledger_index"], {})) == {"binary", "json"} and
                    hashlib.sha256(canon(got[it["ledger_index"]]).encode()).hexdigest() == o["result_sha256"][str(it["ledger_index"])]
                    for it in o["items"])
-    except (OSError, ValueError, KeyError, TypeError, AttributeError, RecursionError):   # 33.11
+    except (OSError, ValueError, KeyError, TypeError, AttributeError, Rejected):   # 33.11
         return False
 
 

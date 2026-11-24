@@ -57,6 +57,9 @@ python3 tools/rebuild_corpus.py --check-manifest
 - Hostile input (SPEC 29, hunt of 2026-11-23): X7 joins and parses a field or a query once per check; the authority
   of `target_uri` is read by one grammar on every Python (SPEC 10: an IP literal without zone identifier, a port of
   digits); `apc_block.py` and `apc_batch.py` answer `refused` where they ended with a traceback.
+- JSON nesting (SPEC 29.1, 33.11): every reader counts the arrays and objects on the text before the parser and refuses
+  past 64 with one reason on every Python; until now some relied on the parser's RecursionError, which the Python 3.14
+  of the CI does not raise at 100,000 levels.
 
 ## apc_verify 0.21.6, SPEC 32.15 (on main since 2026-11-22, commit 111de70; no tag and no GitHub release yet)
 

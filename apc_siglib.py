@@ -11,7 +11,9 @@ ways to have the library; apc_verify.py turns it into one line on standard error
 """
 import hashlib
 import importlib.util
+import json
 import os
+import re
 import stat
 import sys
 
@@ -24,6 +26,31 @@ NAMES = ("lib", "lib.eip712", "lib.secp256k1")
 GET_LIB = ("clone github.com/robertolocatelli81-dev/x402-signature-vectors at tag %s beside this folder as "
            "../x402-signature-vectors, or set APC_SIGLIB to such a checkout" % SIGLIB_TAG)
 MARK = "__apc_siglib_sha256__"
+
+
+# a JSON string (to its closing quote, or to the end of an unterminated one) or one bracket outside strings
+_STRING_OR_BRACKET = re.compile(r'"[^"\\]*(?:\\.[^"\\]*)*"?|[\[\]{}]', re.S)
+
+
+def json_too_deep(text, limit):
+    """True when the arrays and objects of a JSON text (str, or bytes decoded as json.loads decodes them) open more than
+    `limit` deep, counted on the text outside strings before any parser (SPEC 29.1). json.loads raises RecursionError at
+    a depth that depends on the interpreter and its stack (994 on CPython 3.9 and 3.11, 9,998 on 3.13, and 100,000 was
+    read on the 3.14 of the CI run 45334985210), so every reader bounds the text with this count first: the same answer
+    on every Python. Here, not in apc_verify, because this module runs nothing at import (apc_registry reads registers
+    without the library). Not a validator: a text that is not JSON is the parser's to refuse."""
+    if isinstance(text, (bytes, bytearray)):
+        text = bytes(text).decode(json.detect_encoding(text), "surrogatepass")
+    depth = 0
+    for m in _STRING_OR_BRACKET.finditer(text):
+        c = m.group()
+        if c == "[" or c == "{":
+            depth += 1
+            if depth > limit:
+                return True
+        elif c == "]" or c == "}":
+            depth -= 1
+    return False
 
 
 class SiglibError(ImportError):

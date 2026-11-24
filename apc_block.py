@@ -414,11 +414,16 @@ def main(argv):
         print(__doc__.strip().splitlines()[-1].strip(), file=sys.stderr)
         return 64
     import apc_verify           # SPEC 29.2: a regular file of at most 64 MiB, never read without end (a FIFO, /dev/zero)
-    try:                        # UTF-8 as a bundle is read (json.loads of bytes takes UTF-16 and a BOM too)
-        b, r = (json.loads(apc_verify.read_bundle_bytes(p).decode("utf-8")) for p in argv[1:3])
+    def load(p):                # UTF-8 as a bundle is read (json.loads of bytes takes UTF-16 and a BOM too)
+        text = apc_verify.read_bundle_bytes(p).decode("utf-8")
+        if apc_siglib.json_too_deep(text, apc_verify.MAX_JSON_DEPTH):     # SPEC 29.1, before the parser: every Python
+            raise ValueError("JSON nested deeper than %d" % apc_verify.MAX_JSON_DEPTH)
+        return json.loads(text)
+    try:
+        b, r = (load(p) for p in argv[1:3])
         b = b.get("result", b) if isinstance(b, dict) and "jsonrpc" in b else b
         r = r.get("result", r) if isinstance(r, dict) and "jsonrpc" in r else r
-    except (OSError, ValueError, RecursionError, apc_verify.Refusal) as e:   # RecursionError: nested past the parser
+    except (OSError, ValueError, apc_verify.Refusal) as e:
         print(json.dumps({"verdict": "refused", "reason": "unreadable:%s" % type(e).__name__}))
         return 3
     out = check_block(b, r)

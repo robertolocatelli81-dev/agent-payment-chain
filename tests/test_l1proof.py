@@ -229,7 +229,10 @@ class BlockProgram(unittest.TestCase):
                 fh.write("[" * 100000 + "]" * 100000)
             with open(lst, "w") as fh:
                 fh.write("[]")
-            cases = [deep, os.path.join(d, "absent.json")]
+            deep65 = os.path.join(d, "deep65.json")             # SPEC 29.1: past 64, read by json.loads on every Python
+            with open(deep65, "w") as fh:
+                fh.write("[" * 65 + "]" * 65)
+            cases = [deep, deep65, os.path.join(d, "absent.json")]
             for name, data in (("bom.json", b"\xef\xbb\xbf[]"), ("utf16.json", "[]".encode("utf-16"))):
                 with open(os.path.join(d, name), "wb") as fh:              # UTF-8 only, as a bundle is read
                     fh.write(data)

@@ -441,7 +441,7 @@ class DeliveryReceiptDraft(unittest.TestCase):
     def test_sse_event_nested(self):
         stream = "event: x402-delivery-receipt\ndata: " + "[" * 5000 + "]" * 5000 + "\n\n"
         levels, why = dr.verify_session({"eventStream": stream})
-        self.assertTrue(why["code"].startswith("VERIFIER_INPUT_"), why)      # RecursionError on 3.11; 3.13 parses it
+        self.assertEqual(why["code"], "VERIFIER_INPUT_ValueError")       # counted before the parser: every Python
 
     def test_sse_event_depth_limit(self):
         """29.1: 64 deep is read (and fails later, for another reason), 65 deep is the depth failure"""
@@ -665,7 +665,7 @@ class ExistingLimits(unittest.TestCase):
     def test_stdlib_recursion_on_the_command_line(self):
         code, rep, _ = cli(b"[" * 100000 + b"]" * 100000)
         self.assertEqual((code, rep["verdict"]), (3, "refused"))
-        self.assertRegex(rep["reason"], "nested too deep|nested deeper than 64")
+        self.assertIn("JSON nested deeper than 64 (SPEC 29.1)", rep["reason"])       # every Python (SPEC 29.1)
 
     def test_uint256_digits(self):
         self.assertEqual(av._uint(str((1 << 256) - 1), "v"), (1 << 256) - 1)

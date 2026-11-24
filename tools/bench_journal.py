@@ -21,6 +21,7 @@ other damage (a complete line that does not parse or does not chain) is a refusa
 import hashlib
 import json
 import os
+import re
 import subprocess
 import sys
 
@@ -62,6 +63,25 @@ def tree_digest(root):
     return hashlib.sha256(canonical(sorted(items))).hexdigest()
 
 
+MAX_DEPTH = 8      # a record nests 3 deep; json.loads's own limit differs between Pythons, so it is counted first
+_STRING_OR_BRACKET = re.compile(r'"[^"\\]*(?:\\.[^"\\]*)*"?|[\[\]{}]', re.S)    # as apc_siglib.json_too_deep
+
+
+def _too_deep(text):
+    """True when the brackets of a line, counted outside strings, open more than MAX_DEPTH deep (this tool imports
+    nothing of the tree it measures, hence its own count)."""
+    depth = 0
+    for m in _STRING_OR_BRACKET.finditer(text):
+        c = m.group()
+        if c == "[" or c == "{":
+            depth += 1
+            if depth > MAX_DEPTH:
+                return True
+        elif c == "]" or c == "}":
+            depth -= 1
+    return False
+
+
 def _is_hex64(x):
     return isinstance(x, str) and len(x) == 64 and all(c in "0123456789abcdef" for c in x)
 
@@ -91,8 +111,11 @@ def read(path):
     recs, prev = [], ZERO
     for seq, b in enumerate(body.split(b"\n")[:-1]):
         try:
-            line = json.loads(b.decode("utf-8"), parse_constant=lambda c: (_ for _ in ()).throw(ValueError(c)))
-        except (UnicodeDecodeError, ValueError, RecursionError) as e:
+            text = b.decode("utf-8")
+            if _too_deep(text):
+                raise JournalError("line %d: nested deeper than %d" % (seq, MAX_DEPTH))
+            line = json.loads(text, parse_constant=lambda c: (_ for _ in ()).throw(ValueError(c)))
+        except (UnicodeDecodeError, ValueError) as e:
             raise JournalError("line %d: not JSON (%s)" % (seq, type(e).__name__))
         if b != canonical(line):
             raise JournalError("line %d: not in canonical form" % seq)

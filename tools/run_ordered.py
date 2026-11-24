@@ -83,7 +83,7 @@ NEAR = {"apc_svm.py": ["test_amend0213", "test_mandate", "test_hostile", "test_s
         "apc_dr3783.py": ["test_hostile", "test_drafts3"],
         "apc_authcap.py": ["test_amend0213", "test_authcap_block", "test_hostile", "test_authcap", "test_integration"], "apc_xrp.py": ["test_amend0213", "test_hostile", "test_xrp", "test_integration"],
         "apc_xrpl.py": ["test_hostile", "test_xrp", "test_wycheproof"], "tools/regress.py": ["test_regress"],
-        "apc_mandate.py": ["test_mandate", "test_amend0212"], "apc_siglib.py": ["test_amend0212", "test_standin", "test_hostile"],
+        "apc_mandate.py": ["test_mandate", "test_amend0212"], "apc_siglib.py": ["test_platforms_20261124", "test_amend0212", "test_standin", "test_hostile"],
         "apc_msca.py": ["test_msca", "test_msca_anchor", "test_review_msca", "test_evidence_level", "test_coverage_census"],
         "apc_verify.py": ["test_amend0213", "test_amend0212", "test_msca", "test_msca_anchor", "test_review_msca", "test_mandate", "test_evidence_level", "test_spec30_table", "test_hostile", "test_webauthn"], "tools/fuzz_bundles.py": ["test_hostile"],
         "tools/make_bundles_negatives.py": ["test_negatives"], "tools/scan_negatives_evm.py": ["test_negatives"],

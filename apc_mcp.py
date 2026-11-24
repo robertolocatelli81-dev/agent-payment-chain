@@ -94,26 +94,10 @@ class TooDeep(Exception):
 
 
 def too_deep(text, limit=MAX_DEPTH):
-    """True when the brackets of a JSON text, counted outside strings, open more than `limit` deep. One pass over the
-    text, before any parser: the same answer on every Python (json's recursion limit differs between versions)."""
-    depth, in_str, esc = 0, False, False
-    for ch in text:
-        if in_str:
-            if esc:
-                esc = False
-            elif ch == "\\":
-                esc = True
-            elif ch == '"':
-                in_str = False
-        elif ch == '"':
-            in_str = True
-        elif ch in "[{":
-            depth += 1
-            if depth > limit:
-                return True
-        elif ch in "]}":
-            depth -= 1
-    return False
+    """True when the brackets of a JSON text, counted outside strings, open more than `limit` deep. Counted before any
+    parser: the same answer on every Python (json's recursion limit differs between versions); apc_siglib.json_too_deep,
+    the count of every reader (SPEC 29.1)."""
+    return apc_siglib.json_too_deep(text, limit)
 
 
 _WS = re.compile(r"[ \t\n\r]*")
