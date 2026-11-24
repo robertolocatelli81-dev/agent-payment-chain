@@ -204,7 +204,7 @@ def write(now, seconds):
     lines = ["regress/MANIFEST - frozen regression corpus (tools/regress.py write)",
              "verifier: " + spec_version(),
              "VERDICTS.json sha256: " + hashlib.sha256(text.encode()).hexdigest(),
-             "bundles: %d; full run %.0f s on this machine (nice 19, one process)" % (len(rows), seconds),
+             "bundles: %d; full run %.0f s on this machine (nice %d, one process)" % (len(rows), seconds, os.nice(0) if hasattr(os, "nice") else 0),   # the niceness of this run
              "per directory: bundles, verdicts, sha256 over its sorted 'path sha256' lines, what is real, where said, options"]
     for k in sorted(per):
         v = per[k]

@@ -1,5 +1,6 @@
 name: release
-# On a tag v*: the source of the tag as git archive writes it (tar.gz and zip, the same bytes from any clone of the tag),
+# On a tag v*: the source of the tag as git archive writes it (tar.gz and zip; the same bytes from a git of the
+# same version and configuration, the zip at the same time zone too: it stores local times, here UTC),
 # their SHA256SUMS, build provenance attested, and a GitHub release that carries them. apc is not a pip package.
 on:
   push:
@@ -16,6 +17,7 @@ jobs:
       - name: Source archives of the tag and SHA256SUMS
         env:
           TAG: ${{ github.ref_name }}
+          TZ: UTC
         run: |
           set -euo pipefail
           git version
@@ -58,6 +60,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
         run: |
-          cd dist && sha256sum -c SHA256SUMS && cd ..
+          set -euo pipefail
+          (cd dist; sha256sum -c SHA256SUMS)   # alone on its line: in an && list a failed check would not end the step
           gh release create "$TAG" dist/* --repo "$GITHUB_REPOSITORY" --title "$TAG" --verify-tag \
             --notes "Source archives of the tag (git archive) and SHA256SUMS; changes in CHANGELOG.md. Provenance: gh attestation verify <file> --repo $GITHUB_REPOSITORY"

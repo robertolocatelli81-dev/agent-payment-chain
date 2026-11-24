@@ -3491,7 +3491,7 @@ corpus/MANIFEST.json rewritten: verifier and date only. Measured 2026-11-23 and 
 corpus (ap2-evidence-pack at v1.7.1): tools/regress.py check, 1123 bundles, 0
 differences; with --http-keys (the RFC 9421 B.1.4 key, and an ML-DSA-65 key on this revision) the 1123 reports equal
 those of 111de70 in verdict and every check (none of the 1123 carries `exchange`); in the public tree, `unittest
-discover` on Python 3.9, 3.11 and 3.13, 415 tests, OK (skipped=136 on each with `cryptography` 50.0.2 installed, 148
+discover` on Python 3.9, 3.11 and 3.13, 445 tests, OK (skipped=136 on each with `cryptography` 50.0.2 installed, 148
 on Python 3.11 without it; APC_SIGLIB and APC_AP2EV naming the two siblings at their tags as the CI does),
 and `tests.test_amend0212` with `tests.test_http9421_20261123` under `APC_REQUIRE_DEPS=1`, 63 tests, OK
 (skipped=4). Mutants on the lines of apc_http.py this amendment added or changed as of commit 30b0ac0, before the

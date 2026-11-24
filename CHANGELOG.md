@@ -22,14 +22,17 @@ exit or check changes from 0.21.6; the frozen file is rewritten under 0.21.7, th
   ended with a traceback.
 - JSON nesting (sections 29.1 and 33.11): every reader that relied on the parser's RecursionError (the six named in
   33.11) counts the arrays
-  and objects on the text first, in constant memory, and refuses past 64 with one reason on every Python (Python 3.14
-  read 100,000 levels without that error). The register refuses to record an entry it could not read back (11.3).
+  and objects on the text first, in constant memory, and refuses past 64 (`tools/bench_journal.py` past 8) with one reason
+  on every Python (Python 3.14 read 100,000 levels without that error). The register refuses to record an entry it
+  could not read back (11.3).
 - Line ends (section 32.12): a library or pack file that is the tag's file with CRLF line ends is still refused
-  (exit 64), and the refusal names that cause; `.gitattributes` (`* -text`) keeps this repository's bytes as
-  committed on every platform.
+  (the library: exit 64; the pack: MP1-MP7 `not_1.7.1`), and the refusal names that cause;
+  `.gitattributes` (`* -text`) keeps this repository's bytes as committed on every platform.
 - Windows and macOS: the register's writer lock is `msvcrt.locking` on Windows (it took no lock there, 11.3);
   `tools/fuzz_bundles.py` runs each case in a Job Object with the same memory and CPU limits on Windows (it did not
   import there, 29.5); the fuzz child's peak memory is read in bytes on macOS (it was read as KiB).
+- Sources: the four Internet-Drafts of `sources/ietf` are removed (cited by no section); `sources/webbotauth_c2sp_20261123`
+  added (IETF TLP 5.0, CC BY 4.0; `NOTICE`).
 - CI (`.github/workflows/ci.yml`): Python 3.9 to 3.14 on Linux, Python 3.13 on macOS and Windows, each cell also
   without `cryptography`, and gitleaks 8.30.1 on the history and the tree; run 45375267177 on 21116a2, 9 jobs green.
 - Release files: this changelog, `SECURITY.md`, `CITATION.cff`, and `.github/workflows/release.yml` (on a `v*` tag:
