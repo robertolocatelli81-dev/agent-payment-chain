@@ -242,8 +242,19 @@ class BlockProgram(unittest.TestCase):
                 cases.append(os.path.join(d, "fifo"))
             if os.path.exists("/dev/zero"):
                 cases.append("/dev/zero")
+            if os.name == "nt":             # the Windows equivalents: a named pipe for the FIFO, the NUL device
+                cases += [r"\\.\pipe\apc_l1proof_%d" % os.getpid(), "NUL"]
             for f in cases:
-                r = self.run_program(f, lst)
+                pipe = None
+                if f.startswith("\\\\.\\pipe\\"):             # the server end, open while the program reads it
+                    import _winapi
+                    pipe = _winapi.CreateNamedPipe(f, _winapi.PIPE_ACCESS_DUPLEX, _winapi.PIPE_TYPE_BYTE | _winapi.PIPE_WAIT,
+                                                   1, 65536, 65536, 0, _winapi.NULL)
+                try:
+                    r = self.run_program(f, lst)
+                finally:
+                    if pipe is not None:
+                        _winapi.CloseHandle(pipe)
                 self.assertEqual((r.returncode, json.loads(r.stdout)["verdict"], r.stderr), (3, "refused", b""), f)
                 self.assertTrue(json.loads(r.stdout)["reason"].startswith("unreadable:"), f)
             r = self.run_program(lst, lst)                                  # control: read, then refused by the rule

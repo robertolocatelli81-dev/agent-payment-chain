@@ -314,7 +314,8 @@ class PackCodeIsTheHashedBytes(unittest.TestCase):
 
     def test_a_fifo_in_the_folder_does_not_stall(self):
         if not hasattr(os, "mkfifo"):
-            self.skipTest("no FIFOs on this system")
+            self.skipTest("no FIFO can stand in the pack folder here: Windows named pipes exist only under \\\\.\\pipe\\, "
+                          "never at a path of a folder (tests/test_l1proof.py reads one by its own path)")
         with tempfile.TemporaryDirectory() as tmp:
             pack = os.path.join(tmp, "pack")
             os.makedirs(os.path.join(pack, "pqcrypto"))
