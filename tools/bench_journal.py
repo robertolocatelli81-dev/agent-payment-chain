@@ -64,16 +64,23 @@ def tree_digest(root):
 
 
 MAX_DEPTH = 8      # a record nests 3 deep; json.loads's own limit differs between Pythons, so it is counted first
-_STRING_OR_BRACKET = re.compile(r'"[^"\\]*(?:\\.[^"\\]*)*"?|[\[\]{}]', re.S)    # as apc_siglib.json_too_deep
+_TOKEN = re.compile(r'[\[\]{}"]|\\.')            # as apc_siglib.json_too_deep
 
 
 def _too_deep(text):
     """True when the brackets of a line, counted outside strings, open more than MAX_DEPTH deep (this tool imports
     nothing of the tree it measures, hence its own count)."""
-    depth = 0
-    for m in _STRING_OR_BRACKET.finditer(text):
+    depth, in_str = 0, False
+    for m in _TOKEN.finditer(text):
         c = m.group()
-        if c == "[" or c == "{":
+        if in_str:
+            in_str = c != '"'
+            continue
+        if len(c) == 2:
+            c = c[1]
+        if c == '"':
+            in_str = True
+        elif c == "[" or c == "{":
             depth += 1
             if depth > MAX_DEPTH:
                 return True
@@ -155,6 +162,8 @@ class Journal:
         seq = len(self.records)
         line = {"seq": seq, "prev": self.records[-1]["hash"] if self.records else ZERO, "kind": kind, "body": body}
         line["hash"] = hashlib.sha256(canonical(line)).hexdigest()
+        if _too_deep(canonical(line).decode("utf-8")):      # what is written must read back (read refuses it)
+            raise JournalError("record %d: nested deeper than %d, not written" % (seq, MAX_DEPTH))
         new = not os.path.exists(self.path)
         with open(self.path, "ab") as fh:
             fh.write(canonical(line) + b"\n")

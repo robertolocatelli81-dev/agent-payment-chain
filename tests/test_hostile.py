@@ -751,6 +751,8 @@ class Harness(unittest.TestCase):
             (dict(ok, cpu=5.5), rep("refused"), "", "chain_failed", False, "time"),
             ({"kind": "signal", "signal": 24, "cpu": 21, "wall": 21, "maxrss_mib": 1}, None, "", "chain_failed", False, "time"),
             ({"kind": "signal", "signal": 11, "cpu": 1, "wall": 1, "maxrss_mib": 1}, None, "", "chain_failed", False, "crash"),
+            # Windows has no signal: the hard stop of the Job Object is its own kind (tools/fuzz_bundles._run_child_windows)
+            ({"kind": "timeout", "cpu": 21, "wall": 42, "maxrss_mib": 1}, None, "", "chain_failed", False, "time"),
             (dict(ok, maxrss_mib=3000), rep("refused"), "", "chain_failed", False, "memory"),
             (dict(ok, exit=0), rep("chain_verified"), "", "chain_failed", False, "promoted"),
             # an artifact taken away (fuzz s8:2204, chain_tx deleted from a failed Solana bundle): section 5, no defect

@@ -17,10 +17,12 @@ regexes = [
   '''^9f3b1c2d-4e5f-6a7b-8c9d-0e1f2a3b4c5d$''',                                # a UUID used as idempotency key in examples
   '''^40b0560cd3637678eef1ff13743dfbac97ed6f153dcabebc536e3bc5e1e9e4a6$''',    # sha256 of a key directory in x402 PR 3783 (a digest)
   '''^visa-tap-16d59bd$''',                                                    # name of a profile in apc_http.PROFILES (source at commit 16d59bd)
+  '''^c80d699b2daa47d54b8697f5a917c696400d7063b30a234d18ad672250ae42d9$''',    # C2SP httpsig-pq v1.0.1 (C2SP/C2SP 63169cf): published test seed 1 of 3
+  '''^40342eccce31032955f04c14256fa8cb6b6269bdc22d6ee62fd00d9338759773$''',    # C2SP httpsig-pq v1.0.1 (C2SP/C2SP 63169cf): published test seed 2 of 3
+  '''^0cd2f7cc3f9772ad23031ef37aea63b3825fb46bdb5d5cc4fb620ecccc5e630b$''',    # C2SP httpsig-pq v1.0.1 (C2SP/C2SP 63169cf): published test seed 3 of 3
 ]
 paths = [
   '''sources/l1proof_20261024/.*\.json''',          # eth_getProof replies: storage keys and node hashes, 32-byte hex values
   '''sources/http_20261025/rfc9421\.txt''',          # RFC 9421 appendix B: the RFC's own published example keys
   '''sources/x402_prs_20261026/delivery-receipt.*''',  # sha256 digests in the vectors of a pull request
-  '''sources/webbotauth_c2sp_20261123/c2sp_httpsig-pq_v1\.0\.1_63169cf\.md''',  # C2SP httpsig-pq v1.0.1: the spec's own published test seeds
 ]

@@ -28,8 +28,10 @@ GET_LIB = ("clone github.com/robertolocatelli81-dev/x402-signature-vectors at ta
 MARK = "__apc_siglib_sha256__"
 
 
-# a JSON string (to its closing quote, or to the end of an unterminated one) or one bracket outside strings
-_STRING_OR_BRACKET = re.compile(r'"[^"\\]*(?:\\.[^"\\]*)*"?|[\[\]{}]', re.S)
+# a quote, a backslash with the character after it, or a bracket: what the count reads, one at a time. Not one pattern
+# for a whole string: the regex engine keeps its state for every escape of a string it matches at once (measured
+# 2026-11-24: 114 to 144 bytes each on CPython 3.9 to 3.14; a 63 MiB text of escaped quotes ended in MemoryError)
+_TOKEN = re.compile(r'[\[\]{}"]|\\.')        # a line end after a backslash is no token either way
 
 
 def json_too_deep(text, limit):
@@ -38,13 +40,21 @@ def json_too_deep(text, limit):
     a depth that depends on the interpreter and its stack (994 on CPython 3.9 and 3.11, 9,998 on 3.13, and 100,000 was
     read on the 3.14 of the CI run 45334985210), so every reader bounds the text with this count first: the same answer
     on every Python. Here, not in apc_verify, because this module runs nothing at import (apc_registry reads registers
-    without the library). Not a validator: a text that is not JSON is the parser's to refuse."""
+    without the library). Not a validator: a text within the bound that is not JSON is the parser's to refuse; one
+    past the bound is refused as too deep whether or not it is JSON (SPEC 29.1)."""
     if isinstance(text, (bytes, bytearray)):
         text = bytes(text).decode(json.detect_encoding(text), "surrogatepass")
-    depth = 0
-    for m in _STRING_OR_BRACKET.finditer(text):
+    depth, in_str = 0, False
+    for m in _TOKEN.finditer(text):
         c = m.group()
-        if c == "[" or c == "{":
+        if in_str:                      # inside a string only its closing quote counts (an escaped one is a pair)
+            in_str = c != '"'
+            continue
+        if len(c) == 2:                 # outside a string a backslash escapes nothing: the character after it counts
+            c = c[1]
+        if c == '"':
+            in_str = True
+        elif c == "[" or c == "{":
             depth += 1
             if depth > limit:
                 return True

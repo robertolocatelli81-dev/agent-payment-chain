@@ -63,9 +63,10 @@ python3 tools/rebuild_corpus.py --check-manifest
 - Hostile input (SPEC 29, hunt of 2026-11-23): X7 joins and parses a field or a query once per check; the authority
   of `target_uri` is read by one grammar on every Python (SPEC 10: an IP literal without zone identifier, a port of
   digits); `apc_block.py` and `apc_batch.py` answer `refused` where they ended with a traceback.
-- JSON nesting (SPEC 29.1, 33.11): every reader counts the arrays and objects on the text before the parser and refuses
-  past 64 with one reason on every Python; until now some relied on the parser's RecursionError, which the Python 3.14
-  of the CI does not raise at 100,000 levels.
+- JSON nesting (SPEC 29.1, 33.11): every reader that relied on the parser's RecursionError (the six named in SPEC
+  33.11) now counts the arrays and objects on the text before the parser and refuses past 64 (tools/bench_journal.py
+  past 8) with one reason on every Python; the Python 3.14 of the CI does not raise that error at 100,000 levels. The
+  register refuses to record an entry that would nest past 64 (SPEC 11.3).
 - Line ends (SPEC 32.12): a library or pack file that is the tag's file with CRLF line ends (a checkout with
   `core.autocrlf=true`) is still refused, and the refusal now names that cause; `.gitattributes` keeps this
   repository's bytes as committed on every platform.

@@ -54,7 +54,7 @@ def library():
 class JsonDepthBeforeTheParser(unittest.TestCase):
     def test_the_count_is_the_character_count_on_any_text(self):
         rng = random.Random(20261124)
-        alphabet = '[]{}"\\ a,:'
+        alphabet = '[]{}"\\ a,:\n'          # a line end after a backslash is still inside the string
         for _ in range(4000):
             t = "".join(rng.choice(alphabet) for _ in range(rng.randint(0, 40)))
             for limit in (0, 1, 2, 3, 5):
@@ -62,6 +62,24 @@ class JsonDepthBeforeTheParser(unittest.TestCase):
         for enc in ("utf-8", "utf-8-sig", "utf-16", "utf-16-le", "utf-32"):       # bytes as json.loads decodes them
             for n, limit in ((3, 2), (3, 3)):
                 self.assertEqual(apc_siglib.json_too_deep(deep(n).encode(enc), limit), n > limit, enc)
+        # a lone surrogate in UTF-8 bytes: json.loads reads it (surrogatepass), so the count must not raise
+        self.assertEqual(json.loads(b'["\xed\xa0\x80"]'), ["\ud800"])
+        self.assertFalse(apc_siglib.json_too_deep(b'["\xed\xa0\x80"]', 64))
+        self.assertTrue(apc_siglib.json_too_deep(bytearray(deep(3).encode()), 2))      # json.loads takes a bytearray too
+
+    def test_the_count_keeps_no_state_per_escape(self):
+        """a string of escapes is counted in constant memory (one pattern for the whole string kept the regex engine's
+        state for each escape: 114 to 144 bytes, so 30 MiB and more for this text)"""
+        import tracemalloc
+        text = json.dumps(['"' * 300000, [1]])
+        tracemalloc.start()
+        try:
+            self.assertFalse(apc_siglib.json_too_deep(text, 2))
+            self.assertTrue(apc_siglib.json_too_deep(text, 1))
+            peak = tracemalloc.get_traced_memory()[1]
+        finally:
+            tracemalloc.stop()
+        self.assertLess(peak, 1 << 20, peak)
 
     def test_apc_verify_one_reason(self):
         library()
@@ -71,6 +89,11 @@ class JsonDepthBeforeTheParser(unittest.TestCase):
                 av.strict_json(deep(n))
             self.assertEqual(str(cm.exception), "JSON nested deeper than 64 (SPEC 29.1)", n)
         self.assertEqual(json.dumps(av.strict_json(deep(64)), separators=(",", ":")), deep(64))    # control: 64 read
+        for text, reason in (("[" * 65 + "x", "JSON nested deeper than 64 (SPEC 29.1)"),        # the count comes first,
+                             ("[" * 64 + "x", "not JSON: Expecting value")):                    # on a text not JSON too
+            with self.assertRaises(av.Refusal) as cm:
+                av.strict_json(text)
+            self.assertTrue(str(cm.exception).startswith(reason), (len(text), str(cm.exception)))
 
     def test_apc_ap2_one_reason(self):
         library()
@@ -113,6 +136,24 @@ class JsonDepthBeforeTheParser(unittest.TestCase):
             with self.assertRaises(bj.JournalError) as cm:
                 bj.read(p)
             self.assertNotIn("nested", str(cm.exception))
+
+    def test_bench_journal_counts_as_the_readers_do(self):
+        import bench_journal as bj
+        self.assertFalse(bj._too_deep("[" + "[]," * 20 + "[]]"))                  # 21 arrays side by side nest 2
+        self.assertFalse(bj._too_deep(json.dumps({"a": "[" * 20 + '\\"{'})))      # brackets inside a string
+        for t in ("[" * 9 + "]" * 9, '{"a":' * 9 + "1" + "}" * 9, "[" + "[]," * 20 + "[]]", '["[[[[[[[[[\\"[[[", 1]',
+                  '\\"[[[[[[[[['):          # a backslash outside a string escapes nothing: the quote opens one
+            self.assertEqual(bj._too_deep(t), apc_siglib.json_too_deep(t, bj.MAX_DEPTH), t)
+
+    def test_bench_journal_does_not_write_what_it_refuses_to_read(self):
+        import bench_journal as bj
+        with tempfile.TemporaryDirectory() as d:
+            p = os.path.join(d, "j.jsonl")
+            j = bj.Journal(p, {"a": [[[[[[1]]]]]]})                          # the line nests 8: written and read
+            with self.assertRaises(bj.JournalError) as cm:
+                j.append("mutant", {"a": [[[[[[[1]]]]]]]})                   # 9: refused before the write
+            self.assertIn("not written", str(cm.exception))
+            self.assertEqual(len(bj.read(p)[0]), 1)
 
 
 def crlf_copy(src, dst, files):
@@ -266,6 +307,53 @@ class RegisterLock(unittest.TestCase):
                 p.stdout.close()
                 p.wait()
             self.assertGreater(waited, 1.5)
+
+
+class RegisterWritesWhatItReads(unittest.TestCase):
+    """SPEC 11.3: an entry is recorded only if its line reads back. A report nested 62 to 64 deep is read (29.1), its
+    check entry nests three deeper: with the count before the parser and no check at writing, record answered exit 0
+    and the register was damaged from then on."""
+
+    def run_cli(self, *args):
+        import subprocess
+        e = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}
+        r = subprocess.run([sys.executable, "-B", os.path.join(ROOT, "apc_registry.py")] + list(args), env=e,
+                           stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.DEVNULL)
+        return r.returncode, r.stdout.decode(), r.stderr
+
+    def test_a_report_whose_entry_would_nest_past_64_is_not_recorded(self):
+        with tempfile.TemporaryDirectory() as d:
+            reg, rep = os.path.join(d, "reg.jsonl"), os.path.join(d, "rep.json")
+            self.assertEqual(self.run_cli("init", reg)[0], 0)
+            for n, want in ((61, 0), (62, 3), (64, 3), (61, 0)):        # the report's own nesting; 61 + 3 = 64 is read
+                x = 1
+                for _ in range(n - 1):
+                    x = [x]
+                with open(rep, "w") as fh:
+                    json.dump({"verifier": "apc_verify 0", "verdict": "refused", "extra": x}, fh)
+                with open(reg, "rb") as fh:
+                    before = fh.read()
+                code, out, err = self.run_cli("record", reg, "--report", rep)
+                self.assertEqual((code, err), (want, b""), (n, out))
+                with open(reg, "rb") as fh:
+                    after = fh.read()
+                if want:
+                    self.assertIn("nothing written", out)
+                    self.assertIn("nested deeper than 64", out)
+                    self.assertEqual(after, before, n)
+                else:
+                    self.assertGreater(len(after), len(before), n)
+                self.assertEqual(self.run_cli("verify", reg)[0], 0, n)       # the register stays intact
+
+    def test_an_entry_longer_than_a_line_is_not_recorded(self):
+        import apc_registry as rg
+        base = len(rg.canonical({"apc_register": rg.FORMAT, "seq": 0, "prev": rg.ZERO, "kind": "open",
+                                 "body": {"x": ""}, "hash": rg.ZERO}))
+        for extra, said in ((0, False), (1, True)):                 # a line of MAX_LINE bytes is read, one more is not
+            with self.assertRaises(rg.Bad) as cm:                   # (refused here either way: no member x in an open)
+                rg._entry([], "open", {"x": "a" * (rg.MAX_LINE - base + extra)})
+            self.assertIn("nothing written", str(cm.exception))
+            self.assertEqual("longer than" in str(cm.exception), said, extra)
 
 
 if __name__ == "__main__":

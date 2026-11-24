@@ -1246,9 +1246,13 @@ def _entry(entries, kind, body):
     prev = entries[-1]["hash"] if entries else ZERO
     e = {"apc_register": FORMAT, "seq": len(entries), "prev": prev, "kind": kind, "body": body}
     e["hash"] = sha256(canonical(e))
-    try:
-        check_entry(e, "new entry", len(entries), prev)     # what is written must read back
-    except Damaged as x:
+    try:                                                    # what is written must read back, as read_register reads it:
+        line = canonical(e)                                 # the line's length and nesting (SPEC 29.1) too, which an entry
+        if len(line) > MAX_LINE:                            # can pass through its report (a report 62 deep is read, its
+            raise Damaged("longer than %d bytes" % MAX_LINE)    # entry nests 65: recorded until 2026-11-24, then damage)
+        strict_json(line.decode("utf-8"))
+        check_entry(e, "new entry", len(entries), prev)
+    except (Damaged, Bad) as x:
         raise Bad("nothing written: the new entry would be outside the grammar: %s" % x)
     entries.append(e)
     return e

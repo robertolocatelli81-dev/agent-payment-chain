@@ -1064,6 +1064,11 @@ Append-only. A write is one line, then flush and fsync (and the directory is fsy
 msvcrt.locking on one byte past the end of any register, so that readers are never blocked (until 2026-11-24 Windows
 took no lock: fcntl is absent there); on a file system without locks one writer at a time is the user's duty. A record writes its entries (torn_tail, check, timestamp, seal) only after all
 of them are built and checked: a refusal at any step, the time-stamping authority included, writes nothing.
+An entry is checked as it will be read back: its canonical line within the length bound and the nesting bound of 29.1
+(64), else nothing is written, exit 3 (2026-11-24: a report nested 62 to 64 deep is read, but its check entry nests
+three deeper, and a report just under the 4 MiB of a line makes an entry over it; such a record was written, exit 0,
+and the register then read as damaged: the long one in every version, the nested one from the count of 33.11).
+Tests: tests/test_platforms_20261124.py, RegisterWritesWhatItReads.
 Reading (verify, show, and record before it writes):
 - every complete line must be the canonical form of an entry of 11.2, in chain (seq, prev, hash), else damage;
 - a last piece without its "\n" is a torn line (a write a stop interrupted; "\n" is the commit of a line): verify
@@ -2139,7 +2144,9 @@ JSON text a bundle carries inside a string and the verifier parses: JWS segments
 mandate and of signed offers and receipts, HTTP bodies, MCP and A2A texts, draft artifacts, the WebAuthn
 clientDataJSON of section 28.3 read for its notes) arrays and objects nest at
 most 64 deep (apc_verify.MAX_JSON_DEPTH, counted without recursion, on the text before the parser since 2026-11-24:
-33.11); deeper is refused, with the same reason on every Python. In the AP2 evaluator (apc_ap2.py) such a text is SIGNATURE_INVALID (a JWS segment) or
+33.11); deeper is refused, with the same reason on every Python (the count comes first: a text that opens more than 64
+arrays and objects outside strings has this reason whether or not it is JSON; in apc_mcp.py, section 8, a line that is
+not JSON stays a parse error). In the AP2 evaluator (apc_ap2.py) such a text is SIGNATURE_INVALID (a JWS segment) or
 DISCLOSURE_INVALID (a disclosure), and the resolution of disclosures that name disclosures stops at the same depth
 (DISCLOSURE_INVALID); in the draft profile of x402 PR 3783 (the SSE terminal event and the receipt document) it is a
 `VERIFIER_INPUT_*` failure of the profile.
@@ -3816,6 +3823,11 @@ than 64 (SPEC 29.1)` (it was `not JSON: nested too deep` past the parser), apc_r
 the deepest of 1132 bundle files nests 12, of 843 oracle files 10, of corpus/MANIFEST.json 15. Tests:
 tests/test_platforms_20261124.py (65, 100 and 100,000 levels: 100 is read by json.loads on every Python, so it is the
 case of the 3.14 of the CI everywhere; fails on e18d024).
+The count reads the text one quote, escape or bracket at a time, in constant memory: a single pattern for a whole
+string, as first written, kept the regex engine's state for every escape in it (measured 2026-11-24 on CPython 3.9 to
+3.14: 114 to 144 bytes each; a 15 MiB bundle holding one string of escaped quotes peaked at 969 MiB against 58 MiB,
+and one of 59 MiB ended as `error`, MemoryError, under a 4 GB limit, where it is refused for its own reason).
+Tests: test_the_count_keeps_no_state_per_escape.
 
 ### 33.12 The public tree measured on its own (2026-11-02, local; the tree the publication tool builds from this commit)
 Until this commit the public tree could not rebuild the anchored bundles of 33.10 nor any bundle of the recipe svm_exact

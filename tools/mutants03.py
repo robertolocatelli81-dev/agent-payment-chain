@@ -1029,7 +1029,7 @@ M = [
     ('apc_verify.py', 'HZ01 json depth unchecked', '        if isinstance(x, (dict, list)) and d >= MAX_JSON_DEPTH:', '        if False:'),
     ('apc_verify.py', 'HZ01b json depth not counted before the parser', '    if apc_siglib.json_too_deep(text, MAX_JSON_DEPTH):      # SPEC 29.1, counted before the parser', '    if False:      # SPEC 29.1, counted before the parser'),
     ('apc_siglib.py', 'HZ01c json count one more', '            if depth > limit:', '            if depth > limit + 1:'),
-    ('apc_siglib.py', 'HZ01d json count brackets inside strings', '_STRING_OR_BRACKET = re.compile(r\'"[^"\\\\]*(?:\\\\.[^"\\\\]*)*"?|[\\[\\]{}]\', re.S)', '_STRING_OR_BRACKET = re.compile(r\'[\\[\\]{}]\', re.S)'),
+    ('apc_siglib.py', 'HZ01d json count brackets inside strings', '        if c == \'"\':\n            in_str = True\n', '        if False:\n            in_str = True\n'),
     ('apc_verify.py', 'HZ02 json depth one more', '        if isinstance(x, (dict, list)) and d >= MAX_JSON_DEPTH:', '        if isinstance(x, (dict, list)) and d > MAX_JSON_DEPTH:'),
     ('apc_verify.py', 'HZ03 internal error escapes', '    except Exception as e:          # SPEC 29.3', '    except ZeroDivisionError as e:          # SPEC 29.3'),
     ('apc_verify.py', 'HZ04 0X rule not applied', '    if ver in EVM_VERSIONS:\n        _no_upper_x(doc)\n', '    if ver in EVM_VERSIONS:\n        pass\n'),
