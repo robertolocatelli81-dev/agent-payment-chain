@@ -280,6 +280,8 @@ class FuzzChildLimits(unittest.TestCase):
         t0 = time.monotonic()
         res, kind = self.run_work("while True:\n    pass\n")          # cpu_cap 0.25: hard stop at 2 s of CPU
         self.assertEqual(kind, "time", res)
+        if res["wall"] >= 3.9 and res["cpu"] < 2.5:       # the loop got less than half a core: the wall stop came first
+            self.skipTest("starved: %r" % (res,))         # and the run decides nothing (a limit not applied reads 4 s)
         self.assertGreater(res["cpu"], 1.5, res)                          # it ran until the CPU limit,
         self.assertLess(res["wall"], 3.9, res)                            # not until the wall-clock stop at 4 s
         self.assertLess(time.monotonic() - t0, 60, res)
@@ -290,7 +292,13 @@ class FuzzChildLimits(unittest.TestCase):
         res, kind = self.run_work("import time\ntime.sleep(600)\n")    # wall-clock stop at 2 * 2 s
         self.assertEqual(kind, "time", res)
         self.assertLess(res["cpu"], 1.5, res)                             # stopped by the wall clock, not the CPU
+        self.assertTrue(3.5 < res["wall"] < 8, res)                       # at the 4 s stop, not at a later one
         self.assertTrue(3.5 < time.monotonic() - t0 < 60, res)
+
+    def test_work_that_ends_is_exit_0(self):
+        # source that runs to its end: the child ends there with exit 0 and never goes on into the parent's code
+        res, _ = self.run_work(self.REPORT)
+        self.assertEqual(res.get("exit"), 0, res)
 
     def test_windows_stop_reads_user_time_only(self):
         import fuzz_bundles as fb
@@ -427,7 +435,7 @@ class RegisterLock(unittest.TestCase):
             self.assertEqual(cli("init", reg)[0], 0)
             self.assertEqual(cli("record", reg, "--report", rep)[:1], (0,))
             with open(reg, "ab") as fh:
-                fh.write(b'{"apc_register": "torn')               # a last line half written, no newline
+                fh.write(b'{"apc_register": "torn' + b"x" * 100000)    # a last line half written, no newline, longer
             size = os.path.getsize(reg)
             code, out, err = cli("record", reg, "--report", rep)
             self.assertEqual((code, err), (0, b""), out)
@@ -435,7 +443,8 @@ class RegisterLock(unittest.TestCase):
             with open(reg, "rb") as fh:
                 data = fh.read()
             self.assertNotIn(b'"torn{', data)
-            self.assertTrue(data.endswith(b"\n") and len(data) < size + 4096, len(data))   # cut, never grown to 1 TiB
+            self.assertNotIn(b"xxxx", data)                     # than what record writes after it: nothing of it is left
+            self.assertTrue(data.endswith(b"\n") and len(data) < size, len(data))          # cut, never grown to 1 TiB
             self.assertEqual(cli("verify", reg)[0], 0)
 
 
