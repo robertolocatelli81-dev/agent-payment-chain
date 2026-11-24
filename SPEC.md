@@ -3344,6 +3344,13 @@ swallowed): 12 of 12 killed by an AssertionError. On the final tree of this amen
 (skipped=12), 1756 s; `tools/regress.py check` with `APC_AP2EV` at the pack of v1.7.1, 1122 bundles, 0 differences, 0
 unjustified, 165 s (the verifier string is unchanged, nothing refrozen; without the pack the 14 MP checks of the two
 mandate bundles differ, `not_1.7.1`: the environment, not the code).
+Amendment (Unreleased, 2026-11-24): line ends. A library or pack file whose bytes are the tag's file with each LF
+turned into CRLF (a checkout made with git `core.autocrlf=true`, the default of Git for Windows; CI run 45334985210 on
+Windows read lib/eip712.py as sha256 1312f797…, lib/secp256k1.py as 9327e05d…) is refused as any other bytes (exit 64;
+MP1-MP7 `not_1.7.1`), and the refusal now says that the line ends are the cause and to clone again with
+`git -c core.autocrlf=false`. This repository's own files are checked out as committed (`.gitattributes`: `* -text`);
+the CI sets `core.autocrlf false` before its checkouts, since the two tags carry no `.gitattributes`. Tests:
+tests/test_platforms_20261124.py, CrlfCheckout (fails on e18d024).
 
 ### 32.13 Amendment 0.21.4 (2026-11-03; apc_verify 0.21.4; every bundle version) — the x402 ResourceInfo as the specification writes it
 Source: x402-foundation/x402 @ 0aee759 (the pin of section 0), `specs/x402-specification-v2.md`, the ResourceInfo table:

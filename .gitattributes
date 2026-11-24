@@ -1,0 +1,3 @@
+# Every file is checked out with the bytes committed: the verifier hashes its own sources and its data (SPEC 32.12),
+# and a checkout that turns LF into CRLF (git core.autocrlf=true, the default of Git for Windows) would change them.
+* -text

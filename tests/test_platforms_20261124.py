@@ -115,5 +115,75 @@ class JsonDepthBeforeTheParser(unittest.TestCase):
             self.assertNotIn("nested", str(cm.exception))
 
 
+def crlf_copy(src, dst, files):
+    """the files of src copied to dst as a checkout with git core.autocrlf=true writes them (LF turned into CRLF)"""
+    for rel in files:
+        with open(os.path.join(src, *rel.split("/")), "rb") as fh:
+            data = fh.read()
+        os.makedirs(os.path.dirname(os.path.join(dst, *rel.split("/"))), exist_ok=True)
+        with open(os.path.join(dst, *rel.split("/")), "wb") as fh:
+            fh.write(data.replace(b"\r\n", b"\n").replace(b"\n", b"\r\n"))
+
+
+class CrlfCheckout(unittest.TestCase):
+    """A checkout of the signature library or of the pack with CRLF line ends (git core.autocrlf=true, the default of Git
+    for Windows; CI run 45334985210 on Windows) is refused as before (other bytes: exit 64, MP1-MP7 not evaluated), and
+    the refusal now says that the line ends are the cause and how to check out again."""
+
+    def test_library_with_crlf_exit_64_with_the_cause(self):
+        import subprocess
+        lib = os.environ.get("APC_SIGLIB") or apc_siglib.siglib_dir()
+        if not os.path.isfile(os.path.join(lib, "lib", "eip712.py")):
+            self.skipTest("the signature library is absent (SPEC 32.12 (f))")
+        with tempfile.TemporaryDirectory() as d:
+            crlf_copy(lib, d, apc_siglib.SIGLIB_SHA256)
+            for alter, said in ((lambda b: b, True), (lambda b: b + b"#", False)):     # control: other bytes, no cause
+                p = os.path.join(d, "lib", "eip712.py")
+                with open(p, "rb") as fh:
+                    data = fh.read()
+                with open(p, "wb") as fh:
+                    fh.write(alter(data))
+                env = dict(os.environ, APC_SIGLIB=d)
+                env.pop("PYTHONPATH", None)
+                r = subprocess.run([sys.executable, "-B", os.path.join(ROOT, "apc_verify.py"), "x.json"], env=env,
+                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.DEVNULL)
+                err = r.stderr.decode()
+                self.assertEqual((r.returncode, r.stdout, len(err.splitlines())), (64, b"", 1), err)
+                self.assertEqual(err.count("CRLF line ends"), 2 if said else 1, err)          # secp256k1.py stays CRLF
+                self.assertIn("git -c core.autocrlf=false clone", err)
+
+    def test_pack_with_crlf_names_the_cause(self):
+        import subprocess
+        pack = os.environ.get("APC_AP2EV")
+        if not pack or not os.path.isfile(os.path.join(pack, "ap2_evidence.py")):
+            self.skipTest("APC_AP2EV does not name ap2-evidence-pack (SPEC 32.11)")
+        library()
+        with tempfile.TemporaryDirectory() as d:
+            crlf_copy(pack, d, ("ap2_evidence.py", "pqcrypto/sigsuite.py"))
+            code = "import apc_mandate as m; m._load(); print(m.cause())"
+            for env_pack, said in ((d, True), (pack, False)):                      # control: the real pack, no cause
+                env = dict(os.environ, APC_AP2EV=env_pack)
+                env.pop("PYTHONPATH", None)
+                r = subprocess.run([sys.executable, "-B", "-c", code], env=env, cwd=ROOT, stdout=subprocess.PIPE,
+                                   stderr=subprocess.PIPE, stdin=subprocess.DEVNULL)
+                self.assertEqual(r.returncode, 0, r.stderr[-300:])
+                self.assertEqual("CRLF line ends" in r.stdout.decode(), said, r.stdout)
+
+    def test_this_checkout_has_the_committed_line_ends(self):
+        """.gitattributes (`* -text`): no file of this tree is converted at checkout; a Python source with CRLF here
+        means a checkout that ignored it (CI run 45334985210 on Windows: the sources searched for "\\nM = [\\n")"""
+        crlf = []
+        for top, dirs, files in os.walk(ROOT):
+            dirs[:] = [x for x in dirs if x not in (".git", "__pycache__", "bundles", "oracle")]
+            for f in files:
+                if f.endswith(".py"):
+                    with open(os.path.join(top, f), "rb") as fh:
+                        if b"\r\n" in fh.read():
+                            crlf.append(os.path.join(top, f))
+        self.assertEqual(crlf, [])
+        with open(os.path.join(ROOT, ".gitattributes"), "rb") as fh:
+            self.assertIn(b"\n* -text\n", fh.read())
+
+
 if __name__ == "__main__":
     unittest.main()

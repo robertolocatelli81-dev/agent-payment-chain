@@ -17,7 +17,7 @@ import sys
 import tempfile
 import time
 
-from apc_siglib import read_regular   # SPEC 32.12 (e) and (f): the same reader for the pack and the library
+from apc_siglib import crlf_note, read_regular   # SPEC 32.12 (e) and (f): the same reader for the pack and the library
 
 PROFILE = "ap2-evidence-pack/1.7.1"
 AP2EV_SHA256 = {"ap2_evidence.py": "d128823a049d522aabfe8ec70806db4db984f7aa93b4487b70bf7905b4bfb39a",
@@ -87,8 +87,9 @@ def _load():
         src[name] = read_regular(os.path.join(d, rel))
         hashes[name] = None if src[name] is None else hashlib.sha256(src[name]).hexdigest()
     if hashes != AP2EV_SHA256:
-        return fail(NOT_171, "the files at %s (%s) are not those of ap2-evidence-pack tag v1.7.1 (hashes reported): %s"
-                    % (where, d, GET_PACK))
+        crlf = next((crlf_note(src[n], w) for n, w in AP2EV_SHA256.items() if crlf_note(src[n], w)), "")
+        return fail(NOT_171, "the files at %s (%s) are not those of ap2-evidence-pack tag v1.7.1 (hashes reported)%s: %s"
+                    % (where, d, crlf, GET_PACK))
     # SPEC 32.11 (e): the code run is the bytes hashed above and nothing else. The two files are compiled from those bytes
     # (no import by name: no package, extension, cached bytecode or other file of the folder can stand in for them, and
     # apc never puts the folder on sys.path: the pack's own code does, and its only import after that, sigsuite, is the module

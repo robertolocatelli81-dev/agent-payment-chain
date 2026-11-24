@@ -36,6 +36,10 @@ same author are read, both public:
   skips in this tree because its corpus set is absent; once `real_svm_mandate` is rebuilt it skips with the reason if
   the pack, `cryptography` or `openssl` is missing.
 
+On Windows (Git for Windows sets `core.autocrlf=true`), or wherever that setting is on, clone the two siblings with
+`git -c core.autocrlf=false clone ...`: a checkout that turns LF into CRLF changes the hashed bytes, and the refusal
+then says that the line ends are the cause. This repository keeps its own bytes through `.gitattributes` (`* -text`).
+
 ```
 python3 apc_verify.py BUNDLE.json            # verdict on standard output, exit code by SPEC section 5
 python3 -m unittest discover -s tests -t .   # the suite; the modules that need the real corpus skip and say why
@@ -60,6 +64,9 @@ python3 tools/rebuild_corpus.py --check-manifest
 - JSON nesting (SPEC 29.1, 33.11): every reader counts the arrays and objects on the text before the parser and refuses
   past 64 with one reason on every Python; until now some relied on the parser's RecursionError, which the Python 3.14
   of the CI does not raise at 100,000 levels.
+- Line ends (SPEC 32.12): a library or pack file that is the tag's file with CRLF line ends (a checkout with
+  `core.autocrlf=true`) is still refused, and the refusal now names that cause; `.gitattributes` keeps this
+  repository's bytes as committed on every platform.
 
 ## apc_verify 0.21.6, SPEC 32.15 (on main since 2026-11-22, commit 111de70; no tag and no GitHub release yet)
 

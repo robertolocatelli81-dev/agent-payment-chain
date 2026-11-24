@@ -53,6 +53,15 @@ def json_too_deep(text, limit):
     return False
 
 
+def crlf_note(data, want):
+    """Why the bytes differ when they are the expected file with its LF line ends turned into CRLF (a checkout made with
+    git core.autocrlf=true, the default of Git for Windows): said in the refusal, so the user knows the fix."""
+    if data and b"\r\n" in data and hashlib.sha256(data.replace(b"\r\n", b"\n")).hexdigest() == want:
+        return ("; it is the tag's file with CRLF line ends: the checkout converted them (git core.autocrlf); check it out "
+                "again with `git -c core.autocrlf=false clone`")
+    return ""
+
+
 class SiglibError(ImportError):
     """SPEC 32.12 (f): the signature library is absent, not that of tag v1.4.0, or a module of its name was loaded from
     another place: there is no verifier (apc_verify.py: one line on standard error, exit 64)."""
@@ -110,7 +119,8 @@ def load():
         raise SiglibError("the signature library of x402-signature-vectors (lib/eip712.py, lib/secp256k1.py, tag %s) is "
                           "not at %s: %s (SPEC 32.11; no report, exit 64)" % (SIGLIB_TAG, d, GET_LIB))
     if found != SIGLIB_SHA256:
-        bad = ", ".join("%s sha256 %s (expected %s)" % (rel, found[rel] or "absent", SIGLIB_SHA256[rel])
+        bad = ", ".join("%s sha256 %s (expected %s%s)" % (rel, found[rel] or "absent", SIGLIB_SHA256[rel],
+                                                          crlf_note(src[rel], SIGLIB_SHA256[rel]))
                         for rel in SIGLIB_SHA256 if found[rel] != SIGLIB_SHA256[rel])
         raise SiglibError("the signature library at %s is not that of x402-signature-vectors tag %s: %s: %s "
                           "(SPEC 32.12; no report, exit 64)" % (d, SIGLIB_TAG, bad, GET_LIB))
