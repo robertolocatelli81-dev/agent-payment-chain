@@ -1,0 +1,18 @@
+cff-version: 1.2.0
+message: "If you use agent-payment-chain, cite it as below."
+title: "agent-payment-chain: an offline verifier of payments made by AI agents"
+type: software
+version: 0.21.7
+date-released: "2026-11-24"
+license: Apache-2.0
+authors:
+  - family-names: Locatelli
+    given-names: Roberto
+repository-code: "https://github.com/robertolocatelli81-dev/agent-payment-chain"
+abstract: "One bundle in, one verdict out, offline, trusting neither the party that produced the bundle nor any service: the authorization (an AP2 mandate), the payment (x402 schemes on EVM, Solana, XRPL, Stellar), the acceptance record and the links between them, checked against the chain data the bundle carries. The rules are SPEC.md; the verifier is apc_verify.py."
+keywords:
+  - x402
+  - AP2
+  - agent payments
+  - verifier
+  - RFC 9421

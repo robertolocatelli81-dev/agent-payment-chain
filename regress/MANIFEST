@@ -1,7 +1,7 @@
 regress/MANIFEST - frozen regression corpus (tools/regress.py write)
-verifier: apc_verify 0.21.6
-VERDICTS.json sha256: bc2460839193b9a02a4ff35d542d491293f24e3adbd117633a065167a234a434
-bundles: 1123; full run 165 s on this machine (nice 19, one process)
+verifier: apc_verify 0.21.7
+VERDICTS.json sha256: 0f6e5aebe90560ca21ef21dfed80a8aa3ba2315352ca03b2d3a811abb4185eba
+bundles: 1123; full run 185 s on this machine (nice 10, one process)
 per directory: bundles, verdicts, sha256 over its sorted 'path sha256' lines, what is real, where said, options
 bundles/authcap_real_20261026 | 20 | {"chain_verified":20} | b5744e05bc958a282c1cef2d49b1ea2c190cdf5b1dc7a04ee9aed031944eb674 | Base commerce-payments v1.0 authorizations; payload rebuilt from the authorize call | SPEC §25 | -
 bundles/authcap_real_v11_20261026 | 18 | {"chain_verified":18} | 251d96fe34ddbdd0b4b8fd69d063065cbd452fa43b71b106c2101401ae80502b | Base commerce-payments v1.1 authorizations; payload rebuilt | SPEC §25 | -

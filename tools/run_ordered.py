@@ -60,7 +60,10 @@ MODS = ["test_apc03", "test_removed", "test_l1proof", "test_high_s", "test_faile
         # at the block time, the keys given, --require-http-signature. Not test_bench_journal: it tests the bench's own
         # tools (bench_journal, bench_cert, the journal of mutants03), which no mutant of the verifier changes.
         "test_fix_20261120", "test_mcp_eras_20261121", "test_mcp_batch_20261121", "test_mcp_lines_20261121",
-        "test_window_20261121"]
+        "test_window_20261121",
+        # 23/11-24/11: SPEC 10.2 (Amendment 0.21.7, 32.16), X7 under the sources in force; 29.1 and 33.11, the nesting
+        # counted before the parser, 32.12 line ends, the Windows and macOS equivalents
+        "test_http9421_20261123", "test_platforms_20261124"]
 NEAR = {"apc_svm.py": ["test_amend0213", "test_mandate", "test_hostile", "test_svm", "test_wycheproof", "test_review070", "test_review071",
                        "test_integration"],
         "apc_solana.py": ["test_hostile", "test_wycheproof", "test_svm", "test_review070", "test_review071"],
@@ -71,7 +74,7 @@ NEAR = {"apc_svm.py": ["test_amend0213", "test_mandate", "test_hostile", "test_s
         "apc_ap2.py": ["test_amend0213", "test_hostile", "test_ap2", "test_review070", "test_review071"],
         "apc_mcp.py": ["test_fix_20261120", "test_mcp_lines_20261121", "test_mcp_batch_20261121",
                        "test_mcp_eras_20261121", "test_hostile", "test_mcp", "test_review070", "test_review071"],
-        "apc_http.py": ["test_window_20261121", "test_hostile", "test_http"], "apc_registry.py": ["test_registry"],
+        "apc_http.py": ["test_http9421_20261123", "test_window_20261121", "test_hostile", "test_http"], "apc_registry.py": ["test_registry"],
         "apc_permit2.py": ["test_amend0213", "test_permit2", "test_permit2_state", "test_integration"],
         "apc_offer.py": ["test_offer_receipt", "test_integration"], "apc_builder.py": ["test_builder_code"],
         "apc_payid.py": ["test_payid"], "apc_transport.py": ["test_transport"],

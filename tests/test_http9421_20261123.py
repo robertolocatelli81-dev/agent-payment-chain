@@ -1,4 +1,4 @@
-"""SPEC 10.2 (Amendment of section 32.16, Unreleased): X7 under the sources in force on 2026-11-23. Oracles from outside
+"""SPEC 10.2 (Amendment 0.21.7, section 32.16, 2026-11-24): X7 under the sources in force on 2026-11-23. Oracles from outside
 this work, copied under sources/webbotauth_c2sp_20261123 with sha256: draft-ietf-webbotauth-httpsig-protocol-01
 Appendix E (signature bases and signatures; the RSA vectors are not verified here, E.1 is `algorithm_not_supported`),
 c2sp.org/httpsig-pq v1.0.1 (its machine-readable vectors and its list of negative tests), and the examples of RFC 9421

@@ -871,7 +871,7 @@ verdict, exit or check changes (and 0f19843 gives the frozen verdict and exit of
 9421 B.1.4 key) no verdict or exit changes, and the 1113 reports that are not refusals gain X7
 `not_evaluated:absent:no_exchange` (none of the 1123 carries `exchange`), the only check that changes.
 
-### 10.2 Amendment of section 32.16 (Unreleased, 2026-11-23) — X7 under the sources in force: the Web Bot Auth working-group draft, ML-DSA, the `key` parameter and @query-param, the profiles named by `tag`
+### 10.2 Amendment 0.21.7 (section 32.16; 2026-11-24) — X7 under the sources in force: the Web Bot Auth working-group draft, ML-DSA, the `key` parameter and @query-param, the profiles named by `tag`
 Read 2026-11-23. RFC 9421 unchanged (10.1). The IETF datatracker: draft-meunier-webbotauth-httpsig-protocol is
 "Replaced" (revision 02, 2026-08-18, sha256 e85e295f0b2bba21fb45215ea828ebb2765994723790609143741d9622f13b9e), by
 draft-ietf-webbotauth-httpsig-protocol, a WG Document of the IETF webbotauth group, revision 01 of 2026-10-29 (expires
@@ -2786,7 +2786,7 @@ transaction as executed; MP4a not evaluated (a throwaway mint, not USDC); MP6 no
   `risk_data`, 9 on a pre-set payee and 0 disagree; 744 apc not_evaluated and 0 SDK errors outside the comparison (33.14:
   until 2026-11-03 "0 disagreements on 13 549 pairs"). apc-0.10 keeps M1 of section 9; apc-0.12, apc-0.15 and apc-0.16 refuse the member.
 
-## 32. SPEC 0.21 (draft, 2026-11-01, local; apc_verify 0.21.0, 0.21.1 by Amendment 32.10, 0.21.2 by Amendment 32.11, 0.21.3 by Amendment 32.12, 0.21.4 by Amendment 32.13, 0.21.5 by Amendment 32.14, and 0.21.6 by Amendment 32.15, apc_msca.py, apc_siglib.py; bundle versions apc-0.2 and apc-0.3, apc-0.13 read as v2; 32.2 in every bundle version this file reads) — a 65-byte signature of a payer with code: USDC's (v,r,s) path, and the ERC-1271 of Circle_SingleOwnerMSCA 1.0.0 proven from state
+## 32. SPEC 0.21 (draft, 2026-11-01, local; apc_verify 0.21.0, 0.21.1 by Amendment 32.10, 0.21.2 by Amendment 32.11, 0.21.3 by Amendment 32.12, 0.21.4 by Amendment 32.13, 0.21.5 by Amendment 32.14, 0.21.6 by Amendment 32.15, and 0.21.7 by Amendment 32.16, apc_msca.py, apc_siglib.py; bundle versions apc-0.2 and apc-0.3, apc-0.13 read as v2; 32.2 in every bundle version this file reads) — a 65-byte signature of a payer with code: USDC's (v,r,s) path, and the ERC-1271 of Circle_SingleOwnerMSCA 1.0.0 proven from state
 
 **Sources, read 2026-11-01.** Circle stablecoin-evm fc85788 (sources/circle_stablecoin-evm_fc85788): `EIP3009.sol` 84-104
 (`transferWithAuthorization(…, uint8 v, bytes32 r, bytes32 s)` forwards `abi.encodePacked(r, s, v)` to the `bytes` form),
@@ -3360,7 +3360,7 @@ swallowed): 12 of 12 killed by an AssertionError. On the final tree of this amen
 (skipped=12), 1756 s; `tools/regress.py check` with `APC_AP2EV` at the pack of v1.7.1, 1122 bundles, 0 differences, 0
 unjustified, 165 s (the verifier string is unchanged, nothing refrozen; without the pack the 14 MP checks of the two
 mandate bundles differ, `not_1.7.1`: the environment, not the code).
-Amendment (Unreleased, 2026-11-24): line ends. A library or pack file whose bytes are the tag's file with each LF
+Amendment 0.21.7 (2026-11-24): line ends. A library or pack file whose bytes are the tag's file with each LF
 turned into CRLF (a checkout made with git `core.autocrlf=true`, the default of Git for Windows; CI run 45334985210 on
 Windows read lib/eip712.py as sha256 1312f797…, lib/secp256k1.py as 9327e05d…) is refused as any other bytes (exit 64;
 MP1-MP7 `not_1.7.1`), and the refusal now says that the line ends are the cause and to clone again with
@@ -3481,10 +3481,14 @@ altered in a copy of the frozen file is found, exit 1), then refrozen under 0.21
 the list rewritten: verifier and date only; in the public tree, `unittest discover` on Python 3.9, 3.11 and 3.13, 377
 tests, OK (skipped=135), and `tests.test_amend0212` with `APC_REQUIRE_DEPS=1`, 29 tests, OK (skipped=3).
 
-### 32.16 Amendment (Unreleased, 2026-11-23; every bundle version) — X7 under the sources in force: the Web Bot Auth working-group draft, ML-DSA, `key` and @query-param, the profiles named by `tag`
-The rules are in section 10.2. The constant `VERSION` of apc_verify.py stays `apc_verify 0.21.6` until a release that
-carries this amendment sets another; until then a report made under these rules names 0.21.6. Measured 2026-11-23
-and 24, with the bundles of the author's corpus (ap2-evidence-pack at v1.7.1): tools/regress.py check, 1123 bundles, 0
+### 32.16 Amendment 0.21.7 (2026-11-24; apc_verify 0.21.7; every bundle version) — X7 under the sources in force: the Web Bot Auth working-group draft, ML-DSA, `key` and @query-param, the profiles named by `tag`
+The rules are in section 10.2. The release of 2026-11-24 sets the constant `VERSION` of apc_verify.py to
+`apc_verify 0.21.7` (until then a report made under these rules named 0.21.6); it carries too the amendments of 32.12
+(line ends) and 33.11 (nesting counted) of the same date. Measured 2026-11-24 on 21116a2, with the bundles of the
+author's corpus: tools/regress.py check, 1123 bundles, 0 differences (one verdict altered in the frozen file, then
+restored, is found by `check --sample`, exit 1), then refrozen under 0.21.7, the verifier string the only change;
+corpus/MANIFEST.json rewritten: verifier and date only. Measured 2026-11-23 and 24, with the bundles of the author's
+corpus (ap2-evidence-pack at v1.7.1): tools/regress.py check, 1123 bundles, 0
 differences; with --http-keys (the RFC 9421 B.1.4 key, and an ML-DSA-65 key on this revision) the 1123 reports equal
 those of 111de70 in verdict and every check (none of the 1123 carries `exchange`); in the public tree, `unittest
 discover` on Python 3.9, 3.11 and 3.13, 415 tests, OK (skipped=136 on each with `cryptography` 50.0.2 installed, 148
@@ -3815,7 +3819,7 @@ controls (tests/test_corpus_manifest.py, NestedInputPublic — no saved block, i
 NestedInput, offline): 100,000 nested arrays as the reply, as the cached reply, as
 the HTTP error body and as the file under `--out`; a RecursionError and an OverflowError raised inside a recipe; the same
 fixtures unaltered rebuild the bundle and the oracle files to the byte.
-Amendment (Unreleased, 2026-11-24): "nested beyond the limit" is now a count, not the interpreter's RecursionError.
+Amendment 0.21.7 (2026-11-24): "nested beyond the limit" is now a count, not the interpreter's RecursionError.
 Every reader that parsed a JSON text and caught RecursionError (apc_verify.strict_json, apc_ap2, apc_registry,
 apc_block.py, tools/rebuild_corpus.py, tools/bench_journal.py) counts the arrays and objects on the text first, outside
 strings (apc_siglib.json_too_deep, the count apc_mcp.py already made, section 8), and refuses past 64 (section 29.1;
