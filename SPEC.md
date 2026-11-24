@@ -2217,7 +2217,9 @@ InternalError.test_report_and_stderr_not_written_is_74).
 random.Random("S:i") alone and run as the command line runs it in a forked child with RLIMIT_AS, RLIMIT_CPU and an alarm
 (POSIX; the peak resident set read in bytes on macOS, in KiB on Linux, as getrusage(2) of each reports it; where the system
 refuses the RLIMIT_AS, the peak is checked after the run only), or, on Windows (no fork, no setrlimit), in a new process started suspended and put in a Job Object with the same memory
-and CPU limits before it runs, the whole job stopped at the same wall-clock hard stop; CPU time and peak memory are the
+and CPU limits before it runs (read back: a limit not taken is a refusal), the whole job ended by the parent at the CPU
+hard stop (the job's user time read every 50 ms: the system checks its own CPU limit only "periodically", and on the CI
+runner a CPU loop reached the wall stop, run 45364547484) and at the same wall-clock hard stop; CPU time and peak memory are the
 job's (user + kernel time of all its processes; PeakProcessMemoryUsed, the committed memory the limit counts), since
 the python.exe of a venv is a redirector that runs the base interpreter as its child (CPython PC/venvlauncher.c; CI
 run 45346557960: the redirector's own handle read 0.0 s and 4.2 MiB) (2026-11-24).

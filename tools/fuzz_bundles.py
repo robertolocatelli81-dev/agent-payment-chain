@@ -416,13 +416,14 @@ import fuzz_bundles as fb
 fb._verify_in_child(sys.argv[2], json.loads(sys.argv[3]), sys.argv[4] == "1")
 """
 _TIMEOUT_EXIT = 0x7F0                    # the exit the parent gives the job it ended at the wall-clock hard stop
+_CPU_EXIT = 0x7F1                        # the exit the parent gives the job it ended at the CPU hard stop
 
 
 def _windows_stopped(returncode, user_s, hard):
     """Windows: the child was stopped at a hard stop: the wall-clock one (the job ended by the parent), or the job's
     per-process limit of `hard` seconds of USER time (Microsoft, JOBOBJECT_BASIC_LIMIT_INFORMATION: a process past it
     is terminated). User time only, as the limit counts: kernel time past it is not a stop."""
-    return returncode == _TIMEOUT_EXIT or user_s >= hard
+    return returncode in (_TIMEOUT_EXIT, _CPU_EXIT) or user_s >= hard
 
 
 def _valid_handle(h):
@@ -435,8 +436,10 @@ def _valid_handle(h):
 def _run_child_windows(path, opts, cpu_cap, mem_cap_mib, scratch, raw, work):
     """Windows (no fork, no setrlimit): the child is `python -c _WIN_CHILD`, started suspended, put in a new Job Object,
     then resumed. JOB_OBJECT_LIMIT_PROCESS_MEMORY makes an allocation past the cap fail (MemoryError, exit 71) as
-    RLIMIT_AS does; JOB_OBJECT_LIMIT_PROCESS_TIME ends a process past the hard CPU time of the POSIX branch
-    (4 * cpu_cap + 1 s of user time); the wall-clock hard stop (twice that) ends the whole job. CPU time is the job's
+    RLIMIT_AS does; the parent ends the whole job at the hard CPU time of the POSIX branch (4 * cpu_cap + 1 s of the
+    job's user time, read every 50 ms; JOB_OBJECT_LIMIT_PROCESS_TIME is set too, but the system checks it only
+    "periodically") and at the wall-clock hard stop (twice that). The limits are read back after they are set: one the
+    system did not take is an OSError, never a job without it. CPU time is the job's
     total (user + kernel, every process); peak memory is the job's PeakProcessMemoryUsed (committed memory of its
     largest process, what the limit counts)."""
     import ctypes
@@ -489,6 +492,10 @@ def _run_child_windows(path, opts, cpu_cap, mem_cap_mib, scratch, raw, work):
         ext.Basic.PerProcessUserTimeLimit = hard * 10 ** 7                  # 100 ns units
         ext.ProcessMemoryLimit = mem_cap_mib << 20
         check(k32.SetInformationJobObject(job, 9, ctypes.byref(ext), ctypes.sizeof(ext)), "SetInformationJobObject")
+        got = EXTENDED()                       # read back: a limit the system did not take is a refusal, never ignored
+        check(k32.QueryInformationJobObject(job, 9, ctypes.byref(got), ctypes.sizeof(got), None), "reading the limits")
+        check((got.Basic.LimitFlags & 0x2102, got.Basic.PerProcessUserTimeLimit, got.ProcessMemoryLimit) ==
+              (0x2102, ext.Basic.PerProcessUserTimeLimit, ext.ProcessMemoryLimit), "setting the limits")
         t0 = time.monotonic()
         with open(out_p, "wb") as fo, open(err_p, "wb") as fe:
             p = subprocess.Popen(cmd, stdin=subprocess.DEVNULL, stdout=fo, stderr=fe, creationflags=0x4)   # SUSPENDED
@@ -517,12 +524,24 @@ def _run_child_windows(path, opts, cpu_cap, mem_cap_mib, scratch, raw, work):
                 p.kill()
                 p.wait()
                 raise
-            try:
-                p.wait(timeout=hard * 2)
-            except subprocess.TimeoutExpired:
-                k32.TerminateJobObject(job, _TIMEOUT_EXIT)
-                p.wait()
-                p.returncode = _TIMEOUT_EXIT
+            # The job's own CPU limit is checked by the system "periodically" (Microsoft, no period given): on the CI
+            # runner a CPU loop ran past 2 s of user time to the 4 s wall stop (run 45364547484). The parent therefore
+            # reads the job's user time every 50 ms and ends the job at the CPU hard stop itself, as RLIMIT_CPU does.
+            acct = ACCOUNTING()
+            while True:
+                try:
+                    p.wait(timeout=0.05)
+                    break
+                except subprocess.TimeoutExpired:
+                    pass
+                check(k32.QueryInformationJobObject(job, 1, ctypes.byref(acct), ctypes.sizeof(acct), None), "accounting")
+                stop = _CPU_EXIT if acct.TotalUserTime >= hard * 10 ** 7 else \
+                    _TIMEOUT_EXIT if time.monotonic() - t0 >= hard * 2 else None
+                if stop is not None:
+                    check(k32.TerminateJobObject(job, stop), "TerminateJobObject")
+                    p.wait()
+                    p.returncode = stop
+                    break
             wall = time.monotonic() - t0
         acct = ACCOUNTING()
         check(k32.QueryInformationJobObject(job, 1, ctypes.byref(acct), ctypes.sizeof(acct), None), "accounting")

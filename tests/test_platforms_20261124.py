@@ -296,7 +296,7 @@ class FuzzChildLimits(unittest.TestCase):
         import fuzz_bundles as fb
         # the job's limit is on user time: kernel time past it is no stop (NEMESIS apc3, note on `cpu > hard`)
         self.assertEqual([fb._windows_stopped(0, u, 2) for u in (0.0, 1.99, 2.0)], [False, False, True])
-        self.assertTrue(fb._windows_stopped(fb._TIMEOUT_EXIT, 0.0, 2))
+        self.assertTrue(fb._windows_stopped(fb._TIMEOUT_EXIT, 0.0, 2) and fb._windows_stopped(fb._CPU_EXIT, 0.0, 2))
 
     def test_windows_invalid_handle_is_a_failure(self):
         import ctypes
