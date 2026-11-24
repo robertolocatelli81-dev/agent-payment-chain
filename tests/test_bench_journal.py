@@ -82,6 +82,34 @@ def make_tree(d):
     return t
 
 
+# the shard and the test runs it starts, as one group the test can kill at once: a new session on POSIX, a new process
+# group on Windows (its equivalent; the tree is then killed with taskkill /T /F)
+NEW_GROUP = {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP} if os.name == "nt" else {"start_new_session": True}
+
+
+def kill_tree(p, killpg=os.name != "nt" and os.killpg):
+    """Kill the shard p and every process it started, then reap p. POSIX: SIGKILL to its process group. macOS answers
+    EPERM (not ESRCH) while the group's leader has exited and is not reaped yet (a zombie; CI run 45334985210): reap it,
+    then signal the group again (what is left of it, or ESRCH when nothing is). Windows: taskkill /T /F, the tree."""
+    if os.name == "nt":
+        subprocess.run(["taskkill", "/T", "/F", "/PID", str(p.pid)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        p.wait()
+        return
+    for _ in range(200):
+        try:
+            killpg(p.pid, signal.SIGKILL)
+            break
+        except ProcessLookupError:
+            break
+        except PermissionError:
+            if p.poll() is None:            # the leader alive: a real refusal, not the zombie case
+                raise
+            time.sleep(0.01)
+    else:
+        raise PermissionError("the process group of %d still refuses SIGKILL after its leader was reaped" % p.pid)
+    p.wait()
+
+
 class Base(unittest.TestCase):
     def setUp(self):
         self.d = tempfile.mkdtemp(prefix="bjtest_")
@@ -180,7 +208,7 @@ class Interrupted(Base):
         """start shard i/n and SIGKILL its process group once journal i has at least LINES lines"""
         e = dict(self.env, APC_MUT_JOURNAL=self.j(i), FAKE_SLEEP=sleep)
         p = subprocess.Popen(self.cmd(i, n), env=e, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                             start_new_session=True)
+                             **NEW_GROUP)
         t0 = time.time()
         while time.time() - t0 < 60:
             if os.path.exists(self.j(i)) and read(self.j(i)).count(b"\n") >= lines:
@@ -189,11 +217,7 @@ class Interrupted(Base):
                 break
             time.sleep(0.01)
         time.sleep(random.uniform(0, 0.2))                  # inside the next step, at a random point
-        try:
-            os.killpg(p.pid, signal.SIGKILL)
-        except ProcessLookupError:
-            pass
-        p.wait()
+        kill_tree(p)
 
     def test_kill_anywhere_then_resume_gives_the_uninterrupted_result(self):
         random.seed(20261025)
@@ -621,6 +645,69 @@ class Jobs(Base):
                            capture_output=True, text=True)
         self.assertEqual(r.returncode, 3)
         self.assertNotIn("x.log", os.listdir(self.tree))
+
+
+class KillTree(unittest.TestCase):
+    """kill_tree, the kill of Interrupted, on this platform (CI run 45334985210: on macOS os.killpg raised EPERM)"""
+
+    def test_the_shard_and_what_it_started_are_killed(self):
+        code = ("import subprocess, sys, time; c = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(120)']);"
+                " print(c.pid, flush=True); time.sleep(120)")
+        p = subprocess.Popen([sys.executable, "-c", code], stdout=subprocess.PIPE, **NEW_GROUP)
+        child = int(p.stdout.readline())
+        t0 = time.time()
+        kill_tree(p)
+        p.stdout.close()
+        self.assertIsNotNone(p.returncode)
+        while alive(child) and time.time() - t0 < 30:          # the grandchild, killed too (reaped by init/launchd)
+            time.sleep(0.05)
+        self.assertFalse(alive(child))
+
+    @unittest.skipIf(os.name == "nt", "Windows has no process-group signal; kill_tree uses taskkill /T /F there "
+                                      "(test_the_shard_and_what_it_started_are_killed)")
+    def test_eperm_while_the_leader_is_a_zombie_is_retried(self):
+        p = subprocess.Popen([sys.executable, "-c", "pass"], **NEW_GROUP)
+        p.wait()                                                  # exited: what macOS answers EPERM for, before the reap
+        calls = []
+
+        def macos(pid, sig):
+            calls.append(pid)
+            if len(calls) == 1:
+                raise PermissionError(1, "Operation not permitted")
+            raise ProcessLookupError(3, "No such process")
+        kill_tree(p, killpg=macos)
+        self.assertEqual(calls, [p.pid, p.pid])
+
+    @unittest.skipIf(os.name == "nt", "Windows has no process-group signal; kill_tree uses taskkill /T /F there")
+    def test_eperm_with_the_leader_alive_is_raised(self):
+        p = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"], **NEW_GROUP)
+        try:
+            def refuse(pid, sig):
+                raise PermissionError(1, "Operation not permitted")
+            with self.assertRaises(PermissionError):
+                kill_tree(p, killpg=refuse)
+        finally:
+            kill_tree(p)
+
+
+def alive(pid):
+    """pid is a running process (not a zombie) of this user"""
+    if os.name == "nt":
+        r = subprocess.run(["tasklist", "/FI", "PID eq %d" % pid, "/NH"], stdout=subprocess.PIPE, text=True)
+        return str(pid) in r.stdout
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:          # macOS: a zombie answers EPERM
+        return False
+    if sys.platform.startswith("linux"):
+        try:
+            with open("/proc/%d/stat" % pid) as fh:
+                return fh.read().rsplit(")", 1)[1].split()[0] != "Z"
+        except OSError:
+            return False
+    return True
 
 
 if __name__ == "__main__":
