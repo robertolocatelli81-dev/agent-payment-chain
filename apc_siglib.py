@@ -63,6 +63,39 @@ def json_too_deep(text, limit):
     return False
 
 
+MAX_INT_DIGITS = 4300       # SPEC 32.17 (0.21.8): CPython's default int_max_str_digits, the same answer on every Python
+READ_CHUNK = 1 << 20
+
+
+def json_int(s):
+    """parse_int of every JSON reader (SPEC 32.17): an integer of more than 4300 digits is a ValueError named so. json.loads
+    read one whole on Python 3.9 before 3.9.14 and failed with the interpreter's own message after; here the bound is
+    counted on the text, on every Python."""
+    if len(s) - (s[:1] == "-") > MAX_INT_DIGITS:
+        raise ValueError("an integer of more than %d digits" % MAX_INT_DIGITS)
+    return int(s)
+
+
+def read_bounded(fh, limit):
+    """At most limit + 1 bytes of a binary file object, read in pieces of at most READ_CHUNK (SPEC 32.17): a read(limit + 1)
+    asks the allocator for limit + 1 bytes before it reads one, so a 1-byte file failed with MemoryError under a data
+    limit below the bound (measured 2026-11-26: read(64 MiB + 1) under `ulimit -d 60000`)."""
+    out = bytearray()
+    while len(out) <= limit:
+        b = fh.read(min(READ_CHUNK, limit + 1 - len(out)))
+        if not b:
+            break
+        out += b
+    return bytes(out)
+
+
+def nameable(s):
+    """A name a message repeats (SPEC 32.17): one longer than 32 characters could be a key put there by mistake and is not
+    repeated; its length is."""
+    return repr(s) if isinstance(s, str) and len(s) <= 32 else "(a name of %d characters, not repeated)" % len(s) \
+        if isinstance(s, str) else "(a name not repeated)"
+
+
 def crlf_note(data, want):
     """Why the bytes differ when they are the expected file with its LF line ends turned into CRLF (a checkout made with
     git core.autocrlf=true, the default of Git for Windows): said in the refusal, so the user knows the fix."""
@@ -94,7 +127,7 @@ def read_regular(path):
             return None
         with os.fdopen(fd, "rb") as fh:
             fd = None
-            return fh.read()
+            return read_bounded(fh, 1 << 22)    # SPEC 32.17: 4 MiB, past any file of the tag; longer is another hash
     except OSError:
         return None
     finally:

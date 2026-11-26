@@ -1144,7 +1144,8 @@ PROVEN (anyone can check it again):
   canonical report, else nothing is recorded. Without --bundle the report is only the file given (rerun null);
 - the block time, the bundle's inclusion.block_header.timestamp, proven when the report's block_bound is true;
 - the hash chain, a seal's signature (the device's key);
-- the time of the check, with `--tsa URL` only (opt-in, off by default): an RFC 3161 token on the check entry's hash
+- the time of the check, with `--tsa URL` only (opt-in, off by default; the URL is recorded as `tsa_url`, so since
+  0.21.8 one with user information is refused before the network, 32.17): an RFC 3161 token on the check entry's hash
   (`openssl ts -query -sha256 -cert`, posted as application/timestamp-query). Before anything is written the reply
   must parse as a TimeStampResp (status granted or grantedWithMods; SignedData with a TSTInfo; SHA-256 imprint equal
   to the entry hash; genTime) and `openssl ts -verify -digest HASH -CAfile CA -attime genTime` must say OK, where CA
@@ -3500,6 +3501,67 @@ apc_batch.py answer `refused` where they ended with a traceback): 200, 184 kille
 docstrings and comments, 2 texts of an error never reported, the ML-DSA signature length checked again by the library,
 `sort_keys` on a JWK already in order, 2 initial values a later line overwrites, and 2 on an absent Signature-Agent
 field, which the parser refuses as the guard does).
+
+### 32.17 Amendment 0.21.8 (unreleased; every bundle version, the register and the signed reports) — nothing secret given comes out; programs, temporary folders, reads and integers alike on every system
+One verdict changes: a did:jwk with a private member other than `d` is refused (d); no bundle of the author's
+corpus carries a did:jwk (counted 2026-11-26). Otherwise what changes is what a refusal says and what the
+register records. Sources read
+2026-11-26 at www.rfc-editor.org: RFC 3986 (Internet Standard; updated by RFC 7320 and RFC 8820, not in section 3.2.1),
+RFC 7517 and RFC 7518 (Proposed Standards, not updated), RFC 8037 (Proposed Standard).
+
+(a) The URL of `apc_registry.py record --tsa` is recorded in the register (`tsa_url`, 11.6). It MUST be `http` or
+`https` (scheme letters in any case) followed by `//`, a host name, an IPv4 address or a bracketed IPv6 address, an
+optional port of at most 65535, then an optional path, query or fragment of printable ASCII without space or
+backslash; at most 512 characters; and no user information. RFC 3986 section 3.2.1: the use of "user:password" in the
+userinfo field "is deprecated", and applications "should reject the storage of such data in unencrypted form". Any
+other URL is refused (exit 3, nothing written) before the network is used and before any file is read, and the reason
+does not repeat the URL. Its path and query are recorded and reach whoever reads the register: they MUST NOT carry a
+credential, which this format cannot recognise there. Up to 0.21.7 a URL with user information was accepted, and when
+the authority could not be asked the refusal repeated the whole URL (measured on 2fdf128: `--tsa
+http://u:PASSWORD@127.0.0.1:1/` gave `{"error": "--tsa: no reply from http://u:PASSWORD@127.0.0.1:1/: ..."}`). A
+register written before with such a URL is still read (its grammar is unchanged): its `tsa_url` is where the secret is.
+
+(b) A time-stamping authority that could not be asked is named by the kinds of the errors and the HTTP status or errno
+(`--tsa: no reply: URLError: ConnectionRefusedError [Errno 111]`), never by their text, which can carry the URL. An
+unforeseen error of the register is named by its type only (it was its type and text).
+
+(c) A name that a reason repeats — a key id of `--http-keys` or `--signer-trust`, a member outside a closed object, a
+duplicate member of a JSON text, a member of a did:jwk that is ignored — is repeated when it has at most 32 characters;
+a longer one is named by its length (`(a name of 43 characters, not repeated)`): it could be a key put where a name
+goes. A reason made of names of at most 32 characters is unchanged, byte for byte. The register records the report of
+a bundle it verified, refusals included, so the same holds there.
+
+(d) Keys. The documents of the reader's keys (`apc_http_keys`, `apc_signer_trust`, `apc_report_keys`) are closed and
+carry public keys only (`public_key`, hex): a private member is an unknown member and is refused, and no key value is
+repeated by any reason. A did:jwk (0.11) with any of the private members of RFC 7518 (section 6.2.2 `d`, 6.3.2 `d`,
+`p`, `q`, `dp`, `dq`, `qi`, `oth`, 6.4.1 `k`) or RFC 8037 (section 2, `d`) is refused with the members' names (until
+0.21.7 `d` only; the others were ignored and named in notes). The seed files of `apc_registry.py --key` and
+`apc_report.py sign` are read in bytes up to 256 and never repeated, not even one byte of them by a decoding error.
+
+(e) Programs, temporary folders. `openssl` is found by `which_absolute` of omega-nucleo-comune 0.1.0 (nucleo/, NOTICE):
+never in the current folder (where Windows' shutil.which looks first, and where an empty or relative PATH entry points
+on every system) and only on the absolute folders of PATH. The temporary folders of the register and of the mandate
+check are made by its `private_tmpdir` (0700 less the umask; on Windows an access list for this user alone).
+
+(f) Reads and integers. Every bounded read (a bundle, a key document, a register input, a library or pack file, a
+seed) asks for at most 1 MiB at a time: a read of the bound plus one asked the allocator for the whole bound first, and
+under a data limit a 1-byte bundle ended in MemoryError (measured 2026-11-26: `ulimit -d 60000`, 64 MiB asked). Every
+JSON reader refuses an integer of more than 4300 digits with the same reason on every Python
+(`an integer of more than 4300 digits`): CPython reads one whole before 3.9.14 and refuses it with its own message
+after (macOS arm64 has no Python 3.9 build past 3.9.13). JSON nesting was already counted on the text (33.11).
+
+Tests: tests/test_secrets.py, permanent: a canary (an Ed25519 seed, a password in a URL, a key put where a name goes)
+in every input above, searched raw, in hex, base64 and base64url at each offset, and decimal, in standard output and
+error, the register, the report and the exception; with its positive control (a producer that leaks is found).
+Measured 2026-11-26: test_secrets.py 18 tests, 17 fail on 0.21.7 (2fdf128) on Python
+3.9.25 and 3.13.15 (the one left is the positive control of the search), all pass on this tree. Mutants on the lines this
+amendment adds: 26, 25 killed, 1 equivalent (net_reason with a reason that is a string: the kind printed differs, no
+text is printed either way). tools/regress.py check (cryptography installed, the pack at v1.7.1): 1123 bundles, 0
+differences. `unittest discover` with the author's corpus, Python 3.9.25 and 3.13.15: 1181 tests with `cryptography`
+(skipped=40), 1139 without (skipped=54). Fail: test_amend0212 `[synth_mandate_block]`, also on 0.21.7 in the same
+folders (a sibling ../ap2-evidence-pack at another version answers before the missing corpus folder); without
+`cryptography` only, the two test_regress cases: their 14 differences are all MP1-MP7 `ap2_evidence_pack_unavailable`
+(the frozen verdicts need the pack, which needs `cryptography`).
 
 ## 33. The real corpus as a LIST (2026-11-01, local; corpus/MANIFEST.json, format `apc-corpus-0.2`, `apc-corpus-0.3` by 33.10; tools/rebuild_corpus.py, tools/make_corpus_manifest.py) — what is distributed, what is rebuilt, what is accepted
 

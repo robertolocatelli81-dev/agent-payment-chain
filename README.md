@@ -39,14 +39,24 @@ same author are read, both public:
 On Windows (Git for Windows sets `core.autocrlf=true`), or wherever that setting is on, clone the two siblings with
 `git -c core.autocrlf=false clone ...`: a checkout that turns LF into CRLF changes the hashed bytes, and the refusal
 then says that the line ends are the cause. This repository keeps its own bytes through `.gitattributes` (`* -text`).
-The CI workflow (.github/workflows/ci.yml) runs the suite on Linux with Python 3.9 to 3.14 and on macOS and Windows
-with Python 3.13, each with and without `cryptography`; a test that needs what a platform lacks skips with the reason.
+The CI workflow (.github/workflows/ci.yml) runs the suite on Linux, macOS and Windows with Python 3.9 to 3.14 (since
+0.21.8; until 0.21.7 macOS and Windows with 3.13 only), each with and without `cryptography`; a test that needs what a
+platform lacks skips with the reason.
 
 ```
 python3 apc_verify.py BUNDLE.json            # verdict on standard output, exit code by SPEC section 5
 python3 -m unittest discover -s tests -t .   # the suite; the modules that need the real corpus skip and say why
 python3 tools/rebuild_corpus.py --check-manifest
 ```
+
+## 0.21.8, SPEC 32.17 (unreleased)
+
+Nothing secret given comes out. `apc_registry.py record --tsa` refuses a URL with user information (`user:password@`)
+before the network, and no refusal repeats the URL; a time-stamping authority that cannot be asked is named by the
+kinds of the errors. A key id or member name longer than 32 characters is not repeated by a reason (it could be a key
+put where a name goes); a did:jwk with any private member (RFC 7518, RFC 8037) is refused. `openssl` is never taken from
+the current folder (omega-nucleo-comune 0.1.0, `nucleo/`); every bounded read goes in pieces; an integer of more than
+4300 digits is refused with one reason on every Python. `tests/test_secrets.py` searches a canary in every output.
 
 ## apc_verify 0.21.7, SPEC 32.16 (released 2026-11-24)
 

@@ -12,6 +12,7 @@ import json
 import re
 from urllib.parse import unquote_to_bytes, urlsplit
 
+import apc_siglib  # noqa: E402
 import apc_verify as av
 from apc_verify import Refusal, _obj, _str
 
@@ -403,7 +404,7 @@ def parse_keys(doc):
     import apc_ap2
     keys = {}
     for kid, k in doc["keys"].items():
-        q = "http_keys.keys[%r]" % kid
+        q = "http_keys.keys[%s]" % apc_siglib.nameable(kid)
         _obj(k, q, ("alg", "public_key"))
         if k["alg"] not in ALGS:
             raise Refusal("%s.alg: not one of %s" % (q, ", ".join(ALGS)))

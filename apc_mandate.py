@@ -14,10 +14,10 @@ import os
 import re
 import shutil
 import sys
-import tempfile
 import time
 
 from apc_siglib import crlf_note, read_regular   # SPEC 32.12 (e) and (f): the same reader for the pack and the library
+from nucleo.files import private_tmpdir   # omega-nucleo-comune 0.1.0 (NOTICE): SPEC 32.17
 
 PROFILE = "ap2-evidence-pack/1.7.1"
 AP2EV_SHA256 = {"ap2_evidence.py": "d128823a049d522aabfe8ec70806db4db984f7aa93b4487b70bf7905b4bfb39a",
@@ -436,7 +436,7 @@ def check(member, au, acc, btime, tsa_cert=None, svm=None):
     if mod is None:
         return {k: why for k in CHECKS}, ["MP1-MP7: %s (SPEC 31: %s)" % (why.split(":", 1)[1], cause())], rep
     res, notes = {}, []
-    tmp = tempfile.mkdtemp(prefix="apc-mandate-")
+    tmp = private_tmpdir("apc-mandate-")
     try:
         path = os.path.join(tmp, "pack.json")
         with open(path, "w", encoding="utf-8") as fh:

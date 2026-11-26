@@ -84,7 +84,7 @@ def _no_dups(pairs):
     out = {}
     for k, v in pairs:
         if k in out:
-            raise Refusal("duplicate member %r" % k)
+            raise Refusal("duplicate member %s" % apc_siglib.nameable(k))
         out[k] = v
     return out
 
@@ -144,7 +144,8 @@ def strict_json(text):
     if apc_siglib.json_too_deep(text, MAX_JSON_DEPTH):      # SPEC 29.1, counted before the parser: every Python alike
         raise Refusal("JSON nested deeper than %d (SPEC 29.1)" % MAX_JSON_DEPTH)
     try:
-        return _no_surrogates(json.loads(text, object_pairs_hook=_no_dups, parse_constant=_no_const))
+        return _no_surrogates(json.loads(text, object_pairs_hook=_no_dups, parse_constant=_no_const,
+                                                parse_int=apc_siglib.json_int))
     except ValueError as e:
         if isinstance(e, Refusal):
             raise
@@ -156,7 +157,7 @@ def _obj(v, path, required, optional=()):
         raise Refusal("%s: not an object" % path)
     unknown = sorted(set(v) - set(required) - set(optional))
     if unknown:
-        raise Refusal("%s: unknown member(s) %s" % (path, unknown))
+        raise Refusal("%s: unknown member(s) [%s]" % (path, ", ".join(apc_siglib.nameable(n) for n in unknown)))
     missing = sorted(set(required) - set(v))
     if missing:
         raise Refusal("%s: missing member(s) %s" % (path, missing))
@@ -2043,7 +2044,7 @@ def read_bundle_bytes(path):
             raise Refusal("cannot read %s: not a regular file" % path)
         with os.fdopen(fd, "rb") as fh:
             fd = None
-            data = fh.read(MAX_BUNDLE_BYTES + 1)
+            data = apc_siglib.read_bounded(fh, MAX_BUNDLE_BYTES)
     finally:
         if fd is not None:
             os.close(fd)

@@ -7,6 +7,11 @@ on:
 permissions:
   contents: read
 
+# a newer push to a trial branch (ci-prova-*) stops the run it supersedes; on any other branch every run completes
+concurrency:
+  group: ci-${{ github.ref }}-${{ startsWith(github.ref_name, 'ci-prova-') && 'trial' || github.run_id }}
+  cancel-in-progress: ${{ startsWith(github.ref_name, 'ci-prova-') }}
+
 jobs:
   tests:
     name: tests without the real corpus (python ${{ matrix.python }}, ${{ matrix.os }})
@@ -18,11 +23,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04]
+        os: [ubuntu-24.04, macos-latest, windows-latest]
         python: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
-        include:
-          - {os: macos-latest, python: "3.13"}
-          - {os: windows-latest, python: "3.13"}
     env:
       APC_SIGLIB: ${{ github.workspace }}/deps/x402-signature-vectors
       APC_AP2EV: ${{ github.workspace }}/deps/ap2-evidence-pack

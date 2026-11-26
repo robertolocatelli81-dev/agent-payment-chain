@@ -6,6 +6,7 @@ import base64
 import hashlib
 import re
 
+import apc_siglib  # noqa: E402
 import apc_verify as av
 from apc_verify import Refusal, _obj, _str
 
@@ -133,14 +134,19 @@ def _key(alg, raw):
     return (alg, pt) if pt is not None else None
 
 
+# the private members of a JWK: RFC 7518 6.2.2 (EC d), 6.3.2 (RSA d p q dp dq qi oth), 6.4.1 (oct k), RFC 8037 2 (OKP d)
+JWK_PRIVATE = ("d", "p", "q", "dp", "dq", "qi", "oth", "k")
+
+
 def _jwk_key(jwk, notes):
     if not isinstance(jwk, dict):
         raise Bad("did_jwk_not_an_object")
-    if "d" in jwk:
-        raise Refusal("did:jwk carries a private key member d")
+    private = sorted(set(jwk) & set(JWK_PRIVATE))
+    if private:         # SPEC 32.17: RFC 7518 6.2.2, 6.3.2, 6.4.1 and RFC 8037 2: a private member is refused, never ignored
+        raise Refusal("did:jwk carries a private key member %s" % ", ".join(private))
     extra = sorted(set(jwk) - {"kty", "crv", "x", "y"})
     if extra:           # RFC 7517 4: members not understood MUST be ignored
-        notes.append("did:jwk members ignored (RFC 7517 4): %s" % ", ".join(extra))
+        notes.append("did:jwk members ignored (RFC 7517 4): %s" % ", ".join(apc_siglib.nameable(n) for n in extra))
     kty, crv = jwk.get("kty"), jwk.get("crv")
     if kty == "OKP" and crv == "Ed25519" and "y" not in jwk:
         k = _key("EdDSA", _b64u(jwk.get("x"), "did_jwk_x"))
@@ -202,7 +208,7 @@ def parse_trust(doc):
         if not isinstance(doc["keys"], dict):
             raise Refusal("signer_trust.keys: not an object")
         for kid, k in doc["keys"].items():
-            q = "signer_trust.keys[%r]" % kid
+            q = "signer_trust.keys[%s]" % apc_siglib.nameable(kid)
             _obj(k, q, ("alg", "public_key"))
             if k["alg"] not in ALGS:
                 raise Refusal("%s.alg: not one of %s" % (q, ", ".join(ALGS)))

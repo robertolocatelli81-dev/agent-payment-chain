@@ -418,7 +418,7 @@ def main(argv):
         text = apc_verify.read_bundle_bytes(p).decode("utf-8")
         if apc_siglib.json_too_deep(text, apc_verify.MAX_JSON_DEPTH):     # SPEC 29.1, before the parser: every Python
             raise ValueError("JSON nested deeper than %d" % apc_verify.MAX_JSON_DEPTH)
-        return json.loads(text)
+        return json.loads(text, parse_int=apc_siglib.json_int)          # SPEC 32.17
     try:
         b, r = (load(p) for p in argv[1:3])
         b = b.get("result", b) if isinstance(b, dict) and "jsonrpc" in b else b

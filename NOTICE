@@ -82,3 +82,8 @@ Replies of public JSON-RPC endpoints and of other services (the saved reads in l
   their sha256 stays in the folder's SHA256SUMS. sources/l1proof_20261024/fetch_l1proof.py,
   tools/fetch_solana_feepayers.py and tools/fetch_stellar_x402org.py read such data again from an endpoint you name;
   real_chain_reads.json has no fetch tool in this tree, and tests/test_drafts2.py skips without it.
+
+omega-nucleo-comune v0.1.0 (github.com/robertolocatelli81-dev/omega-nucleo-comune, commit 83d3972), Apache-2.0, same
+  author: nucleo/ (programs.py which_absolute, files.py private_tmpdir, and the rest of the core unmodified), copied by
+  its nucleo_sync.py with NUCLEO_MANIFEST.json (sha256 of each file); its LICENSE and NOTICE are nucleo/LICENSE and
+  nucleo/NOTICE. Used by apc_registry.py and apc_mandate.py (SPEC 32.17).

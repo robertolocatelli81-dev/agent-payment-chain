@@ -650,7 +650,7 @@ def _json(text):
     which the callers turn into their failure code, never an exception out of the evaluator"""
     if apc_siglib.json_too_deep(text, MAX_JSON_DEPTH):      # counted before the parser: every Python alike
         raise ValueError("JSON nested deeper than %d" % MAX_JSON_DEPTH)
-    return json.loads(text)
+    return json.loads(text, parse_int=apc_siglib.json_int)       # SPEC 32.17: 4300 digits on every Python
 
 
 def _verify_jws(jwt, key, stage):
@@ -1079,8 +1079,11 @@ def main(argv):
     if len(argv) != 2:
         print(__doc__)
         return 64
-    with open(argv[1]) as fh:
-        bundle = json.load(fh, parse_constant=lambda c: (_ for _ in ()).throw(ValueError(c)))
+    with open(argv[1], "rb") as fh:     # SPEC 32.17: bounded, nesting counted, 4300 digits on every Python
+        text = apc_siglib.read_bounded(fh, 1 << 26).decode("utf-8")
+    if apc_siglib.json_too_deep(text, MAX_JSON_DEPTH):
+        raise ValueError("JSON nested deeper than %d" % MAX_JSON_DEPTH)
+    bundle = json.loads(text, parse_constant=lambda c: (_ for _ in ()).throw(ValueError(c)), parse_int=apc_siglib.json_int)
     ok = 0
     for case in bundle["cases"]:
         r = verify_case(case)

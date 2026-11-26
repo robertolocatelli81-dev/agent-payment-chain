@@ -54,8 +54,13 @@ def canonical(v):
 
 
 def read_seed(path):
-    with open(path) as fh:
-        line = fh.read().strip().lower()
+    """SPEC 32.17: read in bytes up to a bound, and no message repeats a byte of it (a decoding error named one)."""
+    with open(path, "rb") as fh:
+        raw = apc_siglib.read_bounded(fh, 256)
+    try:
+        line = raw.decode("ascii").strip().lower()
+    except UnicodeDecodeError:
+        line = ""
     if not HEX32.match(line):
         raise Bad("the seed file is not one 32-byte hex line")
     return bytes.fromhex(line)

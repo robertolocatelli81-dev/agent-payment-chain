@@ -2,6 +2,38 @@
 
 The rules and the measurements behind each entry are in `SPEC.md`; each entry names its section.
 
+## 0.21.8 (unreleased; SPEC 32.17)
+
+One verdict changes: a did:jwk with a private member other than `d` is refused (it was read, the member ignored;
+no bundle of the author's corpus carries a did:jwk, counted 2026-11-26). Otherwise what changes is what a refusal
+says and what the register records. Each change has
+a test in `tests/test_secrets.py` (new, permanent): 17 of its 18 tests fail on 0.21.7 (2fdf128); the one left is the
+positive control of the search, which passes on both.
+
+- `apc_registry.py record --tsa`: the URL is recorded in the register (`tsa_url`). One with user information
+  (`user:password@`), a non-ASCII character, a space, a backslash or a port past 65535 is refused (exit 3) before the
+  network and before any file is read, and the reason does not repeat it (RFC 3986 section 3.2.1). Until 0.21.7 such a
+  URL was accepted, and when the authority could not be asked the refusal repeated it whole.
+- A time-stamping authority that could not be asked is named by the kinds of the errors and the errno (`--tsa: no
+  reply: URLError: ConnectionRefusedError [Errno 111]`); an unforeseen error of the register by its type only.
+- A name a reason repeats (a key id of `--http-keys` or `--signer-trust`, a member outside a closed object, a duplicate
+  member, an ignored did:jwk member) is repeated up to 32 characters; a longer one is named by its length. Reasons made
+  of shorter names are unchanged, byte for byte.
+- A did:jwk with any private member of RFC 7518 section 6 or RFC 8037 section 2 (`d`, `p`, `q`, `dp`, `dq`, `qi`,
+  `oth`, `k`) is refused (until 0.21.7 `d` only). The seed files of `--key` and `apc_report.py sign` are read up to 256
+  bytes and no message repeats a byte of them (a decoding error named one).
+- `openssl` is found by `which_absolute` of omega-nucleo-comune 0.1.0 (`nucleo/`, copied by its `nucleo_sync.py`,
+  `NOTICE`), never in the current folder; the temporary folders of the register and of the mandate check by its
+  `private_tmpdir`.
+- Every bounded read goes in pieces of at most 1 MiB: `read(bound + 1)` asked the allocator for the whole bound first,
+  and under a data limit a 1-byte bundle ended in MemoryError (measured 2026-11-26, `ulimit -d 60000`). Every JSON
+  reader refuses an integer of more than 4300 digits with one reason on every Python (macOS arm64 runs CPython 3.9.13,
+  which reads one whole).
+- CI: Linux, macOS and Windows with Python 3.9 to 3.14, each with and without `cryptography` (until 0.21.7 macOS and
+  Windows with 3.13 only); a newer push to a `ci-prova-*` branch stops the run it supersedes. Not yet run on GitHub.
+- Not in this version: `VERSION` stays `apc_verify 0.21.7` until the release, which sets it and refreezes the regress
+  file (as 0.21.7 did); the mandate pack stays ap2-evidence-pack v1.7.1 (SPEC 31, 32.12).
+
 ## 0.21.7 (2026-11-24; SPEC 32.16, section 10.2; the amendments of 32.12 and 33.11 of the same date)
 
 The first tagged release. On the 1123 bundles of the regress list (`tools/regress.py check`, 2026-11-24) no verdict,

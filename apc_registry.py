@@ -39,12 +39,13 @@ import re
 import shutil
 import subprocess
 import sys
-import tempfile
 import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import apc_solana as sol  # noqa: E402  (Ed25519, RFC 8032, standard library)
 import apc_siglib  # noqa: E402  (json_too_deep only: nothing runs at import, the library is not loaded)
+from nucleo.files import private_tmpdir  # noqa: E402  (omega-nucleo-comune 0.1.0, NOTICE)
+from nucleo.programs import which_absolute  # noqa: E402
 
 VERSION = "apc_registry 0.2.0"
 FORMAT = "apc-reg-0.2"
@@ -95,7 +96,7 @@ def _no_dups(pairs):
     out = {}
     for k, v in pairs:
         if k in out:
-            raise Bad("duplicate member %r" % k)
+            raise Bad("duplicate member %s" % apc_siglib.nameable(k))
         out[k] = v
     return out
 
@@ -108,7 +109,7 @@ def strict_json(text):
     if apc_siglib.json_too_deep(text, MAX_JSON_DEPTH):      # SPEC 29.1, counted before the parser: every Python alike
         raise Bad("not JSON: nested deeper than %d (SPEC 29.1)" % MAX_JSON_DEPTH)
     try:
-        doc = json.loads(text, object_pairs_hook=_no_dups, parse_constant=_no_const)
+        doc = json.loads(text, object_pairs_hook=_no_dups, parse_constant=_no_const, parse_int=apc_siglib.json_int)
     except json.JSONDecodeError as e:
         raise Bad("not JSON: %s" % e.msg)
     except ValueError as e:                 # e.g. an integer longer than int_max_str_digits
@@ -1104,7 +1105,7 @@ def rerun_verify(bundle_path, checkpoint, keys_path):
 
 # ------------------------------------------------------------------ RFC 3161, opt-in (SPEC 11.6)
 def _openssl():
-    o = shutil.which("openssl")
+    o = which_absolute("openssl")
     if not o:
         raise Bad("--tsa: the openssl binary is needed for RFC 3161 and is not on PATH")
     return o
@@ -1117,16 +1118,28 @@ def system_bundle():
     return None
 
 
+# SPEC 32.17 (0.21.8): the URL recorded in the register (`tsa_url`), so with no user information (RFC 3986 3.2.1: an
+# application "should reject the storage of such data in unencrypted form"); ASCII, no space, control character or
+# backslash. A usage refusal before the network, and its reason does not repeat the URL.
+TSA_URL = re.compile(r"[Hh][Tt][Tt][Pp][Ss]?://(?:\[[0-9A-Fa-f:.]+\]|[A-Za-z0-9._~-]+)(?::[0-9]{0,5})?(?:[/?#][!-\[\]-~]*)?")
+TSA_URL_RULE = ("--tsa: an http or https URL of at most 512 characters, a host and an optional port, with no user "
+                "information (user:password@), ASCII and without spaces (SPEC 32.17): it is recorded in the register, "
+                "so it is not repeated here")
+
+
 def tsa_trust(url, ca_path):
     """-> (trust, CA file). freetsa.org must come with its pinned root; else the user's CA or the system store."""
     from urllib.parse import urlsplit
+    if not isinstance(url, str) or len(url) > 512 or not TSA_URL.fullmatch(url):
+        raise Bad(TSA_URL_RULE)
     try:
         u = urlsplit(url)
         host = (u.hostname or "").lower()
+        u.port                              # a port past 65535 is a ValueError here, not at the network
     except ValueError:
-        raise Bad("--tsa: not a URL")
-    if u.scheme not in ("http", "https") or not host or len(url) > 512 or re.search(r"\s", url):
-        raise Bad("--tsa: an http or https URL of at most 512 characters")
+        raise Bad(TSA_URL_RULE)
+    if u.scheme.lower() not in ("http", "https") or not host:   # TSA_URL holds no "@" before the path
+        raise Bad(TSA_URL_RULE)
     if host == "freetsa.org" or host.endswith(".freetsa.org"):
         if ca_path is None or _file_sha256(ca_path) != FREETSA_ROOT_SHA256:
             raise Bad("--tsa freetsa.org: --tsa-ca must be the FreeTSA root of SHA-256 %s" % FREETSA_ROOT_SHA256)
@@ -1142,17 +1155,17 @@ def tsa_trust(url, ca_path):
 def _file_sha256(p):
     try:
         with open(p, "rb") as fh:
-            return sha256(fh.read(1 << 24))
+            return sha256(apc_siglib.read_bounded(fh, 1 << 24))
     except OSError as e:
         raise Bad("cannot read %s: %s" % (p, e.strerror or e))
 
 
 def openssl_verify(der, digest_hex, ca_file, gen):
     """openssl ts -verify of the reply on the digest, at its genTime -> None when it holds, else the reason."""
-    o = shutil.which("openssl")
+    o = which_absolute("openssl")
     if not o:
         return "the openssl binary is not on PATH"
-    t = tempfile.mkdtemp(prefix="apc_tsr_")
+    t = private_tmpdir("apc_tsr_")
     try:
         p = os.path.join(t, "r.tsr")
         with open(p, "wb") as fh:
@@ -1169,12 +1182,26 @@ def openssl_verify(der, digest_hex, ca_file, gen):
         shutil.rmtree(t, ignore_errors=True)
 
 
+def net_reason(e):
+    """SPEC 32.17: what a refusal says of a time-stamping authority that could not be asked: the kinds of the errors and
+    the HTTP status or errno, never their text, which can carry the URL (up to 0.21.7 it was repeated whole)."""
+    import urllib.error
+    if isinstance(e, urllib.error.HTTPError):
+        return "HTTPError: %d" % e.code
+    r = getattr(e, "reason", None) if isinstance(e, urllib.error.URLError) else None
+    if isinstance(r, BaseException):
+        n = getattr(r, "errno", None)
+        return "%s: %s" % (type(e).__name__, type(r).__name__) + (" [Errno %d]" % n if isinstance(n, int) else "")
+    n = getattr(e, "errno", None)
+    return type(e).__name__ + (" [Errno %d]" % n if isinstance(n, int) else "")
+
+
 def tsa_stamp(url, ca_path, digest_hex):
     """Only digest_hex leaves the machine. -> the timestamp entry body; Bad when no verified token comes back."""
     import urllib.request
     trust, ca = tsa_trust(url, ca_path)
     o = _openssl()
-    t = tempfile.mkdtemp(prefix="apc_tsq_")
+    t = private_tmpdir("apc_tsq_")
     try:
         q = os.path.join(t, "q.tsq")
         r = subprocess.run([o, "ts", "-query", "-digest", digest_hex, "-sha256", "-cert", "-out", q],
@@ -1189,7 +1216,7 @@ def tsa_stamp(url, ca_path, digest_hex):
             with urllib.request.urlopen(req, timeout=20) as resp:
                 der = resp.read(MAX_TOKEN + 1)
         except (OSError, ValueError) as e:
-            raise Bad("--tsa: no reply from %s: %s" % (url, str(e)[:160]))
+            raise Bad("--tsa: no reply: %s" % net_reason(e))
         ver = subprocess.run([o, "version"], capture_output=True, timeout=30).stdout.decode(errors="replace").strip()
     except subprocess.SubprocessError as e:
         raise Bad("--tsa: openssl: %s" % type(e).__name__)
@@ -1290,8 +1317,13 @@ def cmd_init(path):
 
 
 def read_seed(path):
-    with open(path) as fh:
-        line = fh.read().strip().lower()
+    """SPEC 32.17: read in bytes up to a bound, and no message repeats a byte of it (a decoding error named one)."""
+    with open(path, "rb") as fh:
+        raw = apc_siglib.read_bounded(fh, 256)
+    try:
+        line = raw.decode("ascii").strip().lower()
+    except UnicodeDecodeError:
+        line = ""
     if not HEX64.match(line):
         raise Bad("the seed file is not one 32-byte hex line")
     return bytes.fromhex(line)
@@ -1412,7 +1444,7 @@ def recheck_timestamps(entries, ca_path):
             continue
         b = e["body"]
         ca = ca_path if ca_sha == b["ca_sha256"] else system_bundle() if b["trust"] == "system_store" else None
-        if ca is None or not shutil.which("openssl"):
+        if ca is None or not which_absolute("openssl"):
             skipped += 1
             continue
         der = base64.b64decode(b["token_b64"])
@@ -1460,7 +1492,7 @@ def _usage_ok(cmd, opts):
 def _load(p, what, limit=MAX_LINE):
     try:
         with open(p, "rb") as fh:
-            b = fh.read(limit + 1)
+            b = apc_siglib.read_bounded(fh, limit)
     except OSError as e:
         raise Bad("%s: cannot read %s: %s" % (what, p, e.strerror or e))
     if len(b) > limit:
@@ -1602,7 +1634,8 @@ def main(argv):
         print(json.dumps({"error": str(e)}))
         return 3
     except Exception as e:      # noqa: BLE001  never a traceback: an unforeseen error is a refusal with its type
-        print(json.dumps({"error": "internal error, nothing more done: %s: %s" % (type(e).__name__, e)}))
+        # SPEC 32.17: its type only; its text can hold a value given (a URL, a line of a file)
+        print(json.dumps({"error": "internal error, nothing more done: %s" % type(e).__name__}))
         return 3
     print(json.dumps(out, indent=1, sort_keys=True))
     return 0

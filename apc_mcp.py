@@ -186,7 +186,7 @@ def parse_line(text):
                 repeated.append(k)
             obj[k] = v
         return obj
-    value = json.loads(text, parse_constant=_not_json, object_pairs_hook=members)
+    value = json.loads(text, parse_constant=_not_json, object_pairs_hook=members, parse_int=apc_siglib.json_int)
     if repeated:
         raise DuplicateMember("member repeated: %s" % min(repeated)[:80])
     return value
