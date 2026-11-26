@@ -74,7 +74,7 @@ class McpLinesAndIds(unittest.TestCase):
         self.assertEqual(strict(out[4])["error"]["message"], "invalid request: member repeated: a")
         self.assertTrue(all(strict(l)["id"] is None for l in out))
         rc, out = session(['{"jsonrpc":"2.0","id":1,"method":"ping","%s":1,"%s":2}' % ("n" * 200, "n" * 200)])
-        self.assertEqual(strict(out[0])["error"]["message"], "invalid request: member repeated: " + "n" * 80)
+        self.assertEqual(strict(out[0])["error"]["message"], "invalid request: member repeated: (a name of 200 characters, not repeated)")   # SPEC 32.17 (c)
 
     def test_finding_a_repeated_member_takes_time_linear_in_the_line(self):
         # measured on 3ae909a: 20000, 40000 and 80000 distinct names and one repeat took 10.5 s, 35.1 s and 166.7 s

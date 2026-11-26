@@ -146,7 +146,8 @@ def _jwk_key(jwk, notes):
         raise Refusal("did:jwk carries a private key member %s" % ", ".join(private))
     extra = sorted(set(jwk) - {"kty", "crv", "x", "y"})
     if extra:           # RFC 7517 4: members not understood MUST be ignored
-        notes.append("did:jwk members ignored (RFC 7517 4): %s" % ", ".join(apc_siglib.nameable(n) for n in extra))
+        notes.append("did:jwk members ignored (RFC 7517 4): %s"     # as in 0.21.7 (no quotes) up to 32 characters
+                     % ", ".join(n if len(n) <= 32 else apc_siglib.nameable(n) for n in extra))
     kty, crv = jwk.get("kty"), jwk.get("crv")
     if kty == "OKP" and crv == "Ed25519" and "y" not in jwk:
         k = _key("EdDSA", _b64u(jwk.get("x"), "did_jwk_x"))

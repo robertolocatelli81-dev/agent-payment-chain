@@ -3510,9 +3510,11 @@ register records. Sources read
 RFC 7517 and RFC 7518 (Proposed Standards, not updated), RFC 8037 (Proposed Standard).
 
 (a) The URL of `apc_registry.py record --tsa` is recorded in the register (`tsa_url`, 11.6). It MUST be `http` or
-`https` (scheme letters in any case) followed by `//`, a host name, an IPv4 address or a bracketed IPv6 address, an
-optional port of at most 65535, then an optional path, query or fragment of printable ASCII without space or
-backslash; at most 512 characters; and no user information. RFC 3986 section 3.2.1: the use of "user:password" in the
+`https` in lower case (the grammar of `tsa_url`, 11.2) followed by `//`, a host name, an IPv4 address or a bracketed
+IPv6 address without a zone, an optional port of at most 65535, then an optional path, query or fragment of
+printable ASCII without
+space or backslash; at most 500 characters after the `//`; and no user information. RFC 3986 section 3.2.1: the use
+of "user:password" in the
 userinfo field "is deprecated", and applications "should reject the storage of such data in unencrypted form". Any
 other URL is refused (exit 3, nothing written) before the network is used and before any file is read, and the reason
 does not repeat the URL. Its path and query are recorded and reach whoever reads the register: they MUST NOT carry a
@@ -3529,7 +3531,11 @@ unforeseen error of the register is named by its type only (it was its type and 
 duplicate member of a JSON text, a member of a did:jwk that is ignored — is repeated when it has at most 32 characters;
 a longer one is named by its length (`(a name of 43 characters, not repeated)`): it could be a key put where a name
 goes. A reason made of names of at most 32 characters is unchanged, byte for byte. The register records the report of
-a bundle it verified, refusals included, so the same holds there.
+a bundle it verified, refusals included, so the same holds there. The reader of `apc_mcp.py` follows the same rule for
+a member repeated in a message (its reply repeated 80 characters of the name). Not in this rule, and as in 0.21.7: the
+other reasons and notes that name a member of the bundle itself (apc_offer `member_not_supported` and the ignored
+members of a JWS header, apc_drafts2 `*_member_not_in_*`, apc_webauthn, the ignored members of apc_verify: 40 or 64
+characters, or whole) and `unknown member` of the register's own grammar (11.2).
 
 (d) Keys. The documents of the reader's keys (`apc_http_keys`, `apc_signer_trust`, `apc_report_keys`) are closed and
 carry public keys only (`public_key`, hex): a private member is an unknown member and is refused, and no key value is
@@ -3548,7 +3554,16 @@ seed) asks for at most 1 MiB at a time: a read of the bound plus one asked the a
 under a data limit a 1-byte bundle ended in MemoryError (measured 2026-11-26: `ulimit -d 60000`, 64 MiB asked). Every
 JSON reader refuses an integer of more than 4300 digits with the same reason on every Python
 (`an integer of more than 4300 digits`): CPython reads one whole before 3.9.14 and refuses it with its own message
-after (macOS arm64 has no Python 3.9 build past 3.9.13). JSON nesting was already counted on the text (33.11).
+after (for macOS arm64 and for Windows the newest Python 3.9 of actions/python-versions is 3.9.13, read 2026-11-26).
+JSON nesting was already counted on the text (33.11).
+
+(g) Endpoints of the tools. A tool that reads from a JSON-RPC or HTTP endpoint named by the user (tools/fetch_*.py,
+tools/scan_*.py, tools/rebuild_corpus.py, tools/anchor_msca.py, sources/l1proof_20261024/fetch_l1proof.py) writes into
+its output the scheme, the host and the port of the URL (tools/endpoint.py `where`), never its path, query or user
+part: that is where the providers put the key, and an output is a file meant to be kept and published. Until 0.21.7
+twelve of them wrote the URL whole (measured on 2fdf128 with a key in the path: tools/fetch_solana_feepayers.py,
+tools/scan_negatives_svm.py and tools/scan_reverted.py wrote it into `rpc`). The files saved in this tree hold public
+endpoints without a key and are unchanged.
 
 Tests: tests/test_secrets.py, permanent: a canary (an Ed25519 seed, a password in a URL, a key put where a name goes)
 in every input above, searched raw, in hex, base64 and base64url at each offset, and decimal, in standard output and
@@ -3556,7 +3571,10 @@ error, the register, the report and the exception; with its positive control (a 
 Measured 2026-11-26: test_secrets.py 18 tests, 17 fail on 0.21.7 (2fdf128) on Python
 3.9.25 and 3.13.15 (the one left is the positive control of the search), all pass on this tree. Mutants on the lines this
 amendment adds: 26, 25 killed, 1 equivalent (net_reason with a reason that is a string: the kind printed differs, no
-text is printed either way). tools/regress.py check (cryptography installed, the pack at v1.7.1): 1123 bundles, 0
+text is printed either way); on the lines added by the review of the same day (the grammar of `tsa_url` in (a),
+`apc_mcp.py` in (c), the note of an ignored did:jwk member, and (g)): 8, 7 killed by their first tests, 1 (the
+bound of 32 characters made `< 32`) killed by a test of 32 and 33 characters added after. tools/regress.py check (cryptography installed, the pack at v1.7.1):
+1123 bundles, 0
 differences. `unittest discover` with the author's corpus, Python 3.9.25 and 3.13.15: 1181 tests with `cryptography`
 (skipped=40), 1139 without (skipped=54). Fail: test_amend0212 `[synth_mandate_block]`, also on 0.21.7 in the same
 folders (a sibling ../ap2-evidence-pack at another version answers before the missing corpus folder); without

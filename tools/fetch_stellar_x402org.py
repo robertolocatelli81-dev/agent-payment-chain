@@ -10,6 +10,8 @@ import sys
 import time
 import urllib.error
 import urllib.request
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from endpoint import where  # noqa: E402  (SPEC 32.17: the host of the endpoint, never its path or query)
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import apc_stellar as xs  # noqa: E402
@@ -52,14 +54,14 @@ def main(argv):
         sys.exit("X402_SUPPORTED_URL not set: name the JSON-RPC endpoint you are entitled to use (its terms are yours); none is written in this tool")
     sup = get(SUPPORTED)
     signers = sup["signers"]["stellar:*"]
-    calls = [{"url": SUPPORTED, "result": sup}]
+    calls = [{"url": where(SUPPORTED), "result": sup}]
     hashes = []
     if not HORIZON:
         sys.exit("STELLAR_HORIZON not set: name the JSON-RPC endpoint you are entitled to use (its terms are yours); none is written in this tool")
     for a in signers:
         u = "%s/accounts/%s/transactions?order=desc&limit=%d" % (HORIZON, a, per)
         h = get(u)
-        calls.append({"url": u, "result": h})
+        calls.append({"url": where(HORIZON) + u[len(HORIZON):], "result": h})
         for rec in h["_embedded"]["records"]:
             if rec["successful"] and rec["hash"] not in hashes:
                 hashes.append(rec["hash"])
@@ -80,8 +82,8 @@ def main(argv):
         kept.append({"hash": h, "ledger": t["result"]["ledger"]})
         if len(kept) >= maxtx:
             break
-    summary = {"network": "stellar:testnet", "facilitator": SUPPORTED, "signers": signers, "horizon": HORIZON,
-               "rpc": RPC, "candidate_tx": len(hashes), "kept": len(kept)}
+    summary = {"network": "stellar:testnet", "facilitator": where(SUPPORTED), "signers": signers, "horizon": where(HORIZON),
+               "rpc": where(RPC), "candidate_tx": len(hashes), "kept": len(kept)}
     with open(out, "x") as fh:
         json.dump({"summary": summary, "kept": kept, "calls": calls}, fh, indent=1)
     print(json.dumps(summary))

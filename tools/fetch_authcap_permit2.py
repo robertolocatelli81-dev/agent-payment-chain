@@ -15,7 +15,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import apc_siglib  # noqa: E402
 apc_siglib.guard("tools/fetch_authcap_permit2", __name__ == "__main__")  # SPEC 32.12 (f): without the signature library one line, exit 64, no traceback
-from fetch_base_eip3009 import RPC, keccak256, rpc  # noqa: E402
+from fetch_base_eip3009 import RPC, keccak256, rpc, where  # noqa: E402
 
 PI = "(address,address,address,address,uint120,uint48,uint48,uint48,uint16,uint16,address,uint256)"
 EVENTS = {"authorized": "PaymentAuthorized(bytes32,%s,uint256,address)" % PI,
@@ -56,7 +56,7 @@ def main(argv):
         for k, v in w["by_collector"].items():
             total[k] = total.get(k, 0) + v
     with open(out, "w") as fh:
-        json.dump({"rpc": RPC, "escrow": escrow, "permit2_collector": p2c, "range": [lo, hi], "step": step,
+        json.dump({"rpc": where(RPC), "escrow": escrow, "permit2_collector": p2c, "range": [lo, hi], "step": step,
                    "events": EVENTS, "fetched": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
                    "logs": sum(w["logs"] for w in windows), "by_collector": total, "permit2_logs": hits,
                    "windows": windows, "calls": calls}, fh, indent=1)

@@ -63,7 +63,7 @@ def main(argv):
         with open(part, "a") as fh:
             fh.write(json.dumps({"pair": [frm, blk], "replies": mine}) + "\n")
     with open(out, "x") as fh:
-        json.dump({"rpc": fb.RPC, "label": label, "pairs": want, "replies": replies}, fh, indent=1)
+        json.dump({"rpc": fb.where(fb.RPC), "label": label, "pairs": want, "replies": replies}, fh, indent=1)
     os.unlink(part)
     print(len(want), "payers,", len(replies), "replies")
 

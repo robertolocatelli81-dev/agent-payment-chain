@@ -7,6 +7,8 @@ import os
 import sys
 import time
 import urllib.request
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from endpoint import where  # noqa: E402  (SPEC 32.17: the host of the endpoint, never its path or query)
 
 USDC = "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
 SEL = ("0xe3ee160e", "0xcf092995")
@@ -41,7 +43,7 @@ def main(first, count, out, url):
                     calls.append({"method": "eth_getTransactionReceipt", "params": [r["transactionHash"]], "result": r})
         if (b - first) % 50 == 0:
             print(b, "found", len(found), "usdc failed", usdc_failed, flush=True)
-    json.dump({"summary": {"rpc": url, "first_block": first, "count": count, "usdc_failed": usdc_failed,
+    json.dump({"summary": {"rpc": where(url), "first_block": first, "count": count, "usdc_failed": usdc_failed,
                            "eip3009_reverted": len(found), "fetched": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())},
                "reverted": found, "calls": calls}, open(out, "w"), indent=1)
     print("done", len(found), "of", usdc_failed, "failed USDC calls")

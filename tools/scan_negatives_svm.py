@@ -12,6 +12,8 @@ import os
 import sys
 import time
 import urllib.request
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from endpoint import where  # noqa: E402  (SPEC 32.17: the host of the endpoint, never its path or query)
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 LIST = os.path.join(ROOT, "sources", "solana_20261024", "solana_facilitators_x402scan_5732bb8.json")
@@ -51,7 +53,7 @@ def main(out, per_addr=1000, per_failed=15, url=None):
         print(name, addr, len(sigs), "failed", len(failed), flush=True)
         time.sleep(0.5)
     with open(out, "w") as fh:
-        json.dump({"summary": {"rpc": url, "list": os.path.relpath(LIST, ROOT), "per_address": per_addr,
+        json.dump({"summary": {"rpc": where(url), "list": os.path.relpath(LIST, ROOT), "per_address": per_addr,
                                "per_failed": per_failed, "fetched": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())},
                    "addresses": rows, "failed_transactions": txs}, fh, indent=1)
     print("done", sum(r["failed"] for r in rows), "failed of", sum(r["signatures"] for r in rows))

@@ -24,6 +24,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import apc_siglib  # noqa: E402
 apc_siglib.guard("tools/scan_webauthn", __name__ == "__main__")  # SPEC 32.12 (f): without the signature library one line, exit 64, no traceback
 from lib.eip712 import keccak256  # noqa: E402
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from endpoint import where  # noqa: E402  (SPEC 32.17: the host of the endpoint, never its path or query)
 
 RPC = os.environ.get("BASE_RPC")          # checked where it is used, never at import
 MARK = b'"type":"webauthn.get"'.hex()
@@ -95,7 +97,7 @@ def main(argv):
         print("blocks %d-%d logs %d tx %d hits %d" % (lo, b, nlogs, len(seen), len(hits)), flush=True)
     if pending:
         flush()
-    summary = {"rpc": RPC, "contract": contract, "event": event, "topic0": topic, "from_block": lo, "n_blocks": n,
+    summary = {"rpc": where(RPC), "contract": contract, "event": event, "topic0": topic, "from_block": lo, "n_blocks": n,
                "logs": nlogs, "distinct_tx": len(seen), "hits": len(hits), "marker": '"type":"webauthn.get"',
                "read": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
     with open(out, "x") as fh:

@@ -7,6 +7,8 @@ import os
 import sys
 import time
 import urllib.request
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from endpoint import where  # noqa: E402  (SPEC 32.17: the host of the endpoint, never its path or query)
 
 
 def rpc(url, method, params):
@@ -28,7 +30,7 @@ def main(argv):
         calls.append(rpc(url, "ledger", {"ledger_index": idx, "transactions": True, "expand": True, "binary": True}))
         calls.append(rpc(url, "ledger", {"ledger_index": idx}))
     with open(out, "w") as fh:
-        json.dump({"server": url, "fetched": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "calls": calls}, fh)
+        json.dump({"server": where(url), "fetched": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "calls": calls}, fh)
     print(len(calls), "replies")
 
 

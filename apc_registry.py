@@ -1121,16 +1121,18 @@ def system_bundle():
 # SPEC 32.17 (0.21.8): the URL recorded in the register (`tsa_url`), so with no user information (RFC 3986 3.2.1: an
 # application "should reject the storage of such data in unencrypted form"); ASCII, no space, control character or
 # backslash. A usage refusal before the network, and its reason does not repeat the URL.
-TSA_URL = re.compile(r"[Hh][Tt][Tt][Pp][Ss]?://(?:\[[0-9A-Fa-f:.]+\]|[A-Za-z0-9._~-]+)(?::[0-9]{0,5})?(?:[/?#][!-\[\]-~]*)?")
-TSA_URL_RULE = ("--tsa: an http or https URL of at most 512 characters, a host and an optional port, with no user "
-                "information (user:password@), ASCII and without spaces (SPEC 32.17): it is recorded in the register, "
-                "so it is not repeated here")
+# The scheme in lower case and at most 500 characters after "//": the grammar of `tsa_url` (11.2, _timestamp_body). A URL
+# outside it was asked first and refused after ("the new entry would be outside the grammar"): the digest had left.
+TSA_URL = re.compile(r"https?://(?=[^\s]{1,500}\Z)(?:\[[0-9A-Fa-f:.]+\]|[A-Za-z0-9._~-]+)(?::[0-9]{0,5})?(?:[/?#][!-\[\]-~]*)?")
+TSA_URL_RULE = ("--tsa: an http:// or https:// URL (lower case) of at most 500 characters after the //, a host and an "
+                "optional port, with no user information (user:password@), ASCII and without spaces (SPEC 32.17): it "
+                "is recorded in the register, so it is not repeated here")
 
 
 def tsa_trust(url, ca_path):
     """-> (trust, CA file). freetsa.org must come with its pinned root; else the user's CA or the system store."""
     from urllib.parse import urlsplit
-    if not isinstance(url, str) or len(url) > 512 or not TSA_URL.fullmatch(url):
+    if not isinstance(url, str) or not TSA_URL.fullmatch(url):
         raise Bad(TSA_URL_RULE)
     try:
         u = urlsplit(url)

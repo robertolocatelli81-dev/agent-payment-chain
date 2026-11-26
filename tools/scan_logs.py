@@ -11,7 +11,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import apc_siglib  # noqa: E402
 apc_siglib.guard("tools/scan_logs", __name__ == "__main__")  # SPEC 32.12 (f): without the signature library one line, exit 64, no traceback
-from tools.fetch_base_eip3009 import RPC, rpc  # noqa: E402
+from tools.fetch_base_eip3009 import RPC, rpc, where  # noqa: E402
 
 
 def main(argv):
@@ -22,7 +22,7 @@ def main(argv):
         g = rpc("eth_getLogs", [{"address": addr, "fromBlock": hex(a), "toBlock": hex(min(lo + n - 1, a + step - 1))}])
         calls.append(g)
         logs += g["result"]
-    summary = {"rpc": RPC, "address": addr, "from_block": lo, "n_blocks": n, "step": step, "logs": len(logs),
+    summary = {"rpc": where(RPC), "address": addr, "from_block": lo, "n_blocks": n, "step": step, "logs": len(logs),
                "tx": len({lg["transactionHash"] for lg in logs})}
     with open(out, "x") as fh:
         json.dump({"summary": summary, "calls": calls}, fh, indent=1)

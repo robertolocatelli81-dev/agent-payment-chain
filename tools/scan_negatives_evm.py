@@ -22,6 +22,8 @@ import os
 import sys
 import time
 import urllib.request
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from endpoint import where  # noqa: E402  (SPEC 32.17: the host of the endpoint, never its path or query)
 
 SEL = {"0xe3ee160e": ("transfer", "vrs"), "0xcf092995": ("transfer", "bytes"),
        "0xef55bec6": ("receive", "vrs"), "0x88b7ab63": ("receive", "bytes")}
@@ -181,9 +183,9 @@ def refetch(c, path, url=None):
         for k, q, at in (("replay_parent", call, b - 1), ("replay_block", call, b), ("state_parent", state, b - 1),
                          ("state_block", state, b)):
             if not is_revert(x[k]):
-                x.setdefault("rpc_failures", []).append({"key": k, "reply": x[k], "rpc": c["rpc"]})
+                x.setdefault("rpc_failures", []).append({"key": k, "reply": x[k], "rpc": where(c["rpc"])})
                 x[k] = rpc_raw(url, "eth_call", [q, hex(at)])
-                x.setdefault("replays_from", {})[k] = url
+                x.setdefault("replays_from", {})[k] = where(url)
     with open(path, "w") as fh:
         json.dump(doc, fh, indent=1)
     print("refetched", len(doc["direct"]))
@@ -204,14 +206,14 @@ def main(argv):
             if rc["status"] == "0x0" and tx["input"][:10] in SEL:
                 direct.append(evidence(c, tx, rc, os.path.dirname(os.path.abspath(argv[3]))))
         with open(argv[3], "w") as fh:
-            json.dump({"summary": {"mode": "hashes", "chain": chain, "chain_id": c["chain_id"], "rpc": c["rpc"],
+            json.dump({"summary": {"mode": "hashes", "chain": chain, "chain_id": c["chain_id"], "rpc": where(c["rpc"]),
                                    "tokens": c["tokens"], "hashes": argv[4:], "direct_reverted": len(direct),
                                    "fetched": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())},
                        "direct": direct, "indirect": []}, fh, indent=1)
         return print("done", len(direct))
     a, b, out = int(argv[3]), int(argv[4]), argv[5]
     summary, direct, indirect = (receipts if mode == "receipts" else index)(c, a, b, out)
-    summary.update({"chain": chain, "chain_id": c["chain_id"], "rpc": c["rpc"], "tokens": c["tokens"],
+    summary.update({"chain": chain, "chain_id": c["chain_id"], "rpc": where(c["rpc"]), "tokens": c["tokens"],
                     "direct_reverted": len(direct), "indirect_reverted": len(indirect),
                     "fetched": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())})
     with open(out, "w") as fh:

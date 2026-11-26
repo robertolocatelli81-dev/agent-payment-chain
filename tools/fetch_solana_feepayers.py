@@ -11,6 +11,8 @@ import sys
 import time
 import urllib.error
 import urllib.request
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from endpoint import where  # noqa: E402  (SPEC 32.17: the host of the endpoint, never its path or query)
 
 RPC = os.environ.get("SOLANA_RPC")          # checked where it is used, never at import
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -55,7 +57,7 @@ def main(argv):
                         "raw": raw})
         print(fac, addr, len(r), flush=True)
     with open(out, "x") as fh:
-        json.dump({"rpc": RPC, "fetched_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "limit": limit,
+        json.dump({"rpc": where(RPC), "fetched_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "limit": limit,
                    "signatures": sigs_replies, "txs": txs}, fh)
     print(len(txs), "transactions")
 

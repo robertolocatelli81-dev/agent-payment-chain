@@ -188,7 +188,9 @@ def parse_line(text):
         return obj
     value = json.loads(text, parse_constant=_not_json, object_pairs_hook=members, parse_int=apc_siglib.json_int)
     if repeated:
-        raise DuplicateMember("member repeated: %s" % min(repeated)[:80])
+        name = min(repeated)        # SPEC 32.17 (c): a name longer than 32 characters is not repeated, its length is
+        raise DuplicateMember("member repeated: %s" % (name if len(name) <= 32 else
+                                                       "(a name of %d characters, not repeated)" % len(name)))
     return value
 
 

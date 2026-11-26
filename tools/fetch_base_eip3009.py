@@ -18,6 +18,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import apc_siglib  # noqa: E402
 apc_siglib.guard("tools/fetch_base_eip3009", __name__ == "__main__")  # SPEC 32.12 (f): without the signature library one line, exit 64, no traceback
 from lib.eip712 import keccak256  # noqa: E402
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from endpoint import where  # noqa: E402  (SPEC 32.17: the host of the endpoint, never its path or query)
 
 RPC = os.environ.get("BASE_RPC")          # checked where it is used, never at import
 USDC = os.environ.get("APC_TOKEN", "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913").lower()   # another EIP-3009 token: APC_TOKEN
@@ -99,7 +101,7 @@ def main(argv):
                      "status": "0x1"})
         if len(kept) >= maxtx:
             break
-    summary = {"rpc": RPC, "token": USDC, "chain_id": int(chain["result"], 16), "head_block": hi,
+    summary = {"rpc": where(RPC), "token": USDC, "chain_id": int(chain["result"], 16), "head_block": hi,
                "blocks_scanned": nblocks, "token_name": abi_string(name["result"]), "token_version": token_version,
                "authorization_used_logs": len(logs), "distinct_tx": len(seen), "direct_calls_kept": len(kept),
                "by_form": {f: sum(k["form"] == f for k in kept) for f in ("vrs", "bytes")}}

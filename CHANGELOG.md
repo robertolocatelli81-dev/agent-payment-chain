@@ -11,24 +11,34 @@ a test in `tests/test_secrets.py` (new, permanent): 17 of its 18 tests fail on 0
 positive control of the search, which passes on both.
 
 - `apc_registry.py record --tsa`: the URL is recorded in the register (`tsa_url`). One with user information
-  (`user:password@`), a non-ASCII character, a space, a backslash or a port past 65535 is refused (exit 3) before the
+  (`user:password@`), a non-ASCII character, a space, a backslash, an IPv6 address with a zone
+  (`[fe80::1%25eth0]`) or a port past 65535 is refused (exit 3) before the
   network and before any file is read, and the reason does not repeat it (RFC 3986 section 3.2.1). Until 0.21.7 such a
-  URL was accepted, and when the authority could not be asked the refusal repeated it whole.
+  URL was accepted, and when the authority could not be asked the refusal repeated it whole. A scheme not in lower case
+  or more than 500 characters after the `//` are refused there too: the register's grammar of `tsa_url` does not hold
+  them, and until 0.21.7 the authority was asked first and nothing was written after. The path and the query of the
+  URL are recorded with it: they must not carry a credential.
 - A time-stamping authority that could not be asked is named by the kinds of the errors and the errno (`--tsa: no
   reply: URLError: ConnectionRefusedError [Errno 111]`); an unforeseen error of the register by its type only.
 - A name a reason repeats (a key id of `--http-keys` or `--signer-trust`, a member outside a closed object, a duplicate
   member, an ignored did:jwk member) is repeated up to 32 characters; a longer one is named by its length. Reasons made
-  of shorter names are unchanged, byte for byte.
+  of shorter names are unchanged, byte for byte. The reader of `apc_mcp.py` follows the same rule for a repeated member
+  (its reply repeated 80 characters). The other reasons and notes that name a member of the bundle itself keep the
+  bounds of 0.21.7 (SPEC 32.17 (c)).
 - A did:jwk with any private member of RFC 7518 section 6 or RFC 8037 section 2 (`d`, `p`, `q`, `dp`, `dq`, `qi`,
   `oth`, `k`) is refused (until 0.21.7 `d` only). The seed files of `--key` and `apc_report.py sign` are read up to 256
   bytes and no message repeats a byte of them (a decoding error named one).
+- The tools that read from an endpoint you name (`tools/fetch_*.py`, `tools/scan_*.py`: 12 of them) write its
+  scheme, host and port into their output (`tools/endpoint.py`), no longer the whole URL: the path or the query of a
+  JSON-RPC URL is where a provider puts the key, and those outputs are files meant to be kept (`tools/anchor_msca.py`,
+  `tools/rebuild_corpus.py` and `fetch_l1proof.py` already did so). The saved files of this tree are unchanged.
 - `openssl` is found by `which_absolute` of omega-nucleo-comune 0.1.0 (`nucleo/`, copied by its `nucleo_sync.py`,
   `NOTICE`), never in the current folder; the temporary folders of the register and of the mandate check by its
   `private_tmpdir`.
 - Every bounded read goes in pieces of at most 1 MiB: `read(bound + 1)` asked the allocator for the whole bound first,
   and under a data limit a 1-byte bundle ended in MemoryError (measured 2026-11-26, `ulimit -d 60000`). Every JSON
-  reader refuses an integer of more than 4300 digits with one reason on every Python (macOS arm64 runs CPython 3.9.13,
-  which reads one whole).
+  reader refuses an integer of more than 4300 digits with one reason on every Python (the CI's macOS arm64 and Windows
+  run CPython 3.9.13, which reads one whole).
 - CI: Linux, macOS and Windows with Python 3.9 to 3.14, each with and without `cryptography` (until 0.21.7 macOS and
   Windows with 3.13 only); a newer push to a `ci-prova-*` branch stops the run it supersedes. Not yet run on GitHub.
 - Not in this version: `VERSION` stays `apc_verify 0.21.7` until the release, which sets it and refreezes the regress

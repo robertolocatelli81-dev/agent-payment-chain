@@ -76,10 +76,10 @@ class Base(unittest.TestCase):
         for c in CANARIES:
             self.assertEqual(found(c, *outputs, *files), [], what)
 
-    def cli(self, script, *argv, env=None, cwd=None):
+    def cli(self, script, *argv, env=None, cwd=None, stdin=None):
         e = dict(os.environ, **(env or {}))
         return subprocess.run(PY + [os.path.join(ROOT, script)] + list(argv), capture_output=True, timeout=120,
-                              cwd=cwd or self.d, env=e)
+                              cwd=cwd or self.d, env=e, input=stdin)
 
     def register(self):
         reg = os.path.join(self.d, "reg")
@@ -124,7 +124,9 @@ class Register(Base):
             "HTTPS://u:%s@127.0.0.1:1/" % PASSWORD, "http://%s:@127.0.0.1:1/" % PASSWORD,
             "http://u:%s@[::1]:1/" % PASSWORD, "http://127.0.0.1:1/\\@" + PASSWORD,
             "http://127.0.0.1:1/ " + PASSWORD, "http://127.0.0.1:1/\x00" + PASSWORD, "http://127.0.0.1:1/é" + PASSWORD,
-            "ftp://" + PASSWORD + "/", PASSWORD, "http://127.0.0.1:99999/" + PASSWORD)
+            "ftp://" + PASSWORD + "/", PASSWORD, "http://127.0.0.1:99999/" + PASSWORD,
+            # outside the grammar of tsa_url (11.2): asked first and refused after, the digest had left the machine
+            "HTTP://127.0.0.1:1/" + PASSWORD, "Https://127.0.0.1:1/" + PASSWORD, "http://127.0.0.1:1/" + PASSWORD + "a" * 500)
 
     def test_a_url_with_user_information_is_refused_before_the_network(self):
         reg, rep = self.register()
@@ -138,6 +140,10 @@ class Register(Base):
             self.none(url, out.getvalue())
         with open(reg, "rb") as f:
             self.assertEqual(f.read().count(b"\n"), 1, "nothing recorded")
+        ca = self.file("ca.pem", "x")                # the longest URL the register can hold is accepted, one more is not
+        self.assertEqual(rg.tsa_trust("https://" + "h" * 500, ca)[0], "user_ca")
+        with self.assertRaises(rg.Bad):
+            rg.tsa_trust("https://" + "h" * 501, ca)
 
     def test_the_cli_too(self):
         reg, rep = self.register()
@@ -232,6 +238,13 @@ class ReaderKeys(Base):
         except av.Refusal:
             pass
         self.none("ignored member named", notes)
+        notes = []          # a short name is repeated as in 0.21.7, byte for byte (no quotes)
+        apc_offer._jwk_key({"kty": "OKP", "crv": "Ed25519", "x": x, "use": "sig", "kid": "k1"}, notes)
+        self.assertEqual(notes, ["did:jwk members ignored (RFC 7517 4): kid, use"])
+        notes = []          # the bound: 32 characters repeated, 33 named by their length
+        apc_offer._jwk_key({"kty": "OKP", "crv": "Ed25519", "x": x, "a" * 32: 1, "b" * 33: 1}, notes)
+        self.assertEqual(notes, ["did:jwk members ignored (RFC 7517 4): %s, (a name of 33 characters, not repeated)"
+                                 % ("a" * 32)])
 
 
 class SignedReports(Base):
@@ -257,6 +270,33 @@ class Platforms(Base):
                 with open(os.path.join(ROOT, n), encoding="utf-8") as f:
                     hits += ["%s:%d" % (n, i) for i, line in enumerate(f, 1) if bad.search(line.split("#")[0])]
         self.assertEqual(hits, [])
+        self.the_tools_write_the_host_of_an_endpoint_only()
+
+    def the_tools_write_the_host_of_an_endpoint_only(self):
+        """An endpoint URL carries the provider's key in its path or query: a tool writes scheme://host[:port] of it."""
+        sys.path.insert(0, os.path.join(ROOT, "tools"))
+        from endpoint import where
+        for url, want in (("https://h.example/v2/" + PASSWORD, "https://h.example"), ("http://127.0.0.1:8545/?k=" + PASSWORD, "http://127.0.0.1:8545"),
+                          ("https://u:%s@h.example:8443/x#%s" % (PASSWORD, PASSWORD), "https://h.example:8443"),
+                          ("http://[::1]:99/" + PASSWORD, "http://[::1]:99"), ("https://h.example:99999/" + PASSWORD, "?"),
+                          (PASSWORD, "://?"), (None, "?")):
+            self.assertEqual(where(url), want)
+        # no tool writes the variable that holds the URL: every "rpc"/"server"/"url"/"horizon"/"facilitator" it writes is where(...)
+        bad = re.compile(r'''"(?:rpc|server|url|horizon|facilitator)": *(?:RPC|url|u|fb\.RPC|c\["rpc"\]|SUPPORTED|HORIZON)\b|\[k\] = url\b''')
+        hits = []
+        for folder in ("tools", os.path.join("sources", "l1proof_20261024")):
+            for n in sorted(os.listdir(os.path.join(ROOT, folder))):
+                if n.endswith(".py"):
+                    with open(os.path.join(ROOT, folder, n), encoding="utf-8") as f:
+                        hits += ["%s:%d" % (n, i) for i, line in enumerate(f, 1) if bad.search(line)]
+        self.assertEqual(hits, [])
+        out = os.path.join(self.d, "out.json")          # and one of them run: no block asked, so no network
+        r = self.cli(os.path.join("tools", "scan_reverted.py"), "1", "0", out, "http://127.0.0.1:1/v2/" + PASSWORD)
+        self.assertEqual(r.returncode, 0, r.stderr[-300:])
+        with open(out, "rb") as f:
+            data = f.read()
+        self.assertEqual(json.loads(data)["summary"]["rpc"], "http://127.0.0.1:1")
+        self.none("tool output", r.stdout, r.stderr, data)
 
     @unittest.skipIf(os.name == "nt", "POSIX: an empty PATH entry is the current folder (on Windows the current folder is "
                      "searched first by shutil.which; nucleo/programs.py is tested there by omega-nucleo-comune's CI)")
@@ -318,6 +358,15 @@ class Platforms(Base):
             with self.assertRaises(err) as c:
                 f('{"ab": 1, "ab": 2}')
             self.assertEqual(str(c.exception), "duplicate member 'ab'")
+        import apc_mcp                      # the MCP server's reader: the same rule (its reply repeated 80 characters)
+        with self.assertRaises(apc_mcp.DuplicateMember) as c:
+            apc_mcp.parse_line(t)
+        self.assertEqual(str(c.exception), "member repeated: (a name of 43 characters, not repeated)")
+        with self.assertRaises(apc_mcp.DuplicateMember) as c:
+            apc_mcp.parse_line('{"ab": 1, "ab": 2}')
+        self.assertEqual(str(c.exception), "member repeated: ab")
+        r = self.cli("apc_mcp.py", stdin=(t + "\n").encode())
+        self.none("mcp", r.stdout, r.stderr)
 
 
 if __name__ == "__main__":

@@ -12,6 +12,8 @@ import sys
 import time
 import urllib.error
 import urllib.request
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from endpoint import where  # noqa: E402  (SPEC 32.17: the host of the endpoint, never its path or query)
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import apc_stellar as xs  # noqa: E402
@@ -82,7 +84,7 @@ def main(argv):
                      "events": [e for e in ev["result"]["events"] if e["txHash"] == h]})
         if len(kept) >= maxtx:
             break
-    summary = {"rpc": RPC, "asset": USDC, "network": "stellar:pubnet", "head_ledger": head["result"]["sequence"],
+    summary = {"rpc": where(RPC), "asset": USDC, "network": "stellar:pubnet", "head_ledger": head["result"]["sequence"],
                "start_ledger": start, "transfer_events": len(ev["result"]["events"]), "distinct_tx": len(hashes),
                "transactions_read": seen, "kept": len(kept)}
     with open(out, "x") as fh:
