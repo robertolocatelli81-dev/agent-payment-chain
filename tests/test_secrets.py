@@ -86,6 +86,11 @@ class Base(unittest.TestCase):
         self.assertEqual(self.cli("apc_registry.py", "init", reg).returncode, 0)
         return reg, self.file("rep.json", json.dumps(REPORT))
 
+    def ca(self):
+        # the network is reached only with a trust store: a runner without a system one (Windows has no CA file)
+        # stops before it, "--tsa: no system trust store found"; this file is never read before the reply
+        return self.file("ca.pem", "-----BEGIN CERTIFICATE-----\nMA==\n-----END CERTIFICATE-----\n")
+
 
 class TheSearchFinds(Base):
     """Positive control of the search, and of a producer that leaks."""
@@ -110,7 +115,7 @@ class TheSearchFinds(Base):
                                   subprocess.CompletedProcess(a[0], 0, b"", b"")):
             out = io.StringIO()
             with contextlib.redirect_stdout(out):
-                rg.main(["apc_registry.py", "record", reg, "--report", rep, "--tsa", url])
+                rg.main(["apc_registry.py", "record", reg, "--report", rep, "--tsa", url, "--tsa-ca", self.ca()])
         self.assertIn("raw", found(PASSWORD.encode(), out.getvalue()))
         with self.assertRaises(AssertionError):
             self.none("a leak", out.getvalue())
@@ -165,7 +170,8 @@ class Register(Base):
     @unittest.skipIf(shutil.which("openssl") is None, "openssl is not on PATH")
     def test_a_url_that_cannot_be_reached_is_not_repeated(self):
         reg, rep = self.register()
-        r = self.cli("apc_registry.py", "record", reg, "--report", rep, "--tsa", "http://127.0.0.1:1/" + PASSWORD)
+        r = self.cli("apc_registry.py", "record", reg, "--report", rep, "--tsa", "http://127.0.0.1:1/" + PASSWORD,
+                     "--tsa-ca", self.ca())
         self.assertEqual(r.returncode, 3)
         self.assertIn(b"--tsa: no reply: ", r.stdout)
         self.none("unreachable", r.stdout, r.stderr)

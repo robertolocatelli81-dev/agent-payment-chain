@@ -108,6 +108,8 @@ class SiblingPack(unittest.TestCase):
         os.mkdir(repo)
         for f in glob.glob(os.path.join(ROOT, "apc_*.py")):
             os.symlink(f, os.path.join(repo, os.path.basename(f)))
+        # 0.21.8: the vendored core beside them; on Windows the folder of a linked script is not resolved to ROOT
+        os.symlink(os.path.join(ROOT, "nucleo"), os.path.join(repo, "nucleo"), target_is_directory=True)
         return os.path.join(repo, "apc_verify.py")
 
     @needs_pack
