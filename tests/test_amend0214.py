@@ -72,9 +72,10 @@ class TheRule(unittest.TestCase):
     def test_names_are_bounded_in_the_report(self):
         extra = {("k%02d" % i) + "x" * 100: i for i in range(20)}
         _, notes = obj(dict({"x402Version": 2, "resource": {}, "accepts": []}, **extra))
-        names = re.search(r"\[(.*)\]", notes[0]).group(1).split(", ")
+        names = re.findall(r"'[^']*'", re.search(r"\[(.*)\]", notes[0]).group(1))   # a placeholder holds ", "
         self.assertEqual(len(names), 16)
-        self.assertTrue(all(len(n) == 64 + 3 + 2 for n in names), names[:2])   # 64 characters, "...", the quotes
+        # 0.21.8, SPEC 32.17 (c): a name over 32 characters is named by its length (until 0.21.7: 64 characters + "...")
+        self.assertEqual(set(names), {"'(a name of 103 characters, not repeated)'"}, names[:2])
         self.assertTrue(notes[0].endswith(" and 4 more"))
 
     def test_the_defined_members_keep_their_rules(self):
@@ -188,10 +189,12 @@ class VersionOne(unittest.TestCase):
             self.assertIn("error", r3["reason"])
 
     def test_bounds_of_the_report_at_the_edges(self):
-        # Independent review 2026-11-03: a name of exactly 64 characters is shown whole, one of 65 cut; 16 names, no "more"
-        _, notes = obj({"x402Version": 2, "resource": {}, "accepts": [], "a" * 64: 1, "b" * 65: 2})
-        self.assertIn("'%s'" % ("a" * 64), notes[0])
-        self.assertIn("'%s...'" % ("b" * 64), notes[0])
+        # 0.21.8, SPEC 32.17 (c) (until 0.21.7 the edge was 64/65, review 2026-11-03): 32 characters whole, 33 not; 16 names, no "more"
+        _, notes = obj({"x402Version": 2, "resource": {}, "accepts": [], "a" * 32: 1, "b" * 33: 2, "c" * 64: 3})
+        self.assertIn("'%s'" % ("a" * 32), notes[0])
+        self.assertNotIn("b" * 33, notes[0])
+        self.assertIn("'(a name of 33 characters, not repeated)'", notes[0])
+        self.assertIn("'(a name of 64 characters, not repeated)'", notes[0])
         _, notes = obj(dict({"x402Version": 2, "resource": {}, "accepts": []}, **{"k%02d" % i: i for i in range(16)}))
         self.assertTrue(notes[0].endswith("'k15']"), notes[0][-40:])
 

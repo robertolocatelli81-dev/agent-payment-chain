@@ -23,8 +23,8 @@ positive control of the search, which passes on both.
 - A name a reason repeats (a key id of `--http-keys` or `--signer-trust`, a member outside a closed object, a duplicate
   member, an ignored did:jwk member) is repeated up to 32 characters; a longer one is named by its length. Reasons made
   of shorter names are unchanged, byte for byte. The reader of `apc_mcp.py` follows the same rule for a repeated member
-  (its reply repeated 80 characters). The other reasons and notes that name a member of the bundle itself keep the
-  bounds of 0.21.7 (SPEC 32.17 (c)).
+  (its reply repeated 80 characters). So do the other reasons and notes that name a member of the
+  bundle itself (until 0.21.7 40 or 64 characters, or whole) and `unknown member` of the register (SPEC 32.17 (c)).
 - A did:jwk with any private member of RFC 7518 section 6 or RFC 8037 section 2 (`d`, `p`, `q`, `dp`, `dq`, `qi`,
   `oth`, `k`) is refused (until 0.21.7 `d` only). The seed files of `--key` and `apc_report.py sign` are read up to 256
   bytes and no message repeats a byte of them (a decoding error named one).

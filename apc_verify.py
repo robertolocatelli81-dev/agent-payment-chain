@@ -177,7 +177,7 @@ def payment_required_obj(v, path, required, optional=()):
     pr = _obj({k: x for k, x in v.items() if k not in ignored}, path, required, optional)
     if not ignored:
         return pr, []
-    shown = [k if len(k) <= 64 else k[:64] + "..." for k in ignored[:16]]   # names are attacker-sized: bounded in the report
+    shown = [apc_siglib.bare_name(k) for k in ignored[:16]]   # SPEC 32.17 (c): a name over 32 characters is not repeated
     more = "" if len(ignored) <= 16 else " and %d more" % (len(ignored) - 16)
     return pr, ["%s: member(s) the x402 specification does not define, ignored and not read (SPEC 32.14): %s%s"
                 % (path, shown, more)]

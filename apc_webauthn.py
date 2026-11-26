@@ -15,6 +15,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import apc_ap2  # noqa: E402
+import apc_siglib  # noqa: E402
 
 N = apc_ap2.P256_N
 HALF_N = N // 2                        # WebAuthn.sol 48: FCL_Elliptic_ZZ.n / 2
@@ -137,5 +138,5 @@ def notes(challenge, auth, require_uv=False):
                    "WebAuthn.sol 81)")
     other = sorted(set(c) - {"type", "challenge", "origin", "crossOrigin", "topOrigin"})
     if other:
-        out.append("clientDataJSON other members %s (not read by the contract)" % [k[:40] for k in other[:8]])
+        out.append("clientDataJSON other members %s (not read by the contract)" % [apc_siglib.bare_name(k) for k in other[:8]])
     return out

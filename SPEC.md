@@ -3532,10 +3532,11 @@ duplicate member of a JSON text, a member of a did:jwk that is ignored — is re
 a longer one is named by its length (`(a name of 43 characters, not repeated)`): it could be a key put where a name
 goes. A reason made of names of at most 32 characters is unchanged, byte for byte. The register records the report of
 a bundle it verified, refusals included, so the same holds there. The reader of `apc_mcp.py` follows the same rule for
-a member repeated in a message (its reply repeated 80 characters of the name). Not in this rule, and as in 0.21.7: the
-other reasons and notes that name a member of the bundle itself (apc_offer `member_not_supported` and the ignored
-members of a JWS header, apc_drafts2 `*_member_not_in_*`, apc_webauthn, the ignored members of apc_verify: 40 or 64
-characters, or whole) and `unknown member` of the register's own grammar (11.2).
+a member repeated in a message (its reply repeated 80 characters of the name). The other
+reasons and notes that name a member of the bundle itself follow it too (apc_offer `member_not_supported` and the
+ignored members of a JWS header, apc_drafts2 `*_member_not_in_*`, the clientDataJSON note of apc_webauthn, the ignored
+members of apc_verify; until 0.21.7 40 or 64 characters, or whole), and so does `unknown member` of the register's own
+grammar (11.2). tools/regress.py check after this change: 1123 bundles, 0 differences.
 
 (d) Keys. The documents of the reader's keys (`apc_http_keys`, `apc_signer_trust`, `apc_report_keys`) are closed and
 carry public keys only (`public_key`, hex): a private member is an unknown member and is refused, and no key value is

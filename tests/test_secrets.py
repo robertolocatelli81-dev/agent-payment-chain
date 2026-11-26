@@ -369,5 +369,39 @@ class Platforms(Base):
         self.none("mcp", r.stdout, r.stderr)
 
 
+
+class NamesOfTheBundle(unittest.TestCase):
+    """SPEC 32.17 (c), 0.21.8: the reasons and notes that name a member of the bundle repeat a name of at most 32
+    characters byte for byte and never a longer one (until db14f24: 40 or 64 characters, or whole)."""
+
+    def test_32_repeated_33_not(self):
+        import apc_drafts2
+        import apc_offer
+        import apc_verify as av
+        import apc_webauthn
+        for n in (1, 32, 33, 40, 64, 65, 300):
+            name = "S" * n
+            shown = n <= 32
+            c = {k: "x" for k in apc_drafts2.CLAIM_REQ}
+            c[name] = 1
+            texts = [apc_drafts2.claim_checks(c)["DC1"]]
+            with self.assertRaises(apc_offer.Open) as e:
+                apc_offer._closed({"a": 1, name: 1}, "o.p", ("a",))
+            texts.append(str(e.exception))
+            with self.assertRaises(rg.Damaged) as e:
+                rg._members({"a": 1, name: 1}, "p", ("a",))
+            texts.append(str(e.exception))
+            _, note = av.payment_required_obj({"a": "x", name: 1}, "p", ("a",))
+            texts.append(" ".join(note))
+            for t in texts:
+                self.assertEqual(name in t, shown, (n, t[:120]))
+                if not shown:
+                    self.assertIn("(a name of %d characters, not repeated)" % n, t)
+            self.assertIn("claim_member_not_in_proposal(%s)" % (name if shown else
+                          "(a name of %d characters, not repeated)" % n), texts[0])
+        src = open(apc_webauthn.__file__, encoding="utf-8").read()   # its note: the same helper, no slice of a name
+        self.assertIn("[apc_siglib.bare_name(k) for k in other[:8]]", src)
+        self.assertNotIn("k[:40]", src)
+
 if __name__ == "__main__":
     unittest.main()

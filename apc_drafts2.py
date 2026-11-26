@@ -8,6 +8,7 @@ import re
 
 import apc_verify as av
 from apc_verify import Refusal
+import apc_siglib  # noqa: E402
 
 P3604 = "x402-pr3604@4726ab0"
 PV402 = "verify402-seller-payout@2b0faea"
@@ -107,7 +108,7 @@ def claim_checks(c):
         return {"DC1": "failed:claim_missing_member"}
     extra = sorted(set(c) - set(CLAIM_REQ) - set(CLAIM_OPT))
     if extra:
-        return {"DC1": "not_evaluated:claim_member_not_in_proposal(%s)" % extra[0][:40]}
+        return {"DC1": "not_evaluated:claim_member_not_in_proposal(%s)" % apc_siglib.bare_name(extra[0])}
     bad = (not (isinstance(c["sellerAddress"], str) and ADDR.match(c["sellerAddress"]))
            or not (isinstance(c["buyerAddress"], str) and ADDR.match(c["buyerAddress"]))
            or c["assetType"] not in ("gpu-hours", "storage", "api-credits", "bandwidth")
@@ -163,7 +164,7 @@ def p_v402(doc, rep, taken):
         if not isinstance(m, dict) or any(k not in m for k in req):
             r["VM1"] = "failed:manifest_missing_member"
         elif set(m) - set(req) - set(opt):
-            r["VM1"] = "not_evaluated:manifest_member_not_in_format(%s)" % sorted(set(m) - set(req) - set(opt))[0][:40]
+            r["VM1"] = "not_evaluated:manifest_member_not_in_format(%s)" % apc_siglib.bare_name(sorted(set(m) - set(req) - set(opt))[0])
         elif m["spec"] != "verify402/seller-payout@1" or isinstance(m["chainId"], bool) or not isinstance(m["chainId"], int) \
                 or m["chainId"] <= 0 or not isinstance(m["signer"], str) or not ADDR.match(m["signer"].strip()) \
                 or not isinstance(m["expiresAt"], str) or not ISO.match(m["expiresAt"]) \
@@ -340,7 +341,7 @@ def settlement_record_checks(rec):
         return {"SR1": "failed:record_needs_one_settlement_binding"}
     extra = sorted(set(rec) - set(common) - {"paymentHash", "settlement"})
     if extra:                               # PR 2666 2: "MUST treat unknown top-level ..." is not read further here
-        return {"SR1": "not_evaluated:record_member_not_in_proposal(%s)" % extra[0][:40]}
+        return {"SR1": "not_evaluated:record_member_not_in_proposal(%s)" % apc_siglib.bare_name(extra[0])}
     ok = all(isinstance(rec[k], str) for k in ("agentId", "actionType", "scope", "actionRef", "schema")) and \
         all(isinstance(rec[k], int) and not isinstance(rec[k], bool) and abs(rec[k]) < 2 ** 53 for k in ("timestampMs", "seq")) \
         and isinstance(rec["terminal"], bool)

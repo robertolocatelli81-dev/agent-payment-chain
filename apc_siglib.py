@@ -96,6 +96,11 @@ def nameable(s):
         if isinstance(s, str) else "(a name not repeated)"
 
 
+def bare_name(s):
+    """nameable() without quotes, for the reasons that repeat a name bare: a name of at most 32 characters byte for byte."""
+    return s if isinstance(s, str) and len(s) <= 32 else nameable(s)
+
+
 def crlf_note(data, want):
     """Why the bytes differ when they are the expected file with its LF line ends turned into CRLF (a checkout made with
     git core.autocrlf=true, the default of Git for Windows): said in the refusal, so the user knows the fix."""

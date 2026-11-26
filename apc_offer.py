@@ -258,7 +258,7 @@ def _closed(v, path, req, opt=()):
             raise Refusal("%s: missing member %s" % (path, k))
     extra = sorted(k for k in v if k not in req and k not in opt)
     if extra:
-        raise Open("member_not_supported(%s.%s)" % (path.rsplit(".", 1)[-1], extra[0][:40]))
+        raise Open("member_not_supported(%s.%s)" % (path.rsplit(".", 1)[-1], apc_siglib.bare_name(extra[0])))
     return v
 
 
@@ -333,7 +333,7 @@ def _jws(art, kind, trust, notes, spec=None):
         raise Bad("jws_crit_not_understood")
     extra = sorted(set(hdr) - {"alg", "kid"})
     if extra:                           # RFC 7515 4: header parameters not understood MUST be ignored
-        notes.append("%s: JWS header members ignored (RFC 7515 4): %s" % (kind, ", ".join(extra)))
+        notes.append("%s: JWS header members ignored (RFC 7515 4): %s" % (kind, ", ".join(apc_siglib.bare_name(n) for n in extra)))
     raw = _b64u(p64, "jws_payload")
     try:
         pl = av.strict_json(raw.decode("utf-8"))

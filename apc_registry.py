@@ -240,7 +240,7 @@ def _t(cond, path, what):
 def _members(d, path, required, optional=()):
     _t(isinstance(d, dict), path, "not an object")
     extra = set(d) - set(required) - set(optional)
-    _t(not extra, path, "unknown member %s" % ", ".join(sorted(extra)))
+    _t(not extra, path, "unknown member %s" % ", ".join(apc_siglib.bare_name(n) for n in sorted(extra)))
     missing = set(required) - set(d)
     _t(not missing, path, "missing member %s" % ", ".join(sorted(missing)))
 

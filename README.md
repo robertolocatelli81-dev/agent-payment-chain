@@ -55,7 +55,7 @@ Nothing secret given to the verifier, the register or the report tools comes out
 refuses a URL with user information (`user:password@`) before the network, and no refusal repeats the URL (its path and
 query are recorded in the register with it: no credential there); a time-stamping authority that cannot be asked is
 named by the kinds of the errors. The tools that read from an endpoint you name write its host, not its URL. A key id
-of `--http-keys` or `--signer-trust`, or a member name in the refusals listed in SPEC 32.17 (c), longer than 32
+of `--http-keys` or `--signer-trust`, or a member name that a reason or note repeats (SPEC 32.17 (c)), longer than 32
 characters is not repeated (it could be a key put where a name goes); a did:jwk with any private member (RFC 7518, RFC
 8037) is refused. `openssl` is never taken from the current folder (omega-nucleo-comune 0.1.0, `nucleo/`); every
 bounded read goes in pieces; an integer of more than 4300 digits is refused with one reason on every Python.
