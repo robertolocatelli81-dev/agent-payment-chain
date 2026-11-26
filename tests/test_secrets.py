@@ -45,6 +45,18 @@ def forms(secret):
     return out
 
 
+_REAL_RUN = subprocess.run
+
+
+def fake_openssl(argv, *a, **k):
+    """The query of `openssl ts` played (its output file made empty); any other program runs: on Windows the
+    vendored core asks whoami.exe for the user of a private folder, and a played run there stopped the test early."""
+    if argv[0] != sys.executable:
+        return _REAL_RUN(argv, *a, **k)
+    open(argv[-1], "wb").close()
+    return subprocess.CompletedProcess(argv, 0, b"", b"")
+
+
 def found(secret, *outputs):
     blob = b"\n".join(o if isinstance(o, bytes) else str(o).encode("utf-8", "surrogatepass") for o in outputs)
     blob += b"\n" + blob.replace(b"\\/", b"/")      # JSON may escape the slash of base64
@@ -111,8 +123,7 @@ class TheSearchFinds(Base):
         with mock.patch.object(rg, "net_reason", lambda e: "%s %s" % (url, e)), \
                 mock.patch("urllib.request.urlopen", side_effect=OSError(111, "refused")), \
                 mock.patch.object(rg, "_openssl", lambda: sys.executable), \
-                mock.patch.object(rg.subprocess, "run", lambda *a, **k: open(a[0][-1], "wb").close() or
-                                  subprocess.CompletedProcess(a[0], 0, b"", b"")):
+                mock.patch.object(rg.subprocess, "run", fake_openssl):
             out = io.StringIO()
             with contextlib.redirect_stdout(out):
                 rg.main(["apc_registry.py", "record", reg, "--report", rep, "--tsa", url, "--tsa-ca", self.ca()])
