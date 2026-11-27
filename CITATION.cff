@@ -2,8 +2,8 @@ cff-version: 1.2.0
 message: "If you use agent-payment-chain, cite it as below."
 title: "agent-payment-chain: an offline verifier of payments made by AI agents"
 type: software
-version: 0.21.7
-date-released: "2026-11-24"
+version: 0.21.8
+date-released: "2026-11-27"
 license: Apache-2.0
 authors:
   - family-names: Locatelli

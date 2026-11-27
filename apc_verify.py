@@ -62,7 +62,7 @@ import apc_mandate  # noqa: E402
 from lib.eip712 import signing_digest  # noqa: E402
 from lib.secp256k1 import public_key_to_address, recover_public_key  # noqa: E402
 
-VERSION = "apc_verify 0.21.7"
+VERSION = "apc_verify 0.21.8"
 import apc_l1proof  # noqa: E402
 import apc_webauthn  # noqa: E402
 SECP_N = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141

@@ -49,7 +49,7 @@ python3 -m unittest discover -s tests -t .   # the suite; the modules that need 
 python3 tools/rebuild_corpus.py --check-manifest
 ```
 
-## 0.21.8, SPEC 32.17 (unreleased)
+## 0.21.8, SPEC 32.17 (released 2026-11-27)
 
 Nothing secret given to the verifier, the register or the report tools comes out. `apc_registry.py record --tsa`
 refuses a URL with user information (`user:password@`) before the network, and no refusal repeats the URL (its path and

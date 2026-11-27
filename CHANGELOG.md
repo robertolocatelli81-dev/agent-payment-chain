@@ -2,7 +2,7 @@
 
 The rules and the measurements behind each entry are in `SPEC.md`; each entry names its section.
 
-## 0.21.8 (unreleased; SPEC 32.17)
+## 0.21.8 (2026-11-27; SPEC 32.17)
 
 One verdict changes: a did:jwk with a private member other than `d` is refused (it was read, the member ignored;
 no bundle of the author's corpus carries a did:jwk, counted 2026-11-26). Otherwise what changes is what a refusal

@@ -3502,7 +3502,7 @@ docstrings and comments, 2 texts of an error never reported, the ML-DSA signatur
 `sort_keys` on a JWK already in order, 2 initial values a later line overwrites, and 2 on an absent Signature-Agent
 field, which the parser refuses as the guard does).
 
-### 32.17 Amendment 0.21.8 (unreleased; every bundle version, the register and the signed reports) — nothing secret given comes out; programs, temporary folders, reads and integers alike on every system
+### 32.17 Amendment 0.21.8 (2026-11-27; every bundle version, the register and the signed reports) — nothing secret given comes out; programs, temporary folders, reads and integers alike on every system
 One verdict changes: a did:jwk with a private member other than `d` is refused (d); no bundle of the author's
 corpus carries a did:jwk (counted 2026-11-26). Otherwise what changes is what a refusal says and what the
 register records. Sources read
