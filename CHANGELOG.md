@@ -7,7 +7,7 @@ The rules and the measurements behind each entry are in `SPEC.md`; each entry na
 One verdict changes: a did:jwk with a private member other than `d` is refused (it was read, the member ignored;
 no bundle of the author's corpus carries a did:jwk, counted 2026-11-26). Otherwise what changes is what a refusal
 says and what the register records. Each change has
-a test in `tests/test_secrets.py` (new, permanent): 17 of its 18 tests fail on 0.21.7 (2fdf128); the one left is the
+a test in `tests/test_secrets.py` (new, permanent): 18 of its 19 tests fail on 0.21.7 (2fdf128); the one left is the
 positive control of the search, which passes on both.
 
 - `apc_registry.py record --tsa`: the URL is recorded in the register (`tsa_url`). One with user information
@@ -40,10 +40,13 @@ positive control of the search, which passes on both.
   reader refuses an integer of more than 4300 digits with one reason on every Python (the CI's macOS arm64 and Windows
   run CPython 3.9.13, which reads one whole).
 - CI: Linux, macOS and Windows with Python 3.9 to 3.14, each with and without `cryptography` (until 0.21.7 macOS and
-  Windows with 3.13 only); a newer push to a `ci-prova-*` branch stops the run it supersedes. Not yet run on GitHub.
-- Not in this version: `VERSION` stays `apc_verify 0.21.7` until the release, which sets it and refreezes the regress
-  file (as 0.21.7 did); the mandate pack stays ap2-evidence-pack v1.7.1 (SPEC 31, 32.12).
-
+  Windows with 3.13 only); a newer push to a `ci-prova-*` branch stops the run it supersedes. CI run 45962233949
+  (27 November 2026, commit a1cb121 of the `ci-prova-0.21.8` branch): 19 jobs, the tests on `ubuntu-24.04`,
+  `macos-latest` and `windows-latest` with Python 3.9 to 3.14 and gitleaks, all passed; the release commit adds to
+  a1cb121 test cases in `tests/test_secrets.py`, the anchors of four mutants in `tools/mutants03.py` and this text.
+- `VERSION` is `apc_verify 0.21.8`; `regress/VERDICTS.json` refrozen with it (the verdicts and checks of the 1123
+  bundles unchanged, only the verifier string). Not in this version: the mandate pack stays ap2-evidence-pack v1.7.1
+  (SPEC 31, 32.12).
 ## 0.21.7 (2026-11-24; SPEC 32.16, section 10.2; the amendments of 32.12 and 33.11 of the same date)
 
 The first tagged release. On the 1123 bundles of the regress list (`tools/regress.py check`, 2026-11-24) no verdict,

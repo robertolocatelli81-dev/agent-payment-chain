@@ -3570,7 +3570,8 @@ Tests: tests/test_secrets.py, permanent: a canary (an Ed25519 seed, a password i
 in every input above, searched raw, in hex, base64 and base64url at each offset, and decimal, in standard output and
 error, the register, the report and the exception; with its positive control (a producer that leaks is found).
 Measured 2026-11-26: test_secrets.py 18 tests, 17 fail on 0.21.7 (2fdf128) on Python
-3.9.25 and 3.13.15 (the one left is the positive control of the search), all pass on this tree. Mutants on the lines this
+3.9.25 and 3.13.15 (the one left is the positive control of the search), all pass on this tree. Measured again 2026-11-27 with the test
+added by ab130ec: 19 tests, 18 fail on 0.21.7 (2fdf128), Python 3.9.25 and 3.13.15. Mutants on the lines this
 amendment adds: 26, 25 killed, 1 equivalent (net_reason with a reason that is a string: the kind printed differs, no
 text is printed either way); on the lines added by the review of the same day (the grammar of `tsa_url` in (a),
 `apc_mcp.py` in (c), the note of an ignored did:jwk member, and (g)): 8, 7 killed by their first tests, 1 (the

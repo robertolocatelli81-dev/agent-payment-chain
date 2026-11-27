@@ -410,6 +410,19 @@ class NamesOfTheBundle(unittest.TestCase):
             texts.append(str(e.exception))
             _, note = av.payment_required_obj({"a": "x", name: 1}, "p", ("a",))
             texts.append(" ".join(note))
+            # NEMESIS 27/11: the two other reasons of apc_drafts2 and the JWS header note of apc_offer, by behaviour
+            m = {k: "x" for k in ("spec", "chainId", "payTo", "expiresAt", "signer", "signature")}
+            m[name] = 1
+            texts.append(apc_drafts2.p_v402({}, {}, {"draft_artifacts": [{"profile": apc_drafts2.PV402, "artifact": m}]})["VM1[0]"])
+            rec = {k: "x" for k in ("agentId", "actionType", "scope", "timestampMs", "seq", "terminal", "actionRef", "schema")}
+            rec.update({"paymentHash": "x", name: 1})
+            texts.append(apc_drafts2.settlement_record_checks(rec)["SR1"])
+            hdr = base64.urlsafe_b64encode(json.dumps({"alg": "ES256", "kid": "k", name: 1}).encode()).decode().rstrip("=")
+            jws_notes = []
+            with self.assertRaises(Exception):
+                apc_offer._jws({"signature": hdr + ".e30.AA"}, "offer", None, jws_notes)
+            self.assertEqual(len(jws_notes), 1)
+            texts.append(jws_notes[0])
             for t in texts:
                 self.assertEqual(name in t, shown, (n, t[:120]))
                 if not shown:
@@ -429,6 +442,8 @@ class NamesOfTheBundle(unittest.TestCase):
             for t in texts:
                 self.assertEqual(name in t, shown, (n, t[:120]))
         # the notes on unknown members of `extra` (authcap, permit2, svm, verify): each passes the name through bare_name
+        for mod in ("apc_authcap", "apc_permit2", "apc_svm"):    # NEMESIS 27/11: the helper itself, not a stand-in
+            self.assertIs(__import__(mod).bare_name, apc_siglib.bare_name, mod)
         for mod in ("apc_authcap", "apc_permit2", "apc_svm", "apc_verify"):
             text = open(os.path.join(ROOT, mod + ".py"), encoding="utf-8").read()
             bare = re.findall(r'\.extra\.%s(?: present|: not a member)[^\n]*', text)
