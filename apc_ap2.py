@@ -199,7 +199,7 @@ def _need(cond, what):
 
 def _strict(v, path, req, opt=()):
     _need(isinstance(v, dict), path + ": not an object")
-    _need(not set(v) - set(req) - set(opt), "%s: unknown keys %s" % (path, sorted(set(v) - set(req) - set(opt))))
+    _need(not set(v) - set(req) - set(opt), "%s: unknown keys %s" % (path, [apc_siglib.bare_name(k) for k in sorted(set(v) - set(req) - set(opt))]))
     _need(not set(req) - set(v), "%s: missing %s" % (path, sorted(set(req) - set(v))))
     return v
 

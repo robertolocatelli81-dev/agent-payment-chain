@@ -16,7 +16,7 @@ import shutil
 import sys
 import time
 
-from apc_siglib import crlf_note, read_regular   # SPEC 32.12 (e) and (f): the same reader for the pack and the library
+from apc_siglib import bare_name, crlf_note, read_regular   # SPEC 32.12 (e) and (f): the same reader for the pack and the library
 from nucleo.files import private_tmpdir   # omega-nucleo-comune 0.1.0 (NOTICE): SPEC 32.17
 
 PROFILE = "ap2-evidence-pack/1.7.1"
@@ -142,7 +142,7 @@ def parse_member(m):
     extra = sorted(set(m) - {"profile", "pack", "chain"})
     missing = sorted({"profile", "pack", "chain"} - set(m))
     if extra or missing:
-        raise ValueError("mandate: members %s" % ", ".join(["unknown " + k for k in extra] + ["missing " + k for k in missing]))
+        raise ValueError("mandate: members %s" % ", ".join(["unknown " + bare_name(k) for k in extra] + ["missing " + k for k in missing]))
     if m["profile"] != PROFILE:
         raise ValueError("mandate.profile: not %r" % PROFILE)
     if not isinstance(m["pack"], dict):

@@ -6,6 +6,7 @@ import json
 import re
 
 import apc_solana as sol
+from apc_siglib import bare_name  # noqa: E402  (SPEC 32.17 (c))
 from apc_verify import (Refusal, Unsupported, _int_json, _json_eq, _obj, _str, exchange_checks, payment_required_obj,
                         provenance, resource_info)
 
@@ -90,7 +91,7 @@ def parse_requirements(v, path):
     if "lastValidBlockHeight" in ex:
         _u64(ex["lastValidBlockHeight"], path + ".extra.lastValidBlockHeight")
     for k in sorted(set(ex) - {"feePayer", "memo", "recentBlockhash", "lastValidBlockHeight"}):
-        r["notes"].append("%s.extra.%s present (scheme-specific, not interpreted)" % (path, k))
+        r["notes"].append("%s.extra.%s present (scheme-specific, not interpreted)" % (path, bare_name(k)))
     return r
 
 

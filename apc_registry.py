@@ -43,7 +43,7 @@ import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import apc_solana as sol  # noqa: E402  (Ed25519, RFC 8032, standard library)
-import apc_siglib  # noqa: E402  (json_too_deep only: nothing runs at import, the library is not loaded)
+import apc_siglib  # noqa: E402  (json_too_deep, nameable, bare_name: nothing runs at import, the library is not loaded)
 from nucleo.files import private_tmpdir  # noqa: E402  (omega-nucleo-comune 0.1.0, NOTICE)
 from nucleo.programs import which_absolute  # noqa: E402
 

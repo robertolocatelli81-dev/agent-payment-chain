@@ -289,7 +289,7 @@ def parse_requirements(v, path):
         _str(extra[k], "%s.extra.%s" % (path, k))
     r["domain_name"], r["domain_version"] = extra["name"], extra["version"]
     for k in sorted(set(extra) - {"name", "version", "assetTransferMethod", "paymentFlow"}):
-        r["notes"].append("%s.extra.%s present (scheme-specific, not interpreted)" % (path, k))
+        r["notes"].append("%s.extra.%s present (scheme-specific, not interpreted)" % (path, apc_siglib.bare_name(k)))
     for k, a in (("asset", v["asset"]), ("payTo", v["payTo"])):
         if not eip55_ok(a):
             r["notes"].append("%s.%s: mixed case with a wrong EIP-55 checksum" % (path, k))

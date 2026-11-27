@@ -10,6 +10,7 @@ allowlist and its clock, and the step 15 simulation."""
 import re
 
 import apc_assets
+from apc_siglib import bare_name  # noqa: E402  (SPEC 32.17 (c))
 from apc_verify import (ADDR, HASH32, HEXDATA, HIGH_S_REFUSED, REQ_MEMBERS, SECP_N, ERC6492_MAGIC, Refusal,
                         Unsupported, _addr, _int_json, _json_eq, _obj, _str, _uint, builder_code_checks, exchange_checks,
                         _q, keccak256, offer_receipt_checks, payment_required_obj, provenance, public_key_to_address, recover_public_key, resource_info,
@@ -147,7 +148,7 @@ def parse(pp_doc):
          "asset": _addr(a["asset"], q + ".asset"), "pay_to": _addr(a["payTo"], q + ".payTo"),
          "max_timeout": _int_json(a["maxTimeoutSeconds"], q + ".maxTimeoutSeconds"), "notes": []}
     for k in sorted(set(ex) - set(EXTRA_KNOWN)):     # Compatibility: "Clients MUST ignore unrecognized extra keys"
-        r["notes"].append("%s.extra.%s: not a member of auth-capture v1.1 (the scheme says to ignore it; reported)" % (q, k))
+        r["notes"].append("%s.extra.%s: not a member of auth-capture v1.1 (the scheme says to ignore it; reported)" % (q, bare_name(k)))
     for k in ("name", "version"):
         r[k] = _str(ex[k], "%s.extra.%s" % (q, k))
     for k in ("captureAuthorizer", "feeRecipient"):

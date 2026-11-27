@@ -416,6 +416,25 @@ class NamesOfTheBundle(unittest.TestCase):
                     self.assertIn("(a name of %d characters, not repeated)" % n, t)
             self.assertIn("claim_member_not_in_proposal(%s)" % (name if shown else
                           "(a name of %d characters, not repeated)" % n), texts[0])
+        import apc_ap2
+        import apc_mandate
+        for n in (32, 33, 300):
+            name, shown = "S" * n, n <= 32
+            texts = []
+            for f, args, err in ((apc_mandate.parse_member, ({"profile": 1, "pack": 1, "chain": 1, name: 1},), ValueError),
+                                 (apc_ap2._strict, ({"a": 1, name: 1}, "p", ("a",)), apc_ap2.SchemaError)):
+                with self.assertRaises(err) as e:
+                    f(*args)
+                texts.append(str(e.exception))
+            for t in texts:
+                self.assertEqual(name in t, shown, (n, t[:120]))
+        # the notes on unknown members of `extra` (authcap, permit2, svm, verify): each passes the name through bare_name
+        for mod in ("apc_authcap", "apc_permit2", "apc_svm", "apc_verify"):
+            text = open(os.path.join(ROOT, mod + ".py"), encoding="utf-8").read()
+            bare = re.findall(r'\.extra\.%s(?: present|: not a member)[^\n]*', text)
+            self.assertTrue(bare, mod)
+            for line in bare:
+                self.assertIn("bare_name(k)", line, (mod, line))
         src = open(apc_webauthn.__file__, encoding="utf-8").read()   # its note: the same helper, no slice of a name
         self.assertIn("[apc_siglib.bare_name(k) for k in other[:8]]", src)
         self.assertNotIn("k[:40]", src)

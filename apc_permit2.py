@@ -9,6 +9,7 @@ import re
 import apc_block
 import apc_l1proof
 import apc_assets
+from apc_siglib import bare_name  # noqa: E402  (SPEC 32.17 (c))
 from apc_verify import (CAIP2_EIP155, ERC6492_MAGIC, HASH32, SECP_N, TRANSFER_TOPIC, Refusal, Unsupported, _addr, _d,
                         _from_is_signer, _header_obj, _int_json, _json_eq, _obj, _q, _removed, _reply, _str, _uint,
                         bound_report, builder_code_checks, check_acceptance, check_canonical, check_inclusion,
@@ -75,7 +76,7 @@ def parse_requirements(v, path):
     for k in ("name", "version"):        # conditional (permit2: EIP-2612 sponsoring) or optional (erc7710): strings
         r["domain_" + k] = _str(extra[k], "%s.extra.%s" % (path, k)) if k in extra else None
     for k in sorted(set(extra) - {"name", "version", "assetTransferMethod"}):
-        r["notes"].append("%s.extra.%s present (scheme-specific, not interpreted)" % (path, k))
+        r["notes"].append("%s.extra.%s present (scheme-specific, not interpreted)" % (path, bare_name(k)))
     for k, a in (("asset", v["asset"]), ("payTo", v["payTo"])):
         if not eip55_ok(a):
             r["notes"].append("%s.%s: mixed case with a wrong EIP-55 checksum" % (path, k))
